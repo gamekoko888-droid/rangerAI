@@ -92,9 +92,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }
   const wsConnectedRef = useRef(false);
   const wsEverConnectedRef = useRef(false); // Track if WS has connected at least once (for reconnect detection)
-  const pendingRecoveryRef = useRef<{ msgId: string; chatId: string } | null>(null); // R52: Deferred recover_task until chat_bound
+  const pendingRecoveryRef = useRef<{ msgId: string; chatId: string; snapshotHash: string; lastChunkSeq: number } | null>(null); // R52: Deferred recover_task until chat_bound
   const offlineQueueRef = useRef<Array<Record<string, unknown>>>([]); // Iter-AG: WS offline queue
   const reconnectRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null); // WS reconnect debounce timer
+
+  const buildRecoverySnapshotMeta = useCallback((chatId: string) => {
+    const stream = useMessageStore.getState().getChatStream(chatId);
+    const text = `${stream.streamingContent || ''}|${stream.thinkingContent || ''}`;
+    const snapshotHash = `h${text.length}_${(text.slice(-32).replace(/\s+/g, '_')).length}`;
+    const lastChunkSeq = Math.max(0, (stream.streamingContent || '').length);
+    return { snapshotHash, lastChunkSeq };
+  }, []);
 
   // ─── Streaming Watchdog (v6.5 → R93: extracted to useStreamWatchdog) ──
   const { reset: resetStreamWatchdog, clear: clearStreamWatchdog } = useStreamWatchdog(activeMsgIdRef);
@@ -226,6 +234,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             msgId: pendingRecovery.msgId,
             chatId: pendingRecovery.chatId,
             lastEventTs: parseInt(localStorage.getItem('rangerai_lastEventTs') || '0', 10),
+            lastChunkSeq: pendingRecovery.lastChunkSeq || 0,
+            snapshotHash: pendingRecovery.snapshotHash || '',
           });
           console.log('[ChatStore] R73: recover_task sent with lastEventTs');
           resetStreamWatchdog();
@@ -988,9 +998,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           // R53 FIX: preserveContent=true — do NOT wipe streamingContent on reconnect
           // Bug: setStreaming(true) was clearing all streamed content when WS reconnected mid-stream
           useMessageStore.getState().setStreaming(true, true);
+          const recoveryMeta = buildRecoverySnapshotMeta(effectiveChatId);
           pendingRecoveryRef.current = {
             msgId: effectiveMsgId,
             chatId: effectiveChatId,
+            snapshotHash: recoveryMeta.snapshotHash,
+            lastChunkSeq: recoveryMeta.lastChunkSeq,
           };
           // v2: Trigger recovery progress in RecoveryBanner
           if (isReconnect) {
@@ -1026,7 +1039,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [wsConnected, bindChat, wsSend, resetStreamWatchdog, clearStreamWatchdog]);
+  }, [wsConnected, bindChat, wsSend, resetStreamWatchdog, clearStreamWatchdog, buildRecoverySnapshotMeta]);
 
   // ─── Regenerate Event Listener (Phase 4: extracted to useRegenerateListener) ──
   useRegenerateListener({ bindChat, activeMsgIdRef, t: t as any });

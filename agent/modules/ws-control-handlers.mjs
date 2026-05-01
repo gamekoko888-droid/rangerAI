@@ -96,10 +96,12 @@ export async function handleRecoverTask(ws, msg, state) {
   const clientSessionKey = msg.sessionKey;
   const sessionKey = clientSessionKey || state.sessionKey;
   const rawSinceTs = msg.lastEventTs || 0;
+  const snapshotHash = typeof msg.snapshotHash === 'string' ? msg.snapshotHash : '';
+  const lastChunkSeq = Number.isFinite(Number(msg.lastChunkSeq)) ? Number(msg.lastChunkSeq) : 0;
   // R73: When sinceTs=0 (no lastEventTs from frontend), cap to last 120s to avoid full replay
   const sinceTs = rawSinceTs === 0 ? Date.now() - 120000 : rawSinceTs;
   const sinceCapApplied = rawSinceTs === 0;
-  logger.info(`[${ts()}] Recovery request, session=${sessionKey} (client=${clientSessionKey || "none"}), sinceTs=${sinceTs}${sinceCapApplied ? " (R73: capped from 0)" : ""}`);
+  logger.info(`[${ts()}] Recovery request, session=${sessionKey} (client=${clientSessionKey || "none"}), sinceTs=${sinceTs}${sinceCapApplied ? " (R73: capped from 0)" : ""}, lastChunkSeq=${lastChunkSeq}, snapshotHash=${snapshotHash || 'n/a'}`);
 
   // Restore session from client-provided key
   if (clientSessionKey && clientSessionKey !== state.sessionKey) {

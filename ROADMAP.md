@@ -88,6 +88,12 @@
   - 验证: 断网重连时 recoveryPhase 按阶段变化；重连失败进入 failed，恢复后进入 recovered
   - 约束: 不改后端协议，不引入新依赖
 
+- [x] **R117** — Recover Contract 元数据增强
+  - 文件: `web/client/src/hooks/useChatStore.tsx`, `agent/modules/ws-control-handlers.mjs`
+  - 目标: recover_task 增加 snapshotHash/lastChunkSeq，与 lastEventTs 一并上传，服务端记录恢复上下文
+  - 验证: recover 请求日志包含 sinceTs + snapshotHash + lastChunkSeq
+  - 约束: 不改现有 WS 消息协议基础字段，仅做向后兼容扩展
+
 ---
 
 ## 任务格式规范
