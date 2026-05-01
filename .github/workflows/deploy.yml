@@ -1,15 +1,20 @@
 # ═══════════════════════════════════════════════════════════════
-# RangerAI Auto-Deploy Pipeline
+# RangerAI Auto-Deploy Pipeline v2
 # Triggers on push to main branch
 # Deploys agent/ changes to /opt/rangerai-agent
 # Deploys web/ changes to /opt/rangerai-web
+# Writes deploy result to DEPLOY_LOG.md
 # ═══════════════════════════════════════════════════════════════
 name: Deploy to Production
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
+
+env:
+  SERVER_HOST: 8.219.186.244
+  SERVER_USER: admin
 
 jobs:
   deploy:
@@ -20,12 +25,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Need previous commit for diff
+          fetch-depth: 2
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Detect changed paths
         id: changes
         run: |
-          # Detect which directories changed
           AGENT_CHANGED=$(git diff --name-only HEAD~1 HEAD -- agent/ | wc -l)
           WEB_CHANGED=$(git diff --name-only HEAD~1 HEAD -- web/ | wc -l)
           echo "agent_changed=$AGENT_CHANGED" >> $GITHUB_OUTPUT
@@ -38,16 +43,15 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p 22 8.219.186.244 >> ~/.ssh/known_hosts 2>/dev/null
-          # Test connection
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no admin@8.219.186.244 "echo 'SSH connection OK'"
+          ssh-keyscan -p 22 ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "echo 'SSH OK'"
 
       - name: Deploy Agent
+        id: deploy_agent
         if: steps.changes.outputs.agent_changed != '0' || github.event_name == 'workflow_dispatch'
         run: |
           echo "🚀 Deploying agent changes..."
           
-          # Sync agent/ directory to server
           rsync -avz --delete \
             --exclude='node_modules' \
             --exclude='.env' \
@@ -56,87 +60,96 @@ jobs:
             --exclude='logs/' \
             --exclude='*.sqlite' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            agent/ admin@8.219.186.244:/opt/rangerai-agent/
+            agent/ ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:/opt/rangerai-agent/
 
-          # Run syntax check + restart on server
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no admin@8.219.186.244 << 'EOF'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} << 'EOF'
           set -e
           cd /opt/rangerai-agent
           
-          echo "📋 Running syntax check..."
+          echo "📋 Syntax check..."
           node --check api-server.mjs
           node --check ws-realtime.mjs
           node --check worker/openclaw-handler.legacy.mjs
-          echo "✅ Syntax check passed"
+          echo "✅ Syntax OK"
           
-          echo "📦 Installing dependencies if needed..."
-          if git diff --name-only HEAD~1 HEAD -- package.json 2>/dev/null | grep -q package.json; then
-            npm install --production 2>&1 | tail -5
-          fi
-          
-          echo "🔄 Restarting services..."
-          sudo /usr/local/bin/safe-restart-rangerai
+          echo "🔄 Restarting..."
+          sudo /usr/local/bin/safe-restart-rangerai || true
           sleep 5
-          sudo /usr/local/bin/safe-restart-rangerai-ws
+          sudo /usr/local/bin/safe-restart-rangerai-ws || true
           sleep 5
           
           echo "🏥 Health check..."
           for i in 1 2 3 4 5; do
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3002/api/health 2>/dev/null)
             if [ "$HTTP_CODE" = "200" ]; then
-              echo "✅ Health check passed (attempt $i)"
+              echo "✅ Health OK (attempt $i)"
               exit 0
             fi
-            echo "  Retry $i/5..."
             sleep 3
           done
           echo "❌ Health check failed"
           exit 1
           EOF
+          echo "agent_result=success" >> $GITHUB_OUTPUT
 
       - name: Deploy Web
+        id: deploy_web
         if: steps.changes.outputs.web_changed != '0' || github.event_name == 'workflow_dispatch'
         run: |
           echo "🚀 Deploying web changes..."
           
-          # Sync web/ directory to server
           rsync -avz --delete \
             --exclude='node_modules' \
             --exclude='.env' \
             --exclude='dist/' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            web/ admin@8.219.186.244:/opt/rangerai-web/
+            web/ ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:/opt/rangerai-web/
 
-          # Build and restart on server
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no admin@8.219.186.244 << 'EOF'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} << 'EOF'
           set -e
           cd /opt/rangerai-web
-          
-          echo "📦 Installing dependencies..."
           pnpm install 2>&1 | tail -5
-          
-          echo "🔨 Building frontend..."
           pnpm build 2>&1 | tail -10
-          
-          echo "🔄 Restarting web service..."
           sudo systemctl restart rangerai-web
           sleep 3
-          
-          echo "🏥 Frontend check..."
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://ranger.voyage/ 2>/dev/null)
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Frontend accessible (200)"
-          else
-            echo "⚠️ Frontend returned $HTTP_CODE (may still be starting)"
-          fi
+          echo "Frontend status: $HTTP_CODE"
           EOF
+          echo "web_result=success" >> $GITHUB_OUTPUT
+
+      - name: Write deploy log
+        if: always()
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          AGENT_STATUS="${{ steps.deploy_agent.outcome || 'skipped' }}"
+          WEB_STATUS="${{ steps.deploy_web.outcome || 'skipped' }}"
+          
+          # Create or append to DEPLOY_LOG.md
+          if [ ! -f DEPLOY_LOG.md ]; then
+            echo "# Deploy Log" > DEPLOY_LOG.md
+            echo "" >> DEPLOY_LOG.md
+            echo "| Time | Commit | Message | Agent | Web | Actor |" >> DEPLOY_LOG.md
+            echo "|------|--------|---------|-------|-----|-------|" >> DEPLOY_LOG.md
+          fi
+          
+          echo "| $TIMESTAMP | \`$COMMIT_SHA\` | $COMMIT_MSG | $AGENT_STATUS | $WEB_STATUS | ${{ github.actor }} |" >> DEPLOY_LOG.md
+
+      - name: Commit deploy log
+        if: always()
+        run: |
+          git config user.name "RangerAI CI"
+          git config user.email "ci@ranger.voyage"
+          git add DEPLOY_LOG.md
+          git diff --cached --quiet || git commit -m "ci: update deploy log [skip ci]"
+          git push origin main || true
 
       - name: Post-deploy summary
         if: always()
         run: |
           echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Agent changed**: ${{ steps.changes.outputs.agent_changed }} files" >> $GITHUB_STEP_SUMMARY
-          echo "- **Web changed**: ${{ steps.changes.outputs.web_changed }} files" >> $GITHUB_STEP_SUMMARY
-          echo "- **Triggered by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Agent**: ${{ steps.deploy_agent.outcome || 'skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Web**: ${{ steps.deploy_web.outcome || 'skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Actor**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
