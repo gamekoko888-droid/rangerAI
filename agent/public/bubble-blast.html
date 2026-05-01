@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>波波星爆破 🌟</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  width:100%; min-height:100vh;
+  background: linear-gradient(135deg,#0f0c29,#302b63,#24243e);
+  font-family:'Segoe UI',sans-serif; color:#fff;
+  display:flex; flex-direction:column; align-items:center;
+  overflow-x:hidden; user-select:none; -webkit-user-select:none;
+  padding-bottom:24px;
+}
+.header {
+  width:100%; max-width:420px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px 6px;
+}
+.game-title {
+  font-size:20px; font-weight:900;
+  background:linear-gradient(90deg,#ff9a00,#ffcc00,#ff6b6b);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  letter-spacing:1px;
+}
+.subtitle { font-size:11px; color:#aaa; margin-top:2px; }
+.score-panel { display:flex; gap:8px; }
+.score-box {
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:10px; padding:5px 12px; text-align:center;
+}
+.score-label { font-size:9px; color:#999; }
+.score-value { font-size:17px; font-weight:800; color:#ffcc00; }
+
+.progress-row {
+  width:100%; max-width:420px; padding:4px 16px 8px;
+}
+.progress-info {
+  display:flex; justify-content:space-between;
+  font-size:11px; color:#aaa; margin-bottom:4px;
+}
+.progress-track {
+  height:6px; background:rgba(255,255,255,0.1);
+  border-radius:3px; overflow:hidden;
+}
+.progress-fill {
+  height:100%;
+  background:linear-gradient(90deg,#ff6b6b,#ffcc00,#51cf66);
+  border-radius:3px; transition:width 0.4s; width:0%;
+}
+
+/* 棋盘 */
+.board-wrap {
+  width:100%; max-width:420px;
+  padding:0 10px;
+}
+#board {
+  width:100%;
+  border-radius:14px;
+  overflow:hidden;
+  background:linear-gradient(135deg,#1a1a3e,#2d1b69);
+  box-shadow:0 8px 40px rgba(0,0,0,0.6);
+  display:grid;
+  /* grid-template-columns set by JS */
+  gap:3px;
+  padding:6px;
+}
+.cell {
+  aspect-ratio:1;
+  border-radius:50%;
+  cursor:pointer;
+  transition:transform 0.1s, box-shadow 0.15s;
+  position:relative;
+  overflow:hidden;
+}
+.cell::after {
+  content:'';
+  position:absolute;
+  top:12%; left:16%;
+  width:35%; height:35%;
+  background:rgba(255,255,255,0.35);
+  border-radius:50%;
+  pointer-events:none;
+}
+.cell.empty {
+  background:rgba(255,255,255,0.04) !important;
+  cursor:default;
+  box-shadow:none !important;
+}
+.cell.empty::after { display:none; }
+.cell.highlighted {
+  transform:scale(1.12);
+  box-shadow:0 0 14px 4px var(--glow,rgba(255,255,255,0.5)) !important;
+  z-index:2;
+}
+.cell.frozen::before {
+  content:'❄';
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1em; color:rgba(255,255,255,0.85);
+  background:rgba(116,192,252,0.25);
+  border-radius:50%;
+}
+.cell.hinted { animation:pulse 0.7s ease-in-out infinite alternate; }
+@keyframes pulse {
+  from { box-shadow:0 0 0 0 rgba(255,212,59,0.6); }
+  to   { box-shadow:0 0 0 6px rgba(255,212,59,0); }
+}
+.cell.pop {
+  animation:pop 0.25s ease-out forwards;
+}
+@keyframes pop {
+  0%   { transform:scale(1); opacity:1; }
+  50%  { transform:scale(1.3); opacity:0.7; }
+  100% { transform:scale(0); opacity:0; }
+}
+
+/* 道具 */
+.tools-row {
+  width:100%; max-width:420px;
+  padding:8px 10px 0;
+  display:flex; gap:6px;
+}
+.tool-btn {
+  flex:1; padding:8px 4px;
+  border-radius:12px;
+  border:1.5px solid rgba(255,255,255,0.2);
+  background:rgba(255,255,255,0.06);
+  color:#fff; font-size:11px; font-weight:700;
+  cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  transition:all 0.15s;
+}
+.tool-btn:active { transform:scale(0.93); }
+.tool-btn.active { background:rgba(255,204,0,0.25); border-color:#ffcc00; color:#ffcc00; }
+.tool-icon { font-size:18px; }
+.tool-count { font-size:10px; color:#999; }
+
+.action-row {
+  width:100%; max-width:420px;
+  padding:8px 10px 0;
+  display:flex; gap:8px; justify-content:center;
+}
+.btn {
+  padding:8px 22px; border-radius:20px; border:none;
+  font-size:13px; font-weight:700; cursor:pointer; transition:all 0.15s;
+}
+.btn:active { transform:scale(0.95); }
+.btn-shuffle { background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; }
+.btn-new     { background:linear-gradient(135deg,#f093fb,#f5576c); color:#fff; }
+
+.hint-text {
+  width:100%; max-width:420px;
+  padding:6px 16px 0;
+  font-size:12px; color:#888; text-align:center; min-height:22px;
+}
+
+/* 连击 */
+.combo-banner {
+  position:fixed; top:80px; left:50%; transform:translateX(-50%);
+  background:linear-gradient(135deg,#ff6b6b,#ffa94d);
+  color:#fff; font-size:18px; font-weight:900;
+  padding:8px 28px; border-radius:30px;
+  z-index:150; opacity:0; transition:opacity 0.3s;
+  pointer-events:none;
+}
+.combo-banner.show { opacity:1; }
+
+/* 浮动分数 */
+.float-score {
+  position:fixed;
+  font-size:24px; font-weight:900; color:#ffcc00;
+  text-shadow:0 0 12px rgba(255,200,0,0.9);
+  pointer-events:none; z-index:160;
+  animation:floatUp 0.9s ease-out forwards;
+}
+@keyframes floatUp {
+  0%   { opacity:1; transform:translateY(0) scale(1); }
+  60%  { opacity:1; transform:translateY(-50px) scale(1.2); }
+  100% { opacity:0; transform:translateY(-90px) scale(0.8); }
+}
+
+/* overlay */
+.overlay {
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.75);
+  display:flex; align-items:center; justify-content:center;
+  z-index:200; backdrop-filter:blur(4px);
+}
+.overlay.hidden { display:none; }
+.modal {
+  background:linear-gradient(135deg,#1a1a2e,#16213e);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:24px; padding:32px 24px; text-align:center;
+  max-width:300px; width:88%;
+}
+.modal h2 { font-size:26px; margin-bottom:8px; }
+.modal .big-score {
+  font-size:48px; font-weight:900;
+  background:linear-gradient(90deg,#ffcc00,#ff9a00);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  margin:10px 0;
+}
+.modal p { color:#bbb; font-size:13px; margin-bottom:16px; }
+.modal .stars { font-size:30px; margin-bottom:4px; }
+.modal-btn {
+  display:block; width:100%;
+  padding:13px; border-radius:14px; border:none;
+  font-size:15px; font-weight:800; cursor:pointer; margin-top:8px;
+}
+.modal-btn-primary { background:linear-gradient(135deg,#f093fb,#f5576c); color:#fff; }
+.modal-btn-secondary { background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="game-title">波波星爆破 🌟</div>
+    <div class="subtitle">点击3个以上同色泡泡消除</div>
+  </div>
+  <div class="score-panel">
+    <div class="score-box">
+      <div class="score-label">最高分</div>
+      <div class="score-value" id="bestScore">0</div>
+    </div>
+    <div class="score-box">
+      <div class="score-label">当前分</div>
+      <div class="score-value" id="curScore">0</div>
+    </div>
+  </div>
+</div>
+
+<div class="progress-row">
+  <div class="progress-info">
+    <span id="levelLabel">第 1 关</span>
+    <span id="moveLabel">步数: 0</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progressFill"></div>
+  </div>
+</div>
+
+<div class="board-wrap">
+  <div id="board"></div>
+</div>
+
+<div class="tools-row">
+  <button class="tool-btn" id="toolBomb" onclick="activateTool('bomb')">
+    <span class="tool-icon">💣</span><span>炸弹</span>
+    <span class="tool-count" id="bombCount">x3</span>
+  </button>
+  <button class="tool-btn" id="toolRainbow" onclick="activateTool('rainbow')">
+    <span class="tool-icon">🌈</span><span>彩虹</span>
+    <span class="tool-count" id="rainbowCount">x2</span>
+  </button>
+  <button class="tool-btn" id="toolFreeze" onclick="activateTool('freeze')">
+    <span class="tool-icon">❄️</span><span>冻结</span>
+    <span class="tool-count" id="freezeCount">x2</span>
+  </button>
+  <button class="tool-btn" id="toolHint" onclick="activateTool('hint')">
+    <span class="tool-icon">💡</span><span>提示</span>
+    <span class="tool-count" id="hintCount">x5</span>
+  </button>
+</div>
+
+<div class="action-row">
+  <button class="btn btn-shuffle" onclick="shuffleBoard()">🔀 洗牌</button>
+  <button class="btn btn-new" onclick="newGame()">🎮 新游戏</button>
+</div>
+
+<div class="hint-text" id="hintText">选择3个以上相邻同色泡泡消除</div>
+<div class="combo-banner" id="comboBanner">🔥 COMBO!</div>
+
+<!-- 结束弹窗 -->
+<div class="overlay hidden" id="endOverlay">
+  <div class="modal">
+    <div class="stars" id="endStars">⭐⭐⭐</div>
+    <h2 id="endTitle">关卡完成！</h2>
+    <div class="big-score" id="endScore">0</div>
+    <p id="endMsg">消除所有泡泡！</p>
+    <button class="modal-btn modal-btn-primary" id="nextBtn" onclick="nextLevel()">下一关 →</button>
+    <button class="modal-btn modal-btn-secondary" onclick="newGame()">重新开始</button>
+  </div>
+</div>
+
+<!-- 开始弹窗 -->
+<div class="overlay" id="startOverlay">
+  <div class="modal">
+    <div style="font-size:48px;margin-bottom:8px">🌟</div>
+    <h2>波波星爆破</h2>
+    <p style="margin:14px 0;color:#ddd;font-size:14px">
+      点击 <b style="color:#ffcc00">3个以上</b>相邻同色泡泡可消除<br><br>
+      群组越大 → 分数 <b style="color:#51cf66">指数增长</b><br>
+      消除越多 → 触发 <b style="color:#ff6b6b">连击奖励</b><br>
+      清空棋盘 → 额外 <b style="color:#ffcc00">5000分</b>奖励！
+    </p>
+    <button class="modal-btn modal-btn-primary" onclick="startGame()">开始游戏 🚀</button>
+  </div>
+</div>
+
+<script>
+// ========== 配置 ==========
+const COLS = 8;
+const ROWS = 10;
+const COLORS = [
+  { bg:'#ff6b6b', glow:'#ff4444' },
+  { bg:'#ffa94d', glow:'#ff8800' },
+  { bg:'#ffd43b', glow:'#ffbb00' },
+  { bg:'#69db7c', glow:'#44cc55' },
+  { bg:'#74c0fc', glow:'#3399ff' },
+  { bg:'#da77f2', glow:'#bb44ee' },
+  { bg:'#ff8cc8', glow:'#ff55aa' },
+];
+
+// ========== 状态 ==========
+let grid = [];
+let score = 0;
+let bestScore = parseInt(localStorage.getItem('bbBest')||'0');
+let level = 1;
+let moves = 0;
+let tools = {bomb:3, rainbow:2, freeze:2, hint:5};
+let activeTool = null;
+let frozenCells = new Set();
+let hintCells = new Set();
+let combo = 0;
+let lastComboTime = 0;
+
+// ========== 工具函数 ==========
+function rnd(n) { return Math.floor(Math.random() * n); }
+function colorCount() { return Math.min(4 + Math.floor(level/2), COLORS.length); }
+function key(r,c) { return r*100+c; }
+
+// ========== 初始化格子 ==========
+function initGrid() {
+  const cc = colorCount();
+  grid = Array.from({length:ROWS}, () =>
+    Array.from({length:COLS}, () => rnd(cc))
+  );
+  frozenCells.clear(); hintCells.clear();
+  if (level >= 3) {
+    let fz = Math.min(level-2, 6);
+    while (fz > 0) {
+      const r=rnd(ROWS-2)+1, c=rnd(COLS);
+      if (!frozenCells.has(key(r,c))) { frozenCells.add(key(r,c)); fz--; }
+    }
+  }
+  let tries = 0;
+  while (!hasValidMove() && tries++ < 20) {
+    grid = Array.from({length:ROWS}, () => Array.from({length:COLS}, () => rnd(cc)));
+  }
+}
+
+// ========== BFS ==========
+function getGroup(r, c) {
+  if (grid[r][c] === -1) return [];
+  const color = grid[r][c];
+  const visited = new Set([key(r,c)]);
+  const queue = [[r,c]], group = [];
+  while (queue.length) {
+    const [rr,cc] = queue.shift();
+    group.push([rr,cc]);
+    for (const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+      const nr=rr+dr, nc=cc+dc;
+      if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&!visited.has(key(nr,nc))&&grid[nr][nc]===color) {
+        visited.add(key(nr,nc)); queue.push([nr,nc]);
+      }
+    }
+  }
+  return group;
+}
+
+function getAllGroups() {
+  const seen = new Set(); const groups = [];
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    if (grid[r][c]!==-1 && !seen.has(key(r,c))) {
+      const g = getGroup(r,c);
+      if (g.length >= 3) { groups.push(g); g.forEach(([rr,cc])=>seen.add(key(rr,cc))); }
+    }
+  }
+  return groups;
+}
+
+function hasValidMove() { return getAllGroups().length > 0; }
+function isBoardEmpty() { return grid.every(row=>row.every(v=>v===-1)); }
+
+// ========== 整理（重力） ==========
+function collapse() {
+  for (let c=0;c<COLS;c++) {
+    let w=ROWS-1;
+    for (let r=ROWS-1;r>=0;r--) {
+      if (grid[r][c]!==-1) { grid[w][c]=grid[r][c]; if(w!==r)grid[r][c]=-1; w--; }
+    }
+    for (let r=w;r>=0;r--) grid[r][c]=-1;
+  }
+  let w=0;
+  for (let c=0;c<COLS;c++) {
+    if (!grid.every(row=>row[c]===-1)) {
+      if (w!==c) { for (let r=0;r<ROWS;r++){grid[r][w]=grid[r][c];grid[r][c]=-1;} }
+      w++;
+    }
+  }
+}
+
+// ========== 渲染 ==========
+function render() {
+  const board = document.getElementById('board');
+  board.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+  board.innerHTML = '';
+  for (let r=0;r<ROWS;r++) {
+    for (let c=0;c<COLS;c++) {
+      const v = grid[r][c];
+      const div = document.createElement('div');
+      div.className = 'cell';
+      div.dataset.r = r; div.dataset.c = c;
+      if (v === -1) {
+        div.classList.add('empty');
+      } else {
+        const col = COLORS[v];
+        div.style.background = `radial-gradient(circle at 35% 35%, ${lighten(col.bg,60)}, ${col.bg} 60%, ${darken(col.bg,30)})`;
+        div.style.boxShadow = `0 3px 8px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.2)`;
+        div.style.setProperty('--glow', col.glow);
+        if (hintCells.has(key(r,c))) div.classList.add('hinted');
+        if (frozenCells.has(key(r,c))) div.classList.add('frozen');
+        div.addEventListener('click', ()=>handleClick(r,c));
+        div.addEventListener('mouseenter', ()=>showHighlight(r,c));
+        div.addEventListener('mouseleave', clearHighlight);
+      }
+      board.appendChild(div);
+    }
+  }
+}
+
+function lighten(hex, amt) {
+  const r=Math.min(255,parseInt(hex.slice(1,3),16)+amt);
+  const g=Math.min(255,parseInt(hex.slice(3,5),16)+amt);
+  const b=Math.min(255,parseInt(hex.slice(5,7),16)+amt);
+  return `rgb(${r},${g},${b})`;
+}
+function darken(hex, amt) {
+  const r=Math.max(0,parseInt(hex.slice(1,3),16)-amt);
+  const g=Math.max(0,parseInt(hex.slice(3,5),16)-amt);
+  const b=Math.max(0,parseInt(hex.slice(5,7),16)-amt);
+  return `rgb(${r},${g},${b})`;
+}
+
+function showHighlight(r,c) {
+  if (grid[r][c]===-1) return;
+  clearHighlight();
+  const group = getGroup(r,c);
+  group.forEach(([rr,cc])=>{
+    const el = cellEl(rr,cc);
+    if (el) el.classList.add('highlighted');
+  });
+}
+function clearHighlight() {
+  document.querySelectorAll('.cell.highlighted').forEach(el=>el.classList.remove('highlighted'));
+}
+
+function cellEl(r,c) {
+  return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+}
+
+// ========== 输入 ==========
+function handleClick(r, c) {
+  if (activeTool) { useTool(activeTool, r, c); return; }
+  if (grid[r][c] === -1) return;
+  const group = getGroup(r,c);
+  if (group.length < 3) {
+    setHint('需要至少3个相邻同色泡泡！'); return;
+  }
+  // 弹出动画
+  group.forEach(([rr,cc])=>{
+    const el = cellEl(rr,cc);
+    if (el) el.classList.add('pop');
+  });
+  setTimeout(()=>{
+    group.forEach(([rr,cc])=>{ grid[rr][cc]=-1; frozenCells.delete(key(rr,cc)); });
+    collapse(); hintCells.clear(); moves++;
+    const pts = group.length * group.length * 10 * level;
+    score += pts;
+    floatScore('+'+pts);
+    const now = Date.now();
+    if (now - lastComboTime < 2500) {
+      combo++;
+      if (combo >= 2) { score += combo*200; showCombo(combo); }
+    } else { combo=1; }
+    lastComboTime = now;
+    if (score>bestScore){bestScore=score;localStorage.setItem('bbBest',bestScore);}
+    updateUI(); render();
+    setTimeout(()=>{
+      if (isBoardEmpty()) { showEnd(true); return; }
+      if (!hasValidMove()) { showEnd(false); }
+    }, 200);
+  }, 220);
+}
+
+// ========== 道具 ==========
+function activateTool(name) {
+  if (activeTool===name) { deactivateTool(); return; }
+  deactivateTool();
+  if (tools[name]<=0) { setHint('该道具已用完！'); return; }
+  activeTool = name;
+  document.getElementById('tool'+name[0].toUpperCase()+name.slice(1)).classList.add('active');
+  const msgs = {bomb:'点击泡泡引爆（3x3范围）', rainbow:'点击目标颜色，消除全部该色', freeze:'点击冻结/解冻格子', hint:'高亮最大可消除组'};
+  setHint(msgs[name]);
+}
+function deactivateTool() {
+  activeTool=null;
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+}
+
+function useTool(name, r, c) {
+  if (grid[r][c]===-1 && name!=='freeze') { deactivateTool(); return; }
+  tools[name]--;
+  if (name==='bomb') {
+    const targets=[];
+    for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) {
+      const nr=r+dr,nc=c+dc;
+      if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&grid[nr][nc]!==-1&&!frozenCells.has(key(nr,nc))) targets.push([nr,nc]);
+    }
+    targets.forEach(([rr,cc])=>{grid[rr][cc]=-1;});
+  } else if (name==='rainbow') {
+    const tc = grid[r][c];
+    for (let rr=0;rr<ROWS;rr++) for (let cc=0;cc<COLS;cc++) {
+      if (grid[rr][cc]===tc&&!frozenCells.has(key(rr,cc))) grid[rr][cc]=-1;
+    }
+  } else if (name==='freeze') {
+    const k=key(r,c);
+    if (frozenCells.has(k)) frozenCells.delete(k); else if(grid[r][c]!==-1) frozenCells.add(k);
+  } else if (name==='hint') {
+    hintCells.clear();
+    const groups=getAllGroups();
+    if (groups.length>0) {
+      const best=groups.reduce((a,b)=>a.length>=b.length?a:b,[]);
+      best.forEach(([rr,cc])=>hintCells.add(key(rr,cc)));
+    }
+  }
+  collapse(); moves++;
+  if (score>bestScore){bestScore=score;localStorage.setItem('bbBest',bestScore);}
+  updateUI(); render(); deactivateTool();
+  setTimeout(()=>{
+    if (isBoardEmpty()){showEnd(true);return;}
+    if (!hasValidMove()){showEnd(false);}
+  },200);
+}
+
+// ========== 洗牌 ==========
+function shuffleBoard() {
+  const cc=colorCount();
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    if (grid[r][c]!==-1) grid[r][c]=rnd(cc);
+  }
+  frozenCells.clear(); hintCells.clear();
+  render(); updateUI();
+}
+
+// ========== 浮动分数 ==========
+function floatScore(text) {
+  const el=document.createElement('div');
+  el.className='float-score'; el.textContent=text;
+  el.style.top=(window.innerHeight/2-80)+'px';
+  el.style.left=(window.innerWidth/2-30)+'px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 900);
+}
+
+// ========== COMBO ==========
+function showCombo(n) {
+  const el=document.getElementById('comboBanner');
+  el.textContent='🔥 COMBO x'+n+'!';
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),1200);
+}
+
+// ========== 提示文字 ==========
+function setHint(msg) {
+  document.getElementById('hintText').textContent=msg;
+}
+
+// ========== UI 更新 ==========
+function updateUI() {
+  document.getElementById('curScore').textContent=score;
+  document.getElementById('bestScore').textContent=bestScore;
+  document.getElementById('levelLabel').textContent='第 '+level+' 关';
+  document.getElementById('moveLabel').textContent='步数: '+moves;
+  document.getElementById('bombCount').textContent='x'+tools.bomb;
+  document.getElementById('rainbowCount').textContent='x'+tools.rainbow;
+  document.getElementById('freezeCount').textContent='x'+tools.freeze;
+  document.getElementById('hintCount').textContent='x'+tools.hint;
+  let rem=0; grid.forEach(row=>row.forEach(v=>{if(v!==-1)rem++;}));
+  const pct=Math.max(0,Math.min(100,((ROWS*COLS-rem)/(ROWS*COLS)*100)));
+  document.getElementById('progressFill').style.width=pct+'%';
+}
+
+// ========== 结局 ==========
+function showEnd(win) {
+  document.getElementById('endScore').textContent=score+(win?5000:0);
+  if (win) {
+    score+=5000;
+    document.getElementById('endTitle').textContent='关卡完成！🎉';
+    document.getElementById('endMsg').textContent='清空棋盘！额外 5000 分！';
+    document.getElementById('endStars').textContent=moves<=ROWS*COLS*0.4?'⭐⭐⭐':moves<=ROWS*COLS*0.6?'⭐⭐':'⭐';
+    document.getElementById('nextBtn').style.display='block';
+  } else {
+    document.getElementById('endTitle').textContent='无法继续 😢';
+    document.getElementById('endMsg').textContent='没有可消除的泡泡了！';
+    document.getElementById('endStars').textContent='💔';
+    document.getElementById('nextBtn').style.display='none';
+  }
+  if (score>bestScore){bestScore=score;localStorage.setItem('bbBest',bestScore);}
+  updateUI();
+  document.getElementById('endOverlay').classList.remove('hidden');
+}
+
+// ========== 控制 ==========
+function startGame() {
+  document.getElementById('startOverlay').classList.add('hidden');
+  newGame();
+}
+function newGame() {
+  document.getElementById('endOverlay').classList.add('hidden');
+  level=1; score=0; moves=0; combo=0;
+  tools={bomb:3,rainbow:2,freeze:2,hint:5};
+  deactivateTool(); initGrid(); render(); updateUI();
+  setHint('选择3个以上相邻同色泡泡消除');
+}
+function nextLevel() {
+  document.getElementById('endOverlay').classList.add('hidden');
+  level++; moves=0; combo=0;
+  if (level%3===0){tools.bomb=Math.min(tools.bomb+1,5);tools.rainbow=Math.min(tools.rainbow+1,3);}
+  deactivateTool(); initGrid(); render(); updateUI();
+  setHint('第 '+level+' 关开始！');
+}
+
+// 初始渲染（弹窗遮住，先渲染好背景）
+initGrid(); render(); updateUI();
+</script>
+</body>
+</html>

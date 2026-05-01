@@ -1,0 +1,34 @@
+{
+  "timestamp": "2026-04-16T11:11:56.379Z",
+  "results": [
+    {
+      "id": "gt-001",
+      "name": "Successful Page Extraction",
+      "result": "SKIP",
+      "reason": "No matching task found"
+    },
+    {
+      "id": "gt-002",
+      "name": "Successful Site Navigation",
+      "result": "SKIP",
+      "reason": "No matching task found"
+    },
+    {
+      "id": "gt-003",
+      "name": "Element Not Found — Degraded Success",
+      "result": "SKIP",
+      "reason": "No matching task found"
+    },
+    {
+      "id": "gt-004",
+      "name": "Navigate Failed — Failure",
+      "result": "SKIP",
+      "reason": "No matching task found"
+    }
+  ],
+  "summary": {
+    "pass": 0,
+    "fail": 0,
+    "skip": 4
+  }
+}

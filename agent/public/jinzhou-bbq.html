@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>锦州烧烤 · 吃遍烧烤 锦州最好</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --orange: #FF6B1A;
+      --deep: #1A0A00;
+      --card: #1E1209;
+      --text: #F5E6D3;
+      --muted: #A08060;
+      --gold: #FFB347;
+      --ember: #FF4500;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--deep);
+      color: var(--text);
+      font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem 1.5rem;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 80%, rgba(255,80,0,0.45) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 40% at 30% 90%, rgba(255,180,0,0.2) 0%, transparent 60%),
+        linear-gradient(180deg, #0D0500 0%, #1A0800 60%, #2A1000 100%);
+      z-index: 0;
+    }
+
+    /* ember particles */
+    .embers {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .ember {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle, #FFD700, #FF4500 60%, transparent);
+      animation: float linear infinite;
+      opacity: 0;
+    }
+    @keyframes float {
+      0%   { transform: translateY(0) translateX(0) scale(1);   opacity: 0; }
+      10%  { opacity: 1; }
+      80%  { opacity: 0.6; }
+      100% { transform: translateY(-120vh) translateX(var(--dx)) scale(0.3); opacity: 0; }
+    }
+
+    .hero-content { position: relative; z-index: 2; }
+
+    .badge {
+      display: inline-block;
+      border: 1px solid var(--orange);
+      color: var(--orange);
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      padding: 0.3em 1em;
+      border-radius: 99px;
+      margin-bottom: 1.2rem;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.4rem, 8vw, 5rem);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #FFD700 0%, #FF8C00 50%, #FF4500 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.4rem;
+    }
+
+    .hero-sub {
+      font-size: clamp(1rem, 3vw, 1.5rem);
+      color: var(--muted);
+      margin-bottom: 0.8rem;
+    }
+
+    .hero-desc {
+      max-width: 540px;
+      margin: 0 auto 2rem;
+      font-size: clamp(0.85rem, 2.5vw, 1rem);
+      color: #C09070;
+      line-height: 1.8;
+    }
+
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(255,107,26,0.15);
+      border: 1px solid rgba(255,107,26,0.3);
+      border-radius: 99px;
+      padding: 0.4em 1.2em;
+      font-size: 0.8rem;
+      color: var(--gold);
+      margin: 0.25rem;
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+    .scroll-hint .arrow {
+      width: 20px; height: 20px;
+      border-right: 2px solid var(--orange);
+      border-bottom: 2px solid var(--orange);
+      transform: rotate(45deg);
+      animation: bounce 1.4s ease-in-out infinite;
+    }
+    @keyframes bounce {
+      0%,100% { transform: rotate(45deg) translateY(0); }
+      50% { transform: rotate(45deg) translateY(5px); }
+    }
+
+    /* ── SECTION BASE ── */
+    section { padding: 5rem 1.5rem; }
+
+    .section-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--orange);
+      margin-bottom: 0.6rem;
+    }
+
+    h2.section-title {
+      font-size: clamp(1.6rem, 5vw, 2.8rem);
+      font-weight: 800;
+      margin-bottom: 1rem;
+      line-height: 1.2;
+    }
+
+    .section-intro {
+      color: var(--muted);
+      max-width: 600px;
+      font-size: 0.95rem;
+      line-height: 1.8;
+      margin-bottom: 3rem;
+    }
+
+    /* ── CULTURE STRIP ── */
+    .culture {
+      background: linear-gradient(135deg, #120800 0%, #1E0F00 100%);
+      border-top: 1px solid rgba(255,107,26,0.15);
+      border-bottom: 1px solid rgba(255,107,26,0.15);
+    }
+
+    .culture-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .culture-card {
+      text-align: center;
+      padding: 2rem 1rem;
+    }
+
+    .culture-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.8rem;
+      display: block;
+    }
+
+    .culture-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 0.4rem;
+    }
+
+    .culture-card p {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    /* ── FOOD CARDS ── */
+    .food-section { max-width: 960px; margin: 0 auto; }
+
+    .food-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .food-card {
+      background: var(--card);
+      border: 1px solid rgba(255,107,26,0.12);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+      cursor: default;
+    }
+
+    .food-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px rgba(255,80,0,0.2);
+      border-color: rgba(255,107,26,0.4);
+    }
+
+    .food-card-emoji {
+      font-size: 4rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 130px;
+      background: linear-gradient(135deg, #200D00, #2E1500);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .food-card-emoji::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 80%, rgba(255,100,0,0.25) 0%, transparent 70%);
+    }
+
+    .food-rank {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      background: var(--orange);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.2em 0.6em;
+      border-radius: 99px;
+      letter-spacing: 0.05em;
+    }
+
+    .food-heat {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-size: 0.8rem;
+      letter-spacing: -0.05em;
+    }
+
+    .food-card-body { padding: 1.2rem 1.25rem 1.5rem; }
+
+    .food-card-body h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+      color: #F0D9BC;
+    }
+
+    .food-card-body p {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .food-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.9rem;
+    }
+
+    .food-tag {
+      font-size: 0.7rem;
+      background: rgba(255,107,26,0.1);
+      border: 1px solid rgba(255,107,26,0.2);
+      color: var(--orange);
+      padding: 0.2em 0.7em;
+      border-radius: 99px;
+    }
+
+    /* ── TECHNIQUE SECTION ── */
+    .technique {
+      background: linear-gradient(180deg, #0E0600 0%, #1A0900 100%);
+    }
+
+    .technique-inner {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 1.2rem;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      align-items: start;
+    }
+
+    .step:last-child { border-bottom: none; }
+
+    .step-num {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--ember), var(--orange));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .step h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 0.3rem;
+    }
+
+    .step p {
+      font-size: 0.83rem;
+      color: var(--muted);
+      line-height: 1.75;
+    }
+
+    /* ── SEASONINGS ── */
+    .seasonings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 1rem;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .seasoning-pill {
+      background: rgba(255,107,26,0.08);
+      border: 1px solid rgba(255,107,26,0.2);
+      border-radius: 12px;
+      padding: 1rem 0.8rem;
+      text-align: center;
+      transition: background 0.2s;
+    }
+
+    .seasoning-pill:hover { background: rgba(255,107,26,0.15); }
+
+    .seasoning-pill .icon { font-size: 1.8rem; margin-bottom: 0.4rem; }
+    .seasoning-pill .name { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+    .seasoning-pill .role { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; }
+
+    /* ── QUOTE ── */
+    .quote-section {
+      text-align: center;
+      padding: 6rem 1.5rem;
+      background: linear-gradient(135deg, #120800, #1E1000);
+      border-top: 1px solid rgba(255,107,26,0.1);
+      border-bottom: 1px solid rgba(255,107,26,0.1);
+    }
+
+    .quote-text {
+      font-size: clamp(1.3rem, 4vw, 2rem);
+      font-weight: 700;
+      line-height: 1.5;
+      color: var(--gold);
+      max-width: 700px;
+      margin: 0 auto 1rem;
+    }
+
+    .quote-source {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .footer-fire { font-size: 1.5rem; margin-bottom: 0.4rem; }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: rgba(26,8,0,0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,107,26,0.12);
+      padding: 0.8rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      font-weight: 900;
+      font-size: 1rem;
+      background: linear-gradient(90deg, #FFB347, #FF6B1A);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.82rem;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--orange); }
+
+    @media (max-width: 480px) {
+      .nav-links { display: none; }
+      section { padding: 3.5rem 1.2rem; }
+    }
+
+    /* ── DIVIDER ── */
+    .divider {
+      width: 48px; height: 3px;
+      background: linear-gradient(90deg, var(--ember), var(--orange));
+      border-radius: 2px;
+      margin-bottom: 2rem;
+    }
+
+    /* ── STAT ROW ── */
+    .stat-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      margin-top: 2rem;
+    }
+
+    .stat-pill {
+      flex: 1 1 140px;
+      background: rgba(255,107,26,0.08);
+      border: 1px solid rgba(255,107,26,0.15);
+      border-radius: 12px;
+      padding: 1.2rem 1rem;
+      text-align: center;
+    }
+
+    .stat-num {
+      font-size: 1.6rem;
+      font-weight: 900;
+      color: var(--gold);
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-logo">🔥 锦州烧烤</span>
+  <ul class="nav-links">
+    <li><a href="#foods">招牌食材</a></li>
+    <li><a href="#technique">烤制技艺</a></li>
+    <li><a href="#seasonings">灵魂调料</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="embers" id="embers"></div>
+  <div class="hero-content">
+    <span class="badge">🏆 国家地标美食 · 非物质文化遗产</span>
+    <h1>锦州烧烤</h1>
+    <p class="hero-sub">吃遍烧烤，锦州最好</p>
+    <p class="hero-desc">
+      炭火之上，万物皆可入味。一把孜然，一撮白面，<br>
+      成就东北烧烤之冠的传奇滋味。
+    </p>
+    <div>
+      <span class="hero-tag">🌊 南临渤海 食材新鲜</span>
+      <span class="hero-tag">🌿 十余种调料 独门配方</span>
+      <span class="hero-tag">🔥 生烤熟烤 两种工艺</span>
+    </div>
+    <div class="stat-row" style="max-width:500px;margin:2rem auto 0;">
+      <div class="stat-pill">
+        <span class="stat-num">200+</span>
+        <span class="stat-label">烧烤品种</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-num">15+</span>
+        <span class="stat-label">专用调料</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-num">2011</span>
+        <span class="stat-label">非遗认定年</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-num">2022</span>
+        <span class="stat-label">国家地标美食</span>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>向下探索</span>
+    <div class="arrow"></div>
+  </div>
+</div>
+
+<!-- CULTURE -->
+<section class="culture" id="culture">
+  <div style="max-width:860px;margin:0 auto;">
+    <p class="section-label">烧烤文化</p>
+    <h2 class="section-title">为什么是锦州？</h2>
+    <div class="divider"></div>
+    <div class="culture-grid">
+      <div class="culture-card">
+        <span class="culture-icon">🌊</span>
+        <h3>得天独厚的食材</h3>
+        <p>南临渤海湾，白蚶子、薄皮海螺、多春鱼现捕现烤；义县绵羊肉质细嫩，干豆腐轻薄如纸——大自然为锦州烧烤备好了最好的食材库。</p>
+      </div>
+      <div class="culture-card">
+        <span class="culture-icon">🔬</span>
+        <h3>极致讲究的新鲜</h3>
+        <p>当天买肉，当天串，当天卖完。最新鲜的食材，不需要复杂加工——这是锦州烧烤朴素外表下最奢侈的坚持。</p>
+      </div>
+      <div class="culture-card">
+        <span class="culture-icon">🤫</span>
+        <h3>每家独门的秘方</h3>
+        <p>同样的食材，同样的炭火，每家味道却各不相同。调料配比、翻面时机、火候拿捏——这是每个锦州烧烤师傅最核心的商业机密。</p>
+      </div>
+      <div class="culture-card">
+        <span class="culture-icon">🌙</span>
+        <h3>城市烟火的灵魂</h3>
+        <p>锦州人的夜晚，从一摊烧烤开始。三两好友，几十块钱，炭火噼啪，烟雾氤氲——烧烤早已融入这座城市的日常与记忆。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOD CARDS -->
+<section id="foods" style="max-width:960px;margin:0 auto;">
+  <p class="section-label">招牌食材</p>
+  <h2 class="section-title">不烤这些，枉来锦州</h2>
+  <div class="divider"></div>
+  <p class="section-intro">海陆空通吃，百余种食材一网打尽。以下是锦州烧烤的江湖必点，少一个都算遗憾。</p>
+  <div class="food-grid">
+
+    <div class="food-card">
+      <div class="food-card-emoji">
+        <span class="food-rank">必吃 No.1</span>
+        🍢
+        <span class="food-heat">🔥🔥🔥</span>
+      </div>
+      <div class="food-card-body">
+        <h3>干豆腐卷鸡脆骨</h3>
+        <p>锦州烧烤的灵魂代表作。轻薄如纸的锦州干豆腐，紧紧裹住Q弹鸡脆骨，炭火烤至外层微焦，一口咬下，脆嫩交织，鲜香四溢。外地人吃一遍念念不忘。</p>
+        <div class="food-tags">
+          <span class="food-tag">锦州独创</span>
+          <span class="food-tag">外脆内嫩</span>
+          <span class="food-tag">必点</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-card-emoji">
+        <span class="food-rank">必吃 No.2</span>
+        🐑
+        <span class="food-heat">🔥🔥🔥</span>
+      </div>
+      <div class="food-card-body">
+        <h3>义县羊肉串</h3>
+        <p>义县绵羊肉质细嫩、肥而不腻。用自行车辐条串起，大火猛烤，刷上秘制蒜蓉辣酱，撒白面与孜然。每翻一面都是色泽鲜亮、焦香弥漫。锦州烧烤的颜值担当。</p>
+        <div class="food-tags">
+          <span class="food-tag">辐条串</span>
+          <span class="food-tag">肥而不腻</span>
+          <span class="food-tag">地标食材</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-card-emoji">
+        <span class="food-rank">必吃 No.3</span>
+        🐔
+        <span class="food-heat">🔥🔥🔥</span>
+      </div>
+      <div class="food-card-body">
+        <h3>烤鸡头</h3>
+        <p>锦州最具话题性的特色单品。鸡头剖开均匀受热，撒大量孜然，表皮烤至焦香酥脆，里面的鸡脑花嫩如豆腐。初听猎奇，一吃上瘾——这就是锦州烧烤的魔力。</p>
+        <div class="food-tags">
+          <span class="food-tag">锦州特色</span>
+          <span class="food-tag">猎奇必试</span>
+          <span class="food-tag">焦香</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-card-emoji">
+        <span class="food-rank">必吃 No.4</span>
+        🦪
+        <span class="food-heat">🔥🔥</span>
+      </div>
+      <div class="food-card-body">
+        <h3>白蚶子 · 薄皮海螺</h3>
+        <p>渤海湾直供的海鲜珍品。白蚶子鲜嫩多汁，薄皮海螺弹牙清甜，搭配锦州特调小料，海鲜的鲜甜与炭火的焦香完美融合，是锦州烧烤海陆兼顾的最佳证明。</p>
+        <div class="food-tags">
+          <span class="food-tag">渤海鲜货</span>
+          <span class="food-tag">当天现捕</span>
+          <span class="food-tag">清甜</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-card-emoji">
+        <span class="food-rank">必吃 No.5</span>
+        🐟
+        <span class="food-heat">🔥🔥</span>
+      </div>
+      <div class="food-card-body">
+        <h3>多春鱼</h3>
+        <p>渤海湾特产小鱼，肚满春卵，炭烤至外皮酥脆，鱼卵受热爆裂，鲜味瞬间释放。这是锦州烧烤摊上最具烟火气的小食，一串几条，价格实惠，鲜美难忘。</p>
+        <div class="food-tags">
+          <span class="food-tag">满腹鱼卵</span>
+          <span class="food-tag">酥脆</span>
+          <span class="food-tag">性价比高</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-card-emoji">
+        <span class="food-rank">必吃 No.6</span>
+        🍖
+        <span class="food-heat">🔥🔥🔥</span>
+      </div>
+      <div class="food-card-body">
+        <h3>排骨串</h3>
+        <p>将猪排骨逐块串起，先煮至七分熟（熟烤工艺），再上炭火猛烤，骨肉之间渗满酱香，外层微焦带脆，肉质不柴不散。一串在手，大口啃骨，豪气十足。</p>
+        <div class="food-tags">
+          <span class="food-tag">熟烤工艺</span>
+          <span class="food-tag">骨香浓郁</span>
+          <span class="food-tag">豪迈</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-card-emoji">
+        <span class="food-rank">必吃 No.7</span>
+        🍄
+        <span class="food-heat">🔥🔥</span>
+      </div>
+      <div class="food-card-body">
+        <h3>金针菇 · 韭菜</h3>
+        <p>铁篦双层夹住，反复刷油，撒白面调料，烤至边缘微卷、金黄透亮。金针菇吸饱酱汁脆嫩爽口，韭菜烤出独特焦香甜味，是肉类之余最解腻的小清新。</p>
+        <div class="food-tags">
+          <span class="food-tag">素食首选</span>
+          <span class="food-tag">鲜嫩爽口</span>
+          <span class="food-tag">解腻</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-card-emoji">
+        <span class="food-rank">必吃 No.8</span>
+        🧄
+        <span class="food-heat">🔥🔥</span>
+      </div>
+      <div class="food-card-body">
+        <h3>烤大蒜</h3>
+        <p>整头蒜直接上炭火，外皮烤焦，内里蒜瓣软糯香甜，辛辣褪去，留下醇厚蒜香。锦州老饕吃烧烤的必点配角——没有烤蒜的烧烤，总觉少了点什么。</p>
+        <div class="food-tags">
+          <span class="food-tag">去腥增香</span>
+          <span class="food-tag">软糯甜香</span>
+          <span class="food-tag">点睛之笔</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-card-emoji">
+        <span class="food-rank">必吃 No.9</span>
+        🍗
+        <span class="food-heat">🔥🔥🔥</span>
+      </div>
+      <div class="food-card-body">
+        <h3>鸡翅 · 凤爪 · 鸡脖</h3>
+        <p>锦州烧烤的禽类三件套，各有千秋。鸡翅皮脆肉嫩，凤爪胶质丰富劲道弹牙，鸡脖骨多肉少但越嚼越香。三者皆为炭烤调料入味的绝佳载体。</p>
+        <div class="food-tags">
+          <span class="food-tag">禽类三宝</span>
+          <span class="food-tag">劲道弹牙</span>
+          <span class="food-tag">越嚼越香</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- QUOTE -->
+<div class="quote-section">
+  <p class="quote-text">
+    "油脂、酱料、脆骨、皮肉，<br>
+    在炭火上，在晚风中，在唇齿间，<br>
+    吹奏锦州四重奏。"
+  </p>
+  <p class="quote-source">—— 《锦州烧烤》文化记录</p>
+</div>
+
+<!-- TECHNIQUE -->
+<section class="technique" id="technique">
+  <div class="technique-inner">
+    <p class="section-label">烤制工艺</p>
+    <h2 class="section-title">生烤 vs 熟烤<br>锦州的两种艺术</h2>
+    <div class="divider"></div>
+    <p class="section-intro">锦州烧烤有生烤和熟烤之别，每一种工艺背后都是师傅多年的技术沉淀。</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">生</div>
+        <div>
+          <h4>生烤 — 原汁原味</h4>
+          <p>食材直接上炭火，全程生烤至熟。讲究火候精准——大火锁住肉汁，小火慢逼油脂，翻面时机与撒料顺序是师傅的核心绝技。适合羊肉串、鸡小件、干豆腐卷等。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">熟</div>
+        <div>
+          <h4>熟烤 — 先卤后烤</h4>
+          <p>食材先煮或卤至七八分熟，再上炭火收汁上色。内里已熟透，炭烤只为激发表层焦香与酱料层次，适合排骨串、鸡头、蹄筋等难以生烤透的大件。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">料</div>
+        <div>
+          <h4>调料入魂 — 分层上料</h4>
+          <p>调料不是一次性撒上，而是分阶段、多层次涂抹刷入。先底味，再蒜蓉酱，再白面，最后孜然辣椒收尾。每一层调料对应一种口感维度，这是锦州烧烤味道复杂立体的秘密。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">串</div>
+        <div>
+          <h4>辐条串 — 独门兵器</h4>
+          <p>正宗锦州烧烤用自行车辐条（钢丝）串食材，比竹签更细更导热，传热均匀，不会因竹签炭化影响口感。这个看似不起眼的工具细节，是锦州烧烤区别于其他流派的标志之一。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SEASONINGS -->
+<section id="seasonings" style="text-align:center;">
+  <p class="section-label">灵魂调料</p>
+  <h2 class="section-title" style="text-align:center;">十五种调料</h2>
+  <div class="divider" style="margin:0 auto 1rem;"></div>
+  <p class="section-intro" style="margin:0 auto 2.5rem;">锦州烧烤的调料体系是全国最复杂的之一。白面（鸡粉+胡椒粉+中草药研磨）更是独步天下。</p>
+  <div class="seasonings-grid">
+    <div class="seasoning-pill">
+      <div class="icon">⚪</div>
+      <div class="name">白面</div>
+      <div class="role">鸡粉·胡椒·中草药</div>
+    </div>
+    <div class="seasoning-pill">
+      <div class="icon">🧄</div>
+      <div class="name">蒜蓉辣酱</div>
+      <div class="role">底味灵魂</div>
+    </div>
+    <div class="seasoning-pill">
+      <div class="icon">🟡</div>
+      <div class="name">孜然粉</div>
+      <div class="role">炭香增幅</div>
+    </div>
+    <div class="seasoning-pill">
+      <div class="icon">🌶️</div>
+      <div class="name">辣椒面</div>
+      <div class="role">层次辣感</div>
+    </div>
+    <div class="seasoning-pill">
+      <div class="icon">🧂</div>
+      <div class="name">黑胡椒盐</div>
+      <div class="role">牛肉专属</div>
+    </div>
+    <div class="seasoning-pill">
+      <div class="icon">🫒</div>
+      <div class="name">刷料油</div>
+      <div class="role">保水增香</div>
+    </div>
+    <div class="seasoning-pill">
+      <div class="icon">🌿</div>
+      <div class="name">紫苏叶</div>
+      <div class="role">五花肉伴侣</div>
+    </div>
+    <div class="seasoning-pill">
+      <div class="icon">🟠</div>
+      <div class="name">甜面酱</div>
+      <div class="role">回甜收尾</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-fire">🔥</div>
+  <p>锦州烧烤 · 2011年非物质文化遗产 · 2022年国家地标美食</p>
+  <p style="margin-top:0.4rem;">万物皆可入味，口味随众可调</p>
+</footer>
+
+<script>
+  // 生成火焰粒子
+  const container = document.getElementById('embers');
+  const count = window.innerWidth < 600 ? 18 : 35;
+  for (let i = 0; i < count; i++) {
+    const e = document.createElement('div');
+    e.className = 'ember';
+    const size = Math.random() * 5 + 2;
+    e.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random() * 100}%;
+      bottom:${Math.random() * 30}%;
+      --dx:${(Math.random() - 0.5) * 120}px;
+      animation-duration:${Math.random() * 4 + 3}s;
+      animation-delay:${Math.random() * 6}s;
+    `;
+    container.appendChild(e);
+  }
+
+  // 平滑滚动
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const el = document.querySelector(a.getAttribute('href'));
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+</script>
+</body>
+</html>

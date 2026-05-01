@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>新疆 · 大美西域</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --gold: #C9A84C;
+    --deep: #1a1a2e;
+    --sand: #f5e6c8;
+    --sky: #4a90d9;
+    --green: #5a9e6f;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
+    background: #0d0d1a;
+    color: #fff;
+    overflow-x: hidden;
+  }
+
+  /* ===== HERO ===== */
+  .hero {
+    position: relative;
+    height: 100vh;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-bottom: 60px;
+    overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background: 
+      linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(13,13,26,0.85) 100%),
+      url('https://images.unsplash.com/photo-1518623489648-a173ef7824f3?w=1200&q=80') center/cover no-repeat;
+    animation: heroPan 20s ease-in-out infinite alternate;
+  }
+
+  @keyframes heroPan {
+    from { transform: scale(1.05) translateX(-2%); }
+    to   { transform: scale(1.1) translateX(2%); }
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    padding: 0 24px;
+    text-align: center;
+  }
+
+  .hero-badge {
+    display: inline-block;
+    background: rgba(201,168,76,0.25);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    font-size: 12px;
+    letter-spacing: 4px;
+    padding: 6px 18px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+
+  .hero-title {
+    font-size: clamp(42px, 12vw, 72px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #fff 0%, var(--gold) 60%, #fff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+  }
+
+  .hero-sub {
+    font-size: 15px;
+    color: rgba(255,255,255,0.75);
+    letter-spacing: 2px;
+    margin-bottom: 32px;
+  }
+
+  .hero-stats {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+  }
+
+  .stat-item { text-align: center; }
+  .stat-num {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--gold);
+    display: block;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 1px;
+  }
+
+  .scroll-hint {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: rgba(255,255,255,0.5);
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+
+  .scroll-hint::after {
+    content: '';
+    width: 1px;
+    height: 40px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.5), transparent);
+    animation: scrollLine 1.5s ease-in-out infinite;
+  }
+
+  @keyframes scrollLine {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+
+  /* ===== SECTION COMMON ===== */
+  section { padding: 60px 0; }
+
+  .section-header {
+    text-align: center;
+    padding: 0 24px 40px;
+  }
+
+  .section-tag {
+    display: inline-block;
+    color: var(--gold);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .section-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.3;
+  }
+
+  .section-desc {
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    margin-top: 10px;
+    line-height: 1.7;
+  }
+
+  /* ===== SEASON TIMELINE ===== */
+  .season-section { background: #111124; }
+
+  .season-scroll {
+    display: flex;
+    gap: 14px;
+    padding: 0 24px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .season-scroll::-webkit-scrollbar { display: none; }
+
+  .season-card {
+    flex: 0 0 160px;
+    border-radius: 20px;
+    padding: 22px 16px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s;
+  }
+
+  .season-card:active { transform: scale(0.97); }
+
+  .season-card.spring { background: linear-gradient(145deg, #2d5a3d, #5a9e6f); }
+  .season-card.summer { background: linear-gradient(145deg, #1a5276, #4a90d9); }
+  .season-card.autumn { background: linear-gradient(145deg, #7d4e0a, #e67e22); }
+  .season-card.winter { background: linear-gradient(145deg, #2c3e50, #5d8aa8); }
+
+  .season-card.recommended::before {
+    content: '推荐';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--gold);
+    color: #000;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 10px;
+  }
+
+  .season-emoji { font-size: 36px; margin-bottom: 10px; display: block; }
+  .season-name { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+  .season-months { font-size: 12px; opacity: 0.8; margin-bottom: 10px; }
+  .season-tip { font-size: 11px; opacity: 0.9; line-height: 1.5; }
+
+  /* ===== SPOTS ===== */
+  .spots-section { background: #0d0d1a; }
+
+  .spots-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 0 20px;
+  }
+
+  .spot-card {
+    border-radius: 18px;
+    overflow: hidden;
+    position: relative;
+    aspect-ratio: 3/4;
+    cursor: pointer;
+    transition: transform 0.3s;
+  }
+
+  .spot-card.featured {
+    grid-column: 1 / -1;
+    aspect-ratio: 16/9;
+  }
+
+  .spot-card:active { transform: scale(0.98); }
+
+  .spot-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s;
+  }
+
+  .spot-card:hover .spot-img { transform: scale(1.05); }
+
+  .spot-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 16px;
+  }
+
+  .spot-region {
+    font-size: 10px;
+    color: var(--gold);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .spot-name {
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+
+  .spot-desc {
+    font-size: 11px;
+    color: rgba(255,255,255,0.7);
+    line-height: 1.5;
+  }
+
+  .spot-tag {
+    display: inline-block;
+    background: rgba(201,168,76,0.3);
+    border: 1px solid rgba(201,168,76,0.5);
+    color: var(--gold);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    margin-top: 6px;
+  }
+
+  /* ===== FOOD ===== */
+  .food-section { background: #111124; }
+
+  .food-list {
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .food-row {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    padding: 16px;
+    transition: background 0.2s;
+  }
+
+  .food-row:active { background: rgba(255,255,255,0.08); }
+
+  .food-emoji-wrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    flex-shrink: 0;
+  }
+
+  .food-info { flex: 1; }
+
+  .food-name {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .food-desc {
+    font-size: 12px;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.5;
+  }
+
+  .food-must {
+    font-size: 10px;
+    color: #e74c3c;
+    font-weight: 700;
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* ===== ROUTE ===== */
+  .route-section { background: #0d0d1a; }
+
+  .route-cards {
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .route-card {
+    background: linear-gradient(135deg, rgba(201,168,76,0.08), rgba(74,144,217,0.08));
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 20px;
+    padding: 22px;
+  }
+
+  .route-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .route-days {
+    background: var(--gold);
+    color: #000;
+    font-size: 13px;
+    font-weight: 800;
+    padding: 6px 14px;
+    border-radius: 12px;
+  }
+
+  .route-title {
+    font-size: 17px;
+    font-weight: 700;
+    flex: 1;
+  }
+
+  .route-spots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .route-spot-tag {
+    background: rgba(255,255,255,0.08);
+    font-size: 12px;
+    color: rgba(255,255,255,0.8);
+    padding: 5px 12px;
+    border-radius: 20px;
+  }
+
+  .route-spot-tag::before {
+    content: '📍 ';
+  }
+
+  /* ===== TIPS ===== */
+  .tips-section { background: #111124; }
+
+  .tips-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 0 20px;
+  }
+
+  .tip-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    padding: 18px 14px;
+    text-align: center;
+  }
+
+  .tip-icon { font-size: 28px; margin-bottom: 10px; display: block; }
+
+  .tip-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--gold);
+  }
+
+  .tip-content {
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.6;
+  }
+
+  /* ===== FOOTER ===== */
+  .footer {
+    background: #080812;
+    padding: 40px 24px;
+    text-align: center;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .footer-logo {
+    font-size: 22px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--gold), #fff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+
+  .footer-tagline {
+    font-size: 12px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 2px;
+    margin-bottom: 24px;
+  }
+
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 20px;
+  }
+
+  .footer-link {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    text-decoration: none;
+  }
+
+  .footer-copy {
+    font-size: 11px;
+    color: rgba(255,255,255,0.2);
+  }
+
+  /* ===== FLOAT CTA ===== */
+  .float-cta {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    background: linear-gradient(135deg, var(--gold), #e8c060);
+    color: #000;
+    font-size: 15px;
+    font-weight: 800;
+    padding: 14px 40px;
+    border-radius: 30px;
+    box-shadow: 0 8px 30px rgba(201,168,76,0.4);
+    white-space: nowrap;
+    cursor: pointer;
+    animation: floatPulse 2.5s ease-in-out infinite;
+    transition: transform 0.15s;
+  }
+
+  .float-cta:active { transform: translateX(-50%) scale(0.96); }
+
+  @keyframes floatPulse {
+    0%, 100% { box-shadow: 0 8px 30px rgba(201,168,76,0.4); }
+    50% { box-shadow: 0 12px 40px rgba(201,168,76,0.65); }
+  }
+
+  /* ===== DIVIDER ===== */
+  .divider {
+    width: 40px;
+    height: 3px;
+    background: var(--gold);
+    border-radius: 2px;
+    margin: 12px auto 0;
+  }
+
+  /* ===== IMAGE FALLBACK ===== */
+  img {
+    background: #222244;
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-badge">XINJIANG · CHINA</div>
+    <h1 class="hero-title">新疆</h1>
+    <p class="hero-sub">大美西域 · 壮阔天地</p>
+    <div class="hero-stats">
+      <div class="stat-item">
+        <span class="stat-num">166</span>
+        <span class="stat-label">万平方公里</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num">47</span>
+        <span class="stat-label">民族聚居</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num">12+</span>
+        <span class="stat-label">顶级景区</span>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">向下探索</div>
+</section>
+
+<!-- SEASON -->
+<section class="season-section">
+  <div class="section-header">
+    <span class="section-tag">BEST TIME TO VISIT</span>
+    <h2 class="section-title">旅游季节</h2>
+    <div class="divider"></div>
+    <p class="section-desc">新疆地域辽阔，一年四季各有风姿<br>9月中旬金秋是公认的最美时节</p>
+  </div>
+  <div class="season-scroll">
+    <div class="season-card spring">
+      <span class="season-emoji">🌸</span>
+      <div class="season-name">春季</div>
+      <div class="season-months">3月 — 5月</div>
+      <div class="season-tip">杏花开遍伊犁谷地，吐鲁番桃花盛开，风沙较多</div>
+    </div>
+    <div class="season-card summer recommended">
+      <span class="season-emoji">☀️</span>
+      <div class="season-name">夏季</div>
+      <div class="season-months">6月 — 8月</div>
+      <div class="season-tip">草原最绿、天山最美，喀纳斯湖色碧蓝，薰衣草绽放</div>
+    </div>
+    <div class="season-card autumn recommended">
+      <span class="season-emoji">🍂</span>
+      <div class="season-name">金秋</div>
+      <div class="season-months">9月 — 10月</div>
+      <div class="season-tip">喀纳斯层林尽染，葡萄瓜果飘香，人少景美，强烈推荐</div>
+    </div>
+    <div class="season-card winter">
+      <span class="season-emoji">❄️</span>
+      <div class="season-name">冬季</div>
+      <div class="season-months">11月 — 2月</div>
+      <div class="season-tip">禾木雪村宛如童话，将军山滑雪，独有北疆冰雪风情</div>
+    </div>
+  </div>
+</section>
+
+<!-- SPOTS -->
+<section class="spots-section">
+  <div class="section-header">
+    <span class="section-tag">MUST-SEE DESTINATIONS</span>
+    <h2 class="section-title">必游景区</h2>
+    <div class="divider"></div>
+    <p class="section-desc">从雪山圣湖到金色沙漠<br>每一处都是震撼心灵的绝景</p>
+  </div>
+  <div class="spots-grid">
+    <div class="spot-card featured">
+      <img class="spot-img" 
+        src="https://images.unsplash.com/photo-1552083375-1447ce886485?w=800&q=80" 
+        alt="喀纳斯湖" loading="lazy">
+      <div class="spot-overlay">
+        <div class="spot-region">北疆 · ALTAY</div>
+        <div class="spot-name">喀纳斯湖</div>
+        <div class="spot-desc">中国最美湖泊之一，秋季五彩斑斓，湖中据传栖居神秘大鱼</div>
+        <span class="spot-tag">🏆 必去TOP1</span>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <img class="spot-img" 
+        src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=80" 
+        alt="天山天池" loading="lazy">
+      <div class="spot-overlay">
+        <div class="spot-region">乌鲁木齐</div>
+        <div class="spot-name">天山天池</div>
+        <div class="spot-desc">海拔1910米的高山湖泊，背靠博格达峰雪顶</div>
+        <span class="spot-tag">⛰️ 世界遗产</span>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <img class="spot-img" 
+        src="https://images.unsplash.com/photo-1519120944692-1a8d8cfc107f?w=400&q=80" 
+        alt="那拉提草原" loading="lazy">
+      <div class="spot-overlay">
+        <div class="spot-region">伊犁</div>
+        <div class="spot-name">那拉提草原</div>
+        <div class="spot-desc">空中草原，哈萨克牧民的夏牧场，绿意盎然</div>
+        <span class="spot-tag">🐴 骑马胜地</span>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <img class="spot-img" 
+        src="https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=400&q=80" 
+        alt="塔克拉玛干" loading="lazy">
+      <div class="spot-overlay">
+        <div class="spot-region">南疆</div>
+        <div class="spot-name">塔克拉玛干</div>
+        <div class="spot-desc">中国最大沙漠，流动沙丘绵延千里，夕阳如血</div>
+        <span class="spot-tag">🏜️ 沙海奇观</span>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <img class="spot-img" 
+        src="https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&q=80" 
+        alt="火焰山" loading="lazy">
+      <div class="spot-overlay">
+        <div class="spot-region">吐鲁番</div>
+        <div class="spot-name">火焰山</div>
+        <div class="spot-desc">《西游记》取材之地，赤红山峦在烈日下宛如燃烧</div>
+        <span class="spot-tag">🔥 神话圣地</span>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <img class="spot-img" 
+        src="https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=400&q=80" 
+        alt="赛里木湖" loading="lazy">
+      <div class="spot-overlay">
+        <div class="spot-region">博州</div>
+        <div class="spot-name">赛里木湖</div>
+        <div class="spot-desc">大西洋最后一滴眼泪，碧蓝湖水倒映雪山</div>
+        <span class="spot-tag">💧 天堂之湖</span>
+      </div>
+    </div>
+
+    <div class="spot-card featured">
+      <img class="spot-img" 
+        src="https://images.unsplash.com/photo-1561128290-006dc679be2e?w=800&q=80" 
+        alt="禾木村" loading="lazy">
+      <div class="spot-overlay">
+        <div class="spot-region">北疆 · ALTAY</div>
+        <div class="spot-name">禾木村</div>
+        <div class="spot-desc">中国最美的村庄之一，秋日白桦金黄，冬日雪覆童话木屋</div>
+        <span class="spot-tag">🏡 童话村庄</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOD -->
+<section class="food-section">
+  <div class="section-header">
+    <span class="section-tag">LOCAL CUISINE</span>
+    <h2 class="section-title">必吃美食</h2>
+    <div class="divider"></div>
+    <p class="section-desc">新疆美食豪迈粗犷<br>每一口都是草原与丝路的馈赠</p>
+  </div>
+  <div class="food-list">
+    <div class="food-row">
+      <div class="food-emoji-wrap" style="background:rgba(231,76,60,0.15)">🍢</div>
+      <div class="food-info">
+        <div class="food-name">羊肉串</div>
+        <div class="food-desc">新疆的灵魂，孜然+辣椒面+炭火，鲜嫩多汁，一串带走整个西域</div>
+        <span class="food-must">● 必吃 No.1</span>
+      </div>
+    </div>
+    <div class="food-row">
+      <div class="food-emoji-wrap" style="background:rgba(243,156,18,0.15)">🍚</div>
+      <div class="food-info">
+        <div class="food-name">手抓饭</div>
+        <div class="food-desc">大米、羊肉、胡萝卜、葡萄干同炖，色泽金黄，维吾尔族宴客首选</div>
+        <span class="food-must">● 必吃 No.2</span>
+      </div>
+    </div>
+    <div class="food-row">
+      <div class="food-emoji-wrap" style="background:rgba(52,152,219,0.15)">🍗</div>
+      <div class="food-info">
+        <div class="food-name">大盘鸡</div>
+        <div class="food-desc">鲜嫩鸡块与土豆在辣椒汁中慢炖，宽皮带面吸满汤汁，解馋又解饿</div>
+      </div>
+    </div>
+    <div class="food-row">
+      <div class="food-emoji-wrap" style="background:rgba(155,89,182,0.15)">🫓</div>
+      <div class="food-info">
+        <div class="food-name">烤馕</div>
+        <div class="food-desc">新疆人的主食，馕坑烤制，外脆内软，芝麻香气四溢，可搭配一切</div>
+      </div>
+    </div>
+    <div class="food-row">
+      <div class="food-emoji-wrap" style="background:rgba(230,126,34,0.15)">🥟</div>
+      <div class="food-info">
+        <div class="food-name">烤包子</div>
+        <div class="food-desc">洋葱羊肉馅，方形面皮贴馕坑烤制，焦脆飘香，一口爆汁</div>
+      </div>
+    </div>
+    <div class="food-row">
+      <div class="food-emoji-wrap" style="background:rgba(46,204,113,0.15)">🍇</div>
+      <div class="food-info">
+        <div class="food-name">吐鲁番葡萄</div>
+        <div class="food-desc">世界甜葡萄，无核白晶莹剔透，马奶子鲜甜浓郁，日照时长造就极致甜度</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROUTE -->
+<section class="route-section">
+  <div class="section-header">
+    <span class="section-tag">TRAVEL ROUTES</span>
+    <h2 class="section-title">推荐路线</h2>
+    <div class="divider"></div>
+    <p class="section-desc">根据时间灵活选择，畅游新疆</p>
+  </div>
+  <div class="route-cards">
+    <div class="route-card">
+      <div class="route-header">
+        <div class="route-days">7天</div>
+        <div class="route-title">北疆精华线</div>
+      </div>
+      <div class="route-spots">
+        <span class="route-spot-tag">乌鲁木齐</span>
+        <span class="route-spot-tag">天山天池</span>
+        <span class="route-spot-tag">五彩滩</span>
+        <span class="route-spot-tag">禾木村</span>
+        <span class="route-spot-tag">喀纳斯湖</span>
+        <span class="route-spot-tag">魔鬼城</span>
+      </div>
+    </div>
+    <div class="route-card">
+      <div class="route-header">
+        <div class="route-days">10天</div>
+        <div class="route-title">伊犁天山线</div>
+      </div>
+      <div class="route-spots">
+        <span class="route-spot-tag">赛里木湖</span>
+        <span class="route-spot-tag">薰衣草基地</span>
+        <span class="route-spot-tag">那拉提草原</span>
+        <span class="route-spot-tag">巴音布鲁克</span>
+        <span class="route-spot-tag">独库公路</span>
+        <span class="route-spot-tag">吐鲁番</span>
+        <span class="route-spot-tag">火焰山</span>
+        <span class="route-spot-tag">葡萄沟</span>
+      </div>
+    </div>
+    <div class="route-card">
+      <div class="route-header">
+        <div class="route-days">14天</div>
+        <div class="route-title">南北疆大环线</div>
+      </div>
+      <div class="route-spots">
+        <span class="route-spot-tag">喀纳斯</span>
+        <span class="route-spot-tag">禾木</span>
+        <span class="route-spot-tag">赛里木湖</span>
+        <span class="route-spot-tag">那拉提</span>
+        <span class="route-spot-tag">巴音布鲁克</span>
+        <span class="route-spot-tag">库车大峡谷</span>
+        <span class="route-spot-tag">喀什老城</span>
+        <span class="route-spot-tag">帕米尔高原</span>
+        <span class="route-spot-tag">塔克拉玛干</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TIPS -->
+<section class="tips-section">
+  <div class="section-header">
+    <span class="section-tag">TRAVEL TIPS</span>
+    <h2 class="section-title">出行贴士</h2>
+    <div class="divider"></div>
+  </div>
+  <div class="tips-grid">
+    <div class="tip-card">
+      <span class="tip-icon">🕐</span>
+      <div class="tip-title">时差注意</div>
+      <div class="tip-content">新疆使用北京时间，但当地作息普遍晚2小时，午饭约14点，晚饭约20点后</div>
+    </div>
+    <div class="tip-card">
+      <span class="tip-icon">🧥</span>
+      <div class="tip-title">备好衣物</div>
+      <div class="tip-content">昼夜温差极大，即使夏天也需携带厚外套，山区夜晚温度可降至10℃以下</div>
+    </div>
+    <div class="tip-card">
+      <span class="tip-icon">🚗</span>
+      <div class="tip-title">租车自驾</div>
+      <div class="tip-content">景区间距离遥远，强烈推荐租车自驾，包车也是不错选择，包车费用约500-800元/天</div>
+    </div>
+    <div class="tip-card">
+      <span class="tip-icon">📱</span>
+      <div class="tip-title">提前规划</div>
+      <div class="tip-content">旺季（7-9月）景区门票、住宿须提前1-2周预订，热门线路快速售罄</div>
+    </div>
+    <div class="tip-card">
+      <span class="tip-icon">☀️</span>
+      <div class="tip-title">做好防晒</div>
+      <div class="tip-content">高原紫外线极强，SPF50+防晒霜、遮阳帽、太阳镜是必备装备</div>
+    </div>
+    <div class="tip-card">
+      <span class="tip-icon">💧</span>
+      <div class="tip-title">补充水分</div>
+      <div class="tip-content">气候干燥，每日至少饮水2-3升，多吃当地瓜果也是最天然的补水方式</div>
+    </div>
+    <div class="tip-card">
+      <span class="tip-icon">💰</span>
+      <div class="tip-title">旅行预算</div>
+      <div class="tip-content">10天北疆游人均约5000-8000元（含机票），南北疆大环线约10000-15000元</div>
+    </div>
+    <div class="tip-card">
+      <span class="tip-icon">🙏</span>
+      <div class="tip-title">尊重习俗</div>
+      <div class="tip-content">尊重少数民族风俗，参观清真寺注意着装礼仪，拍照前征得当地人同意</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-logo">✦ 新疆旅游指南</div>
+  <div class="footer-tagline">WHERE EARTH MEETS SKY · 大地与天空的交汇之所</div>
+  <div class="footer-links">
+    <a class="footer-link" href="#">景点详情</a>
+    <a class="footer-link" href="#">路线定制</a>
+    <a class="footer-link" href="#">美食地图</a>
+  </div>
+  <div class="footer-copy">© 2025 新疆旅游信息指南 · 图片来源 Unsplash</div>
+</footer>
+
+<!-- FLOAT CTA -->
+<div class="float-cta" onclick="alert('正在为您跳转预订页面～')">🗺️ 立即规划行程</div>
+
+<script>
+  // Intersection Observer for fade-in
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.style.opacity = '1';
+        entry.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.spot-card, .food-row, .route-card, .tip-card, .season-card').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    observer.observe(el);
+  });
+
+  // Hide float CTA near footer
+  const footer = document.querySelector('.footer');
+  const floatCta = document.querySelector('.float-cta');
+  window.addEventListener('scroll', () => {
+    const footerTop = footer.getBoundingClientRect().top;
+    floatCta.style.opacity = footerTop < 150 ? '0' : '1';
+    floatCta.style.pointerEvents = footerTop < 150 ? 'none' : 'auto';
+    floatCta.style.transition = 'opacity 0.3s';
+  });
+</script>
+
+</body>
+</html>

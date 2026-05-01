@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>上海旅游攻略 · 魔都精华三日游</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --red: #c0392b;
+      --gold: #f39c12;
+      --dark: #1a1a2e;
+      --dark2: #16213e;
+      --card: #0f3460;
+      --text: #e0e0e0;
+      --accent: #e94560;
+    }
+
+    body {
+      font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: var(--dark);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      position: relative;
+      height: 100vh;
+      min-height: 600px;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 50% 80%, rgba(233,69,96,0.25) 0%, transparent 60%),
+        radial-gradient(ellipse at 20% 50%, rgba(243,156,18,0.15) 0%, transparent 50%);
+    }
+
+    /* 动态光柱 */
+    .beam {
+      position: absolute;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(to top, rgba(243,156,18,0.8), transparent);
+      animation: beam-rise 3s ease-in-out infinite alternate;
+    }
+    .beam:nth-child(1) { left: 30%; height: 60%; animation-delay: 0s; }
+    .beam:nth-child(2) { left: 50%; height: 80%; animation-delay: 0.5s; background: linear-gradient(to top, rgba(233,69,96,0.8), transparent); }
+    .beam:nth-child(3) { left: 70%; height: 55%; animation-delay: 1s; }
+    @keyframes beam-rise { 0% { opacity: 0.3; } 100% { opacity: 1; } }
+
+    /* 城市轮廓 SVG */
+    .skyline {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 200px;
+      opacity: 0.15;
+    }
+
+    .hero-badge {
+      background: rgba(233,69,96,0.9);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      padding: 6px 20px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero h1 {
+      font-size: clamp(36px, 8vw, 72px);
+      font-weight: 900;
+      background: linear-gradient(135deg, #fff 0%, #f39c12 50%, #e94560 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-sub {
+      font-size: 16px;
+      color: rgba(255,255,255,0.6);
+      margin-top: 16px;
+      letter-spacing: 4px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-tags {
+      display: flex;
+      gap: 12px;
+      margin-top: 32px;
+      position: relative;
+      z-index: 1;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 0 20px;
+    }
+
+    .hero-tag {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      backdrop-filter: blur(10px);
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1;
+      animation: bounce 2s infinite;
+    }
+    .scroll-hint span { display: block; width: 20px; height: 20px; border-right: 2px solid rgba(255,255,255,0.5); border-bottom: 2px solid rgba(255,255,255,0.5); transform: rotate(45deg); margin: -8px auto; }
+    @keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(8px)} }
+
+    /* ===== NAV ===== */
+    .sticky-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15,12,41,0.95);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 0 16px;
+      display: flex;
+      gap: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .sticky-nav::-webkit-scrollbar { display: none; }
+    .nav-item {
+      flex: 0 0 auto;
+      padding: 16px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.3s;
+      border-bottom: 2px solid transparent;
+      text-decoration: none;
+    }
+    .nav-item:hover, .nav-item.active {
+      color: var(--gold);
+      border-bottom-color: var(--gold);
+    }
+
+    /* ===== SECTION ===== */
+    .section {
+      padding: 60px 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      letter-spacing: 4px;
+      color: var(--gold);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .section-title {
+      font-size: clamp(24px, 5vw, 36px);
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .section-title span {
+      color: var(--accent);
+    }
+
+    /* ===== 景点卡片 ===== */
+    .spot-card {
+      background: linear-gradient(135deg, rgba(15,52,96,0.8), rgba(22,33,62,0.8));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      overflow: hidden;
+      margin-bottom: 32px;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .spot-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+
+    .spot-img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      display: block;
+      background: linear-gradient(135deg, #1a1a3e, #2d1b69);
+    }
+
+    /* 使用CSS绘制景点插图 */
+    .spot-illus {
+      width: 100%;
+      height: 220px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .spot-illus-bund {
+      background: linear-gradient(180deg, #0a0a2e 0%, #1a1a5e 40%, #2d2d8e 60%, #1a3a6e 80%, #0d2040 100%);
+    }
+    .spot-illus-pearl {
+      background: linear-gradient(180deg, #0a0a2e 0%, #0d2040 50%, #1a3a6e 100%);
+    }
+    .spot-illus-yuyuan {
+      background: linear-gradient(180deg, #1a0a00 0%, #3d1c00 40%, #5c2d00 70%, #2d1600 100%);
+    }
+
+    /* 外滩建筑群 */
+    .bund-buildings {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 160px;
+    }
+
+    /* 水面倒影 */
+    .water {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 50px;
+      background: linear-gradient(180deg, rgba(15,60,120,0.4), rgba(10,40,80,0.8));
+    }
+
+    /* 灯光效果 */
+    .lights {
+      position: absolute;
+      top: 20px;
+      left: 0;
+      width: 100%;
+      height: 40px;
+    }
+    .light-dot {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: #f39c12;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #f39c12;
+      animation: twinkle 2s infinite alternate;
+    }
+    @keyframes twinkle { 0% { opacity: 0.3; } 100% { opacity: 1; } }
+
+    .spot-body {
+      padding: 28px;
+    }
+
+    .spot-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      border-radius: 50%;
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .spot-name {
+      font-size: 24px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .spot-eng {
+      font-size: 12px;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+    }
+
+    .spot-desc {
+      font-size: 15px;
+      line-height: 1.8;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 20px;
+    }
+
+    .spot-meta {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .meta-item {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 12px 16px;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      color: var(--gold);
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-size: 13px;
+      color: rgba(255,255,255,0.85);
+      font-weight: 500;
+    }
+
+    .spot-tips {
+      margin-top: 16px;
+      background: rgba(233,69,96,0.1);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 12px 12px 0;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.7);
+    }
+    .spot-tips strong { color: var(--accent); }
+
+    /* ===== 美食区域 ===== */
+    .food-bg {
+      background: linear-gradient(180deg, var(--dark) 0%, #1a0a00 50%, var(--dark) 100%);
+    }
+
+    .food-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .food-card {
+      background: linear-gradient(135deg, rgba(60,20,0,0.6), rgba(30,10,0,0.8));
+      border: 1px solid rgba(243,156,18,0.2);
+      border-radius: 20px;
+      padding: 20px;
+      transition: transform 0.3s;
+    }
+    .food-card:hover { transform: scale(1.03); }
+    .food-card.featured {
+      grid-column: span 2;
+      background: linear-gradient(135deg, rgba(192,57,43,0.3), rgba(60,20,0,0.8));
+      border-color: rgba(233,69,96,0.4);
+    }
+
+    .food-emoji {
+      font-size: 36px;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .food-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .food-desc {
+      font-size: 13px;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.6;
+    }
+
+    .food-tag {
+      display: inline-block;
+      background: rgba(243,156,18,0.2);
+      color: var(--gold);
+      border-radius: 8px;
+      padding: 3px 10px;
+      font-size: 11px;
+      margin-top: 10px;
+      font-weight: 600;
+    }
+
+    .restaurant-list {
+      margin-top: 32px;
+    }
+
+    .restaurant-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .rest-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .rest-info { flex: 1; }
+    .rest-name { font-size: 15px; font-weight: 700; color: #fff; }
+    .rest-loc { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+    .rest-tag { font-size: 11px; color: var(--gold); margin-top: 4px; }
+
+    .rest-price {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold);
+      white-space: nowrap;
+    }
+
+    /* ===== 交通区域 ===== */
+    .transit-bg {
+      background: linear-gradient(180deg, var(--dark) 0%, rgba(15,52,96,0.3) 50%, var(--dark) 100%);
+    }
+
+    .transit-line {
+      position: relative;
+      padding-left: 32px;
+      margin-bottom: 28px;
+    }
+
+    .transit-line::before {
+      content: '';
+      position: absolute;
+      left: 10px;
+      top: 28px;
+      bottom: -28px;
+      width: 2px;
+      background: linear-gradient(to bottom, rgba(243,156,18,0.6), rgba(243,156,18,0.1));
+    }
+    .transit-line:last-child::before { display: none; }
+
+    .transit-dot {
+      position: absolute;
+      left: 0;
+      top: 4px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .transit-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .transit-steps {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .transit-step {
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.65);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .step-badge {
+      flex-shrink: 0;
+      background: rgba(243,156,18,0.2);
+      color: var(--gold);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .tip-box {
+      background: linear-gradient(135deg, rgba(15,52,96,0.6), rgba(22,33,62,0.6));
+      border: 1px solid rgba(243,156,18,0.3);
+      border-radius: 20px;
+      padding: 24px;
+      margin-top: 32px;
+    }
+
+    .tip-box h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tips-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .tip-item {
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.6;
+    }
+
+    .tip-item strong {
+      display: block;
+      color: #fff;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+
+    /* ===== 行程规划 ===== */
+    .day-plan {
+      background: rgba(255,255,255,0.03);
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .day-header {
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .day-num {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 900;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .day-title { font-size: 17px; font-weight: 700; color: #fff; }
+    .day-sub { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+
+    .day-items {
+      padding: 0 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .day-item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .day-time {
+      font-size: 12px;
+      color: var(--gold);
+      font-weight: 600;
+      white-space: nowrap;
+      padding-top: 2px;
+      min-width: 50px;
+    }
+
+    .day-content {
+      font-size: 13px;
+      color: rgba(255,255,255,0.65);
+      line-height: 1.6;
+    }
+    .day-content strong { color: #fff; }
+
+    /* ===== FOOTER ===== */
+    footer {
+      text-align: center;
+      padding: 40px 20px;
+      background: rgba(0,0,0,0.3);
+      font-size: 12px;
+      color: rgba(255,255,255,0.25);
+      letter-spacing: 2px;
+    }
+
+    footer strong {
+      display: block;
+      font-size: 20px;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 8px;
+      letter-spacing: 4px;
+    }
+
+    /* ===== DIVIDER ===== */
+    .divider {
+      height: 1px;
+      background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
+      margin: 0;
+    }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 480px) {
+      .food-grid { grid-template-columns: 1fr; }
+      .food-card.featured { grid-column: span 1; }
+      .tips-grid { grid-template-columns: 1fr; }
+      .spot-meta { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="beam"></div>
+  <div class="beam"></div>
+  <div class="beam"></div>
+
+  <!-- 城市天际线 SVG -->
+  <svg class="skyline" viewBox="0 0 800 200" preserveAspectRatio="none" fill="white">
+    <!-- 东方明珠 -->
+    <rect x="380" y="20" width="8" height="180"/>
+    <circle cx="384" cy="60" r="22" fill="white"/>
+    <circle cx="384" cy="100" r="14" fill="white"/>
+    <!-- 上海中心 -->
+    <rect x="430" y="10" width="14" height="190"/>
+    <!-- 金茂大厦 -->
+    <rect x="460" y="40" width="12" height="160"/>
+    <!-- 环球金融 -->
+    <rect x="490" y="30" width="12" height="170"/>
+    <!-- 外滩建筑群 -->
+    <rect x="50" y="80" width="30" height="120"/>
+    <rect x="85" y="60" width="25" height="140"/>
+    <rect x="115" y="70" width="30" height="130"/>
+    <rect x="150" y="50" width="20" height="150"/>
+    <rect x="175" y="65" width="25" height="135"/>
+    <rect x="205" y="55" width="22" height="145"/>
+    <rect x="232" y="75" width="18" height="125"/>
+    <rect x="255" y="45" width="20" height="155"/>
+    <rect x="280" y="60" width="15" height="140"/>
+    <rect x="300" y="70" width="18" height="130"/>
+    <rect x="323" y="80" width="20" height="120"/>
+    <!-- 右侧建筑 -->
+    <rect x="520" y="60" width="18" height="140"/>
+    <rect x="543" y="75" width="22" height="125"/>
+    <rect x="570" y="50" width="16" height="150"/>
+    <rect x="591" y="65" width="20" height="135"/>
+    <rect x="616" y="80" width="24" height="120"/>
+    <rect x="645" y="55" width="18" height="145"/>
+    <rect x="668" y="70" width="15" height="130"/>
+    <rect x="688" y="60" width="20" height="140"/>
+    <rect x="713" y="85" width="22" height="115"/>
+    <rect x="740" y="65" width="18" height="135"/>
+  </svg>
+
+  <div class="hero-badge">✈ SHANGHAI TRAVEL GUIDE 2025</div>
+  <h1>魔都上海<br>旅游攻略</h1>
+  <p class="hero-sub">外滩 · 东方明珠 · 豫园</p>
+  <div class="hero-tags">
+    <span class="hero-tag">🏛️ 百年外滩</span>
+    <span class="hero-tag">🗼 东方明珠</span>
+    <span class="hero-tag">🏮 豫园古镇</span>
+    <span class="hero-tag">🍜 舌尖美食</span>
+  </div>
+
+  <div class="scroll-hint">
+    <span></span><span></span>
+  </div>
+</section>
+
+<!-- ===== 导航 ===== -->
+<nav class="sticky-nav">
+  <a class="nav-item active" href="#spots">📍 景点</a>
+  <a class="nav-item" href="#food">🍜 美食</a>
+  <a class="nav-item" href="#transit">🚇 交通</a>
+  <a class="nav-item" href="#itinerary">📅 行程</a>
+</nav>
+
+<!-- ===== 景点介绍 ===== -->
+<section id="spots" class="section">
+  <div class="section-header">
+    <div class="section-label">SCENIC SPOTS</div>
+    <h2 class="section-title">精华<span>三大景点</span></h2>
+  </div>
+
+  <!-- 外滩 -->
+  <div class="spot-card">
+    <div class="spot-illus spot-illus-bund">
+      <!-- SVG 外滩夜景 -->
+      <svg width="100%" height="100%" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="sky1" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#020818"/>
+            <stop offset="60%" style="stop-color:#0d1b4b"/>
+            <stop offset="100%" style="stop-color:#1a3a6e"/>
+          </linearGradient>
+          <linearGradient id="water1" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#1a3a6e;stop-opacity:0.6"/>
+            <stop offset="100%" style="stop-color:#020818"/>
+          </linearGradient>
+        </defs>
+        <rect width="700" height="220" fill="url(#sky1)"/>
+        <!-- 月亮 -->
+        <circle cx="600" cy="40" r="18" fill="#fff9c4" opacity="0.9"/>
+        <circle cx="608" cy="36" r="16" fill="#0d1b4b"/>
+        <!-- 星星 -->
+        <circle cx="100" cy="25" r="1.5" fill="white" opacity="0.8"/>
+        <circle cx="200" cy="15" r="1" fill="white" opacity="0.7"/>
+        <circle cx="320" cy="30" r="1.5" fill="white" opacity="0.6"/>
+        <circle cx="480" cy="20" r="1" fill="white" opacity="0.8"/>
+        <circle cx="550" cy="35" r="1.5" fill="white" opacity="0.5"/>
+        <!-- 外滩建筑群 -->
+        <!-- 海关大楼 -->
+        <rect x="60" y="85" width="55" height="105" fill="#1e3a5f"/>
+        <polygon points="60,85 87,60 115,85" fill="#162d4a"/>
+        <rect x="80" y="60" width="15" height="15" fill="#1e3a5f"/>
+        <rect x="85" y="50" width="5" height="12" fill="#1e3a5f"/>
+        <!-- 门窗 -->
+        <rect x="70" y="100" width="12" height="18" fill="#f5e642" opacity="0.6"/>
+        <rect x="90" y="100" width="12" height="18" fill="#f5e642" opacity="0.5"/>
+        <rect x="110" y="100" width="8" height="18" fill="#f5e642" opacity="0.4"/>
+        <!-- 和平饭店 -->
+        <rect x="120" y="75" width="50" height="115" fill="#162d4a"/>
+        <polygon points="120,75 145,50 170,75" fill="#0d2040"/>
+        <rect x="138" y="50" width="15" height="10" fill="#0d2040"/>
+        <rect x="143" y="40" width="5" height="12" fill="#e8b800" opacity="0.8"/>
+        <!-- 灯光 -->
+        <rect x="128" y="90" width="10" height="15" fill="#f5e642" opacity="0.7"/>
+        <rect x="145" y="90" width="10" height="15" fill="#f5e642" opacity="0.6"/>
+        <rect x="162" y="90" width="8" height="15" fill="#f5e642" opacity="0.5"/>
+        <!-- 汇丰大楼 -->
+        <rect x="175" y="90" width="45" height="100" fill="#1e3a5f"/>
+        <polygon points="175,90 197,70 220,90" fill="#162d4a"/>
+        <rect x="183" y="100" width="10" height="15" fill="#f5e642" opacity="0.5"/>
+        <rect x="198" y="100" width="10" height="15" fill="#f5e642" opacity="0.6"/>
+        <rect x="213" y="100" width="7" height="15" fill="#f5e642" opacity="0.4"/>
+        <!-- 中间建筑群 -->
+        <rect x="225" y="95" width="35" height="95" fill="#152438"/>
+        <rect x="265" y="80" width="30" height="110" fill="#1e3a5f"/>
+        <polygon points="265,80 280,60 295,80" fill="#0d2040"/>
+        <rect x="300" y="88" width="28" height="102" fill="#162d4a"/>
+        <!-- 浦东天际线 -->
+        <!-- 东方明珠 -->
+        <rect x="420" y="30" width="6" height="160" fill="#1a3060"/>
+        <circle cx="423" cy="75" r="18" fill="#ff6b35" opacity="0.9"/>
+        <circle cx="423" cy="110" r="11" fill="#ff8c42" opacity="0.8"/>
+        <circle cx="423" cy="75" r="14" fill="none" stroke="#ff9d5c" stroke-width="2" opacity="0.5"/>
+        <!-- 发光效果 -->
+        <circle cx="423" cy="75" r="22" fill="#ff6b35" opacity="0.15"/>
+        <!-- 上海中心 -->
+        <rect x="455" y="15" width="10" height="175" fill="#152438"/>
+        <polygon points="455,15 460,5 465,15" fill="#0d1b30"/>
+        <!-- 金茂大厦 -->
+        <rect x="476" y="45" width="9" height="145" fill="#1e3a5f"/>
+        <polygon points="476,45 480,30 485,45" fill="#162d4a"/>
+        <!-- 环球金融 -->
+        <rect x="495" y="25" width="10" height="165" fill="#152438"/>
+        <path d="M495,25 Q500,5 505,25" fill="#0d1b30"/>
+        <!-- 水面 -->
+        <rect x="0" y="170" width="700" height="50" fill="url(#water1)"/>
+        <!-- 倒影 -->
+        <circle cx="423" cy="195" r="8" fill="#ff6b35" opacity="0.2"/>
+        <line x1="423" y1="175" x2="423" y2="220" stroke="#ff6b35" stroke-width="1" opacity="0.15"/>
+        <!-- 游船 -->
+        <ellipse cx="340" cy="175" rx="30" ry="6" fill="#1a3060"/>
+        <rect x="325" y="162" width="30" height="13" fill="#1e4080"/>
+        <rect x="330" y="155" width="20" height="8" fill="#162d5a"/>
+        <!-- 光斑 -->
+        <ellipse cx="150" cy="180" rx="60" ry="8" fill="#f5e642" opacity="0.05"/>
+        <ellipse cx="490" cy="185" rx="40" ry="5" fill="#ff6b35" opacity="0.08"/>
+      </svg>
+    </div>
+    <div class="spot-body">
+      <div class="spot-num">1</div>
+      <div class="spot-name">外滩</div>
+      <div class="spot-eng">THE BUND</div>
+      <p class="spot-desc">
+        外滩位于黄浦江西岸，是上海最具代表性的历史风貌区。南起延安东路，北至外白渡桥，全长约1.5公里。这里汇聚了52幢风格各异的万国建筑群，包括哥特式、巴洛克式、文艺复兴式等多种建筑风格，被誉为"万国建筑博览群"。入夜后，对岸浦东陆家嘴的东方明珠、上海中心、环球金融中心等摩天大楼灯火辉煌，与外滩历史建筑群交相辉映，堪称中国最美夜景之一。
+      </p>
+      <div class="spot-meta">
+        <div class="meta-item">
+          <div class="meta-label">🕐 最佳游览时间</div>
+          <div class="meta-value">傍晚至夜间（18:00-22:00）</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">🎟️ 门票</div>
+          <div class="meta-value">免费开放</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">📍 地址</div>
+          <div class="meta-value">黄浦区中山东一路</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">🚇 地铁</div>
+          <div class="meta-value">2/10号线 南京东路站</div>
+        </div>
+      </div>
+      <div class="spot-tips">
+        <strong>📸 打卡攻略：</strong>推荐在外滩观景台正对东方明珠处拍摄，日落前1小时抵达占位最佳。避开节假日高峰，工作日游客较少。
+      </div>
+    </div>
+  </div>
+
+  <!-- 东方明珠 -->
+  <div class="spot-card">
+    <div class="spot-illus spot-illus-pearl">
+      <svg width="100%" height="100%" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="sky2" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#020c1b"/>
+            <stop offset="70%" style="stop-color:#0a1f4e"/>
+            <stop offset="100%" style="stop-color:#1a3a6e"/>
+          </linearGradient>
+          <radialGradient id="glow1" cx="50%" cy="40%" r="30%">
+            <stop offset="0%" style="stop-color:#ff6b35;stop-opacity:0.4"/>
+            <stop offset="100%" style="stop-color:transparent;stop-opacity:0"/>
+          </radialGradient>
+          <radialGradient id="glow2" cx="50%" cy="55%" r="25%">
+            <stop offset="0%" style="stop-color:#ff8c42;stop-opacity:0.3"/>
+            <stop offset="100%" style="stop-color:transparent;stop-opacity:0"/>
+          </radialGradient>
+        </defs>
+        <rect width="700" height="220" fill="url(#sky2)"/>
+        <!-- 背景建筑群 -->
+        <rect x="0" y="100" width="180" height="120" fill="#0d2040" opacity="0.5"/>
+        <rect x="20" y="80" width="30" height="140" fill="#1a3060" opacity="0.4"/>
+        <rect x="55" y="90" width="25" height="130" fill="#0d2040" opacity="0.5"/>
+        <rect x="85" y="70" width="28" height="150" fill="#1a3060" opacity="0.4"/>
+        <rect x="118" y="85" width="22" height="135" fill="#0d2040" opacity="0.4"/>
+        <rect x="520" y="80" width="180" height="140" fill="#0d2040" opacity="0.5"/>
+        <rect x="530" y="60" width="25" height="160" fill="#1a3060" opacity="0.4"/>
+        <rect x="560" y="75" width="30" height="145" fill="#0d2040" opacity="0.5"/>
+        <rect x="598" y="55" width="22" height="165" fill="#1a3060" opacity="0.4"/>
+        <rect x="630" y="70" width="25" height="150" fill="#0d2040" opacity="0.4"/>
+        <!-- 光晕效果 -->
+        <rect x="0" y="0" width="700" height="220" fill="url(#glow1)"/>
+        <rect x="0" y="0" width="700" height="220" fill="url(#glow2)"/>
+        <!-- 东方明珠塔身 -->
+        <!-- 主杆 -->
+        <rect x="347" y="0" width="6" height="220" fill="#1e4080"/>
+        <!-- 顶部天线 -->
+        <rect x="349" y="0" width="2" height="30" fill="#aac8ff" opacity="0.9"/>
+        <!-- 上球 -->
+        <circle cx="350" cy="68" r="26" fill="#e84040"/>
+        <circle cx="350" cy="68" r="26" fill="none" stroke="#ff8080" stroke-width="2" opacity="0.8"/>
+        <circle cx="350" cy="68" r="22" fill="#cc2020" opacity="0.6"/>
+        <!-- 高亮点 -->
+        <circle cx="341" cy="59" r="8" fill="white" opacity="0.2"/>
+        <!-- 外光晕 -->
+        <circle cx="350" cy="68" r="36" fill="#e84040" opacity="0.12"/>
+        <circle cx="350" cy="68" r="46" fill="#e84040" opacity="0.06"/>
+        <!-- 中球 -->
+        <circle cx="350" cy="118" r="18" fill="#ff6b35"/>
+        <circle cx="350" cy="118" r="18" fill="none" stroke="#ff9d5c" stroke-width="2" opacity="0.7"/>
+        <circle cx="350" cy="118" r="14" fill="#e85520" opacity="0.7"/>
+        <circle cx="343" cy="111" r="5" fill="white" opacity="0.2"/>
+        <circle cx="350" cy="118" r="25" fill="#ff6b35" opacity="0.1"/>
+        <!-- 小球 -->
+        <circle cx="350" cy="155" r="10" fill="#ff9d5c" opacity="0.9"/>
+        <!-- 观光台 -->
+        <rect x="335" y="82" width="30" height="20" rx="4" fill="#1a3880"/>
+        <rect x="335" y="130" width="30" height="18" rx="4" fill="#1a3880"/>
+        <!-- 底部 -->
+        <rect x="330" y="190" width="40" height="30" rx="5" fill="#1e4080" opacity="0.8"/>
+        <!-- 窗口灯光 -->
+        <rect x="338" y="86" width="5" height="5" fill="#f5e642" opacity="0.8"/>
+        <rect x="347" y="86" width="5" height="5" fill="#f5e642" opacity="0.7"/>
+        <rect x="356" y="86" width="4" height="5" fill="#f5e642" opacity="0.6"/>
+        <!-- 支撑柱 -->
+        <line x1="350" y1="185" x2="310" y2="220" stroke="#1e4080" stroke-width="8"/>
+        <line x1="350" y1="185" x2="390" y2="220" stroke="#1e4080" stroke-width="8"/>
+        <line x1="350" y1="185" x2="350" y2="220" stroke="#1e4080" stroke-width="8"/>
+        <!-- 水面倒影 -->
+        <rect x="0" y="185" width="700" height="35" fill="#0a1f4e" opacity="0.6"/>
+        <circle cx="350" cy="205" r="12" fill="#e84040" opacity="0.15"/>
+        <ellipse cx="350" cy="210" rx="8" ry="3" fill="#ff6b35" opacity="0.2"/>
+      </svg>
+    </div>
+    <div class="spot-body">
+      <div class="spot-num">2</div>
+      <div class="spot-name">东方明珠</div>
+      <div class="spot-eng">ORIENTAL PEARL TOWER</div>
+      <p class="spot-desc">
+        东方明珠广播电视塔位于浦东陆家嘴，高达468米，是上海的标志性建筑。塔身设有三个观光层：263米的太空舱、350米的全透明悬浮观光廊，以及267米的旋转餐厅。底部的上海城市历史发展陈列馆，以蜡像场景真实再现了1930年代老上海的繁华景象，值得一探。入夜后灯光秀华丽夺目，是浦江两岸最亮眼的地标。
+      </p>
+      <div class="spot-meta">
+        <div class="meta-item">
+          <div class="meta-label">🕐 营业时间</div>
+          <div class="meta-value">08:00-21:30（最晚入场）</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">🎟️ 门票</div>
+          <div class="meta-value">¥200 起（含1层观光）</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">📍 地址</div>
+          <div class="meta-value">浦东新区世纪大道1号</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">🚇 地铁</div>
+          <div class="meta-value">2号线 陆家嘴站2号口</div>
+        </div>
+      </div>
+      <div class="spot-tips">
+        <strong>💡 省钱攻略：</strong>提前在官方小程序购票可享9折优惠，建议选择下午4-6点入场，既能看日景又可等待夜景灯光。
+      </div>
+    </div>
+  </div>
+
+  <!-- 豫园 -->
+  <div class="spot-card">
+    <div class="spot-illus spot-illus-yuyuan">
+      <svg width="100%" height="100%" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="sky3" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#1a0800"/>
+            <stop offset="60%" style="stop-color:#3d1800"/>
+            <stop offset="100%" style="stop-color:#5c2800"/>
+          </linearGradient>
+          <linearGradient id="lantern" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#cc2000"/>
+            <stop offset="50%" style="stop-color:#ff4500"/>
+            <stop offset="100%" style="stop-color:#cc2000"/>
+          </linearGradient>
+        </defs>
+        <rect width="700" height="220" fill="url(#sky3)"/>
+        <!-- 月亮 -->
+        <circle cx="600" cy="35" r="25" fill="#fff8e0" opacity="0.85"/>
+        <!-- 中心主亭 -->
+        <rect x="260" y="100" width="180" height="100" fill="#5c2800"/>
+        <!-- 飞檐层1 -->
+        <polygon points="230,100 350,60 470,100" fill="#8b3a00"/>
+        <polygon points="220,102 350,58 480,102 470,100 350,62 230,100" fill="#a04500"/>
+        <!-- 飞檐层2 -->
+        <polygon points="200,105 350,55 500,105 490,100 350,60 210,100" fill="#7a3000" opacity="0.5"/>
+        <!-- 柱子 -->
+        <rect x="275" y="100" width="12" height="100" fill="#3d1500"/>
+        <rect x="413" y="100" width="12" height="100" fill="#3d1500"/>
+        <!-- 门 -->
+        <rect x="325" y="140" width="50" height="60" rx="25" ry="5" fill="#2d0f00"/>
+        <!-- 窗格 -->
+        <rect x="280" y="110" width="30" height="25" fill="#2d0f00" opacity="0.8"/>
+        <rect x="390" y="110" width="30" height="25" fill="#2d0f00" opacity="0.8"/>
+        <!-- 侧亭 -->
+        <rect x="100" y="130" width="120" height="70" fill="#5c2800"/>
+        <polygon points="80,130 160,95 240,130" fill="#8b3a00"/>
+        <polygon points="72,132 160,92 248,132 240,130 160,97 80,130" fill="#a04500"/>
+        <rect x="480" y="130" width="120" height="70" fill="#5c2800"/>
+        <polygon points="460,130 540,95 620,130" fill="#8b3a00"/>
+        <polygon points="452,132 540,92 628,132 620,130 540,97 460,130" fill="#a04500"/>
+        <!-- 围墙 -->
+        <rect x="0" y="170" width="700" height="50" fill="#3d1500" opacity="0.8"/>
+        <!-- 波浪墙头 -->
+        <path d="M0,170 Q17,160 35,170 Q52,160 70,170 Q87,160 105,170 Q122,160 140,170 Q157,160 175,170 Q192,160 210,170 Q227,160 245,170 Q262,160 280,170 Q297,160 315,170 Q332,160 350,170 Q367,160 385,170 Q402,160 420,170 Q437,160 455,170 Q472,160 490,170 Q507,160 525,170 Q542,160 560,170 Q577,160 595,170 Q612,160 630,170 Q647,160 665,170 Q682,160 700,170" stroke="#5c2800" stroke-width="5" fill="none"/>
+        <!-- 灯笼串1 -->
+        <line x1="200" y1="50" x2="200" y2="175" stroke="#3d1500" stroke-width="1.5"/>
+        <ellipse cx="200" cy="70" rx="10" ry="14" fill="url(#lantern)" opacity="0.95"/>
+        <ellipse cx="200" cy="100" rx="10" ry="14" fill="url(#lantern)" opacity="0.9"/>
+        <ellipse cx="200" cy="130" rx="10" ry="14" fill="url(#lantern)" opacity="0.85"/>
+        <!-- 灯笼光晕 -->
+        <ellipse cx="200" cy="70" rx="18" ry="22" fill="#ff4500" opacity="0.15"/>
+        <ellipse cx="200" cy="100" rx="18" ry="22" fill="#ff4500" opacity="0.12"/>
+        <!-- 灯笼串2 -->
+        <line x1="500" y1="50" x2="500" y2="175" stroke="#3d1500" stroke-width="1.5"/>
+        <ellipse cx="500" cy="70" rx="10" ry="14" fill="url(#lantern)" opacity="0.95"/>
+        <ellipse cx="500" cy="100" rx="10" ry="14" fill="url(#lantern)" opacity="0.9"/>
+        <ellipse cx="500" cy="130" rx="10" ry="14" fill="url(#lantern)" opacity="0.85"/>
+        <ellipse cx="500" cy="70" rx="18" ry="22" fill="#ff4500" opacity="0.15"/>
+        <!-- 九曲桥 -->
+        <path d="M0,190 L80,185 L90,180 L110,185 L120,180 L140,185 L150,190" stroke="#8b6914" stroke-width="6" fill="none"/>
+        <!-- 荷花池 -->
+        <ellipse cx="100" cy="195" rx="80" ry="15" fill="#1a3a2a" opacity="0.6"/>
+        <!-- 荷花 -->
+        <circle cx="65" cy="192" r="5" fill="#ff6080" opacity="0.8"/>
+        <circle cx="95" cy="194" r="4" fill="#ff8090" opacity="0.7"/>
+        <circle cx="125" cy="191" r="5" fill="#ff6080" opacity="0.8"/>
+        <!-- 金鱼 -->
+        <ellipse cx="85" cy="197" rx="6" ry="3" fill="#ff8c00" opacity="0.6"/>
+        <ellipse cx="115" cy="196" rx="5" ry="2.5" fill="#ff6000" opacity="0.5"/>
+      </svg>
+    </div>
+    <div class="spot-body">
+      <div class="spot-num">3</div>
+      <div class="spot-name">豫园</div>
+      <div class="spot-eng">YU GARDEN</div>
+      <p class="spot-desc">
+        豫园始建于明代嘉靖年间（1559年），是上海现存最完整的明代古典园林，也是江南园林的代表作之一。园内以大假山、玉玲珑、点春堂、得月楼等"豫园十景"著称，精巧的亭台楼阁、曲折回廊将"一步一景"演绎得淋漓尽致。园外的城隍庙商业区是购买上海特色小吃与纪念品的绝佳之地，著名的九曲桥和湖心亭茶馆更是打卡必到之处。
+      </p>
+      <div class="spot-meta">
+        <div class="meta-item">
+          <div class="meta-label">🕐 营业时间</div>
+          <div class="meta-value">09:00-17:00（16:30停售）</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">🎟️ 门票</div>
+          <div class="meta-value">旺季¥40 / 淡季¥30</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">📍 地址</div>
+          <div class="meta-value">黄浦区安仁街218号</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">🚇 地铁</div>
+          <div class="meta-value">10/14号线 豫园站</div>
+        </div>
+      </div>
+      <div class="spot-tips">
+        <strong>🏮 特别推荐：</strong>春节/元宵灯会期间豫园装饰华丽壮观，人山人海但值得一看。平日建议开园后第一时间入园，避开旅行团高峰。
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ===== 美食推荐 ===== -->
+<section id="food" class="section food-bg">
+  <div class="section-header">
+    <div class="section-label">FOOD & DINING</div>
+    <h2 class="section-title">舌尖<span>上海味道</span></h2>
+  </div>
+
+  <div class="food-grid">
+    <div class="food-card featured">
+      <span class="food-emoji">🥟</span>
+      <div class="food-name">上海小笼包</div>
+      <p class="food-desc">皮薄汁多、馅料鲜美，是上海最具代表性的小吃。正宗做法是用手工揉制的薄面皮包裹猪肉馅，蒸熟后汤汁满溢。吃法口诀：轻轻提、慢慢移、先开窗、后喝汤。</p>
+      <span class="food-tag">🏆 必吃TOP1</span>
+    </div>
+
+    <div class="food-card">
+      <span class="food-emoji">🍜</span>
+      <div class="food-name">葱油拌面</div>
+      <p class="food-desc">上海早餐必备，以猪油葱花为底，口感香浓，简单却极具风味。</p>
+      <span class="food-tag">本地早餐</span>
+    </div>
+
+    <div class="food-card">
+      <span class="food-emoji">🍱</span>
+      <div class="food-name">红烧肉</div>
+      <p class="food-desc">上海本帮菜代表，浓油赤酱，甜咸适中，肥而不腻，入口即化。</p>
+      <span class="food-tag">本帮经典</span>
+    </div>
+
+    <div class="food-card">
+      <span class="food-emoji">🥮</span>
+      <div class="food-name">蟹壳黄</div>
+      <p class="food-desc">外形酷似蟹壳的烤制点心，芝麻香浓，内馅有葱油、豆沙等选择。</p>
+      <span class="food-tag">百年小吃</span>
+    </div>
+
+    <div class="food-card">
+      <span class="food-emoji">🦐</span>
+      <div class="food-name">水晶虾仁</div>
+      <p class="food-desc">选用新鲜河虾仁，清炒后晶莹剔透，清淡鲜嫩，口感爽滑。</p>
+      <span class="food-tag">本帮家常</span>
+    </div>
+
+    <div class="food-card">
+      <span class="food-emoji">🍢</span>
+      <div class="food-name">排骨年糕</div>
+      <p class="food-desc">炸排骨搭配软糯年糕，浇上秘制酱汁，是豫园附近的经典小吃。</p>
+      <span class="food-tag">城隍庙必吃</span>
+    </div>
+  </div>
+
+  <!-- 推荐餐厅 -->
+  <div class="restaurant-list">
+    <h3 style="font-size:17px;font-weight:700;color:#fff;margin-bottom:16px;">🍽️ 推荐餐厅</h3>
+
+    <div class="restaurant-item">
+      <div class="rest-icon" style="background:rgba(192,57,43,0.2);">🥟</div>
+      <div class="rest-info">
+        <div class="rest-name">南翔馒头店（豫园店）</div>
+        <div class="rest-loc">📍 豫园商城内 · 百年老字号</div>
+        <div class="rest-tag">排队但值得 · 小笼包 · 蟹粉小笼</div>
+      </div>
+      <div class="rest-price">¥50-80</div>
+    </div>
+
+    <div class="restaurant-item">
+      <div class="rest-icon" style="background:rgba(243,156,18,0.2);">🍜</div>
+      <div class="rest-info">
+        <div class="rest-name">阿娘黄鱼面</div>
+        <div class="rest-loc">📍 多家门店 · 上海特色</div>
+        <div class="rest-tag">大众点评必吃 · 黄鱼面 · 辣肉面</div>
+      </div>
+      <div class="rest-price">¥25-45</div>
+    </div>
+
+    <div class="restaurant-item">
+      <div class="rest-icon" style="background:rgba(52,152,219,0.2);">🏛️</div>
+      <div class="rest-info">
+        <div class="rest-name">湖心亭茶楼</div>
+        <div class="rest-loc">📍 豫园九曲桥畔 · 百年老店</div>
+        <div class="rest-tag">绝佳景观 · 下午茶 · 点心</div>
+      </div>
+      <div class="rest-price">¥80-150</div>
+    </div>
+
+    <div class="restaurant-item">
+      <div class="rest-icon" style="background:rgba(46,204,113,0.2);">🌃</div>
+      <div class="rest-info">
+        <div class="rest-name">外滩18号餐厅区</div>
+        <div class="rest-loc">📍 外滩中山东一路18号</div>
+        <div class="rest-tag">江景用餐 · 高端选择 · 预约制</div>
+      </div>
+      <div class="rest-price">¥200+</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ===== 交通指南 ===== -->
+<section id="transit" class="section transit-bg">
+  <div class="section-header">
+    <div class="section-label">TRANSPORTATION</div>
+    <h2 class="section-title">便捷<span>出行指南</span></h2>
+  </div>
+
+  <!-- 景点间交通 -->
+  <div class="transit-line">
+    <div class="transit-dot" style="background:linear-gradient(135deg,#e94560,#c0392b);">🏛️</div>
+    <div class="transit-title">外滩 → 东方明珠</div>
+    <ul class="transit-steps">
+      <li class="transit-step">
+        <span class="step-badge">步行+轮渡</span>
+        步行至外滩金陵东路码头，乘黄浦江轮渡（¥2）约10分钟，江上风光无限，强烈推荐！
+      </li>
+      <li class="transit-step">
+        <span class="step-badge">地铁</span>
+        乘地铁2号线至陆家嘴站，全程约15分钟，2号出口步行5分钟
+      </li>
+    </ul>
+  </div>
+
+  <div class="transit-line">
+    <div class="transit-dot" style="background:linear-gradient(135deg,#f39c12,#e67e22);">🏮</div>
+    <div class="transit-title">外滩 → 豫园</div>
+    <ul class="transit-steps">
+      <li class="transit-step">
+        <span class="step-badge">步行</span>
+        从外滩南段步行约15-20分钟，路过上海老街，沿途可逛
+      </li>
+      <li class="transit-step">
+        <span class="step-badge">地铁</span>
+        乘地铁10/14号线至豫园站，步行3分钟即达
+      </li>
+    </ul>
+  </div>
+
+  <div class="transit-line">
+    <div class="transit-dot" style="background:linear-gradient(135deg,#3498db,#2980b9);">🗼</div>
+    <div class="transit-title">东方明珠 → 豫园</div>
+    <ul class="transit-steps">
+      <li class="transit-step">
+        <span class="step-badge">地铁</span>
+        乘地铁2号线→转14号线 or 直接打车，约20分钟
+      </li>
+      <li class="transit-step">
+        <span class="step-badge">轮渡+步行</span>
+        乘渡轮回外滩，步行至豫园，约30分钟但风景最佳
+      </li>
+    </ul>
+  </div>
+
+  <!-- 实用贴士 -->
+  <div class="tip-box">
+    <h3>💡 出行实用贴士</h3>
+    <div class="tips-grid">
+      <div class="tip-item">
+        <strong>🚇 地铁交通卡</strong>
+        首次来沪建议办理交通一卡通或使用支付宝/微信乘地铁，¥3-8/次
+      </div>
+      <div class="tip-item">
+        <strong>⏰ 避开高峰</strong>
+        早高峰7:30-9:30、晚高峰17:00-19:00避免乘地铁，景点也相对拥挤
+      </div>
+      <div class="tip-item">
+        <strong>🛳️ 渡轮推荐</strong>
+        外滩←→东方明珠仅需¥2，是性价比最高的"江景游船"，别错过
+      </div>
+      <div class="tip-item">
+        <strong>📱 必备APP</strong>
+        高德地图 / 大众点评 / 美团 / 上海地铁官方APP，出行餐饮一站搞定
+      </div>
+      <div class="tip-item">
+        <strong>🚕 打车参考</strong>
+        三大景点间打车¥15-25，节假日建议地铁出行，打车需等待较久
+      </div>
+      <div class="tip-item">
+        <strong>🔒 安全提示</strong>
+        热门景点人多，注意看管手机和钱包，外滩夜晚观景台需注意人身安全
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ===== 推荐行程 ===== -->
+<section id="itinerary" class="section">
+  <div class="section-header">
+    <div class="section-label">ITINERARY</div>
+    <h2 class="section-title">推荐<span>一日行程</span></h2>
+  </div>
+
+  <div class="day-plan">
+    <div class="day-header" style="background:linear-gradient(135deg,rgba(192,57,43,0.3),rgba(15,52,96,0.3))">
+      <div class="day-num" style="background:linear-gradient(135deg,#c0392b,#e74c3c);">1</div>
+      <div>
+        <div class="day-title">上午场 · 豫园老城厢</div>
+        <div class="day-sub">感受历史文化底蕴</div>
+      </div>
+    </div>
+    <div class="day-items">
+      <div class="day-item">
+        <div class="day-time">09:00</div>
+        <div class="day-content"><strong>开园即入豫园</strong>，人少风景美，重点游览大假山、玉玲珑、荷花池</div>
+      </div>
+      <div class="day-item">
+        <div class="day-time">10:30</div>
+        <div class="day-content"><strong>城隍庙逛街</strong>，尝排骨年糕、蟹壳黄、梨膏糖等传统小吃</div>
+      </div>
+      <div class="day-item">
+        <div class="day-time">11:30</div>
+        <div class="day-content"><strong>南翔馒头店午餐</strong>，排队吃正宗小笼包，建议11:30前到避开高峰</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="day-plan">
+    <div class="day-header" style="background:linear-gradient(135deg,rgba(52,152,219,0.3),rgba(15,52,96,0.3))">
+      <div class="day-num" style="background:linear-gradient(135deg,#2980b9,#3498db);">2</div>
+      <div>
+        <div class="day-title">下午场 · 陆家嘴东方明珠</div>
+        <div class="day-sub">俯瞰魔都震撼全景</div>
+      </div>
+    </div>
+    <div class="day-items">
+      <div class="day-item">
+        <div class="day-time">13:30</div>
+        <div class="day-content">乘地铁至<strong>陆家嘴站</strong>，顺路探索金融区天际线</div>
+      </div>
+      <div class="day-item">
+        <div class="day-time">14:00</div>
+        <div class="day-content"><strong>登东方明珠</strong>观光台，俯瞰上海全景。先游底层历史陈列馆，再上球</div>
+      </div>
+      <div class="day-item">
+        <div class="day-time">16:00</div>
+        <div class="day-content">从东方明珠乘<strong>轮渡（¥2）</strong>穿越黄浦江，欣赏江景至外滩码头</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="day-plan">
+    <div class="day-header" style="background:linear-gradient(135deg,rgba(243,156,18,0.3),rgba(15,52,96,0.3))">
+      <div class="day-num" style="background:linear-gradient(135deg,#f39c12,#e67e22);">3</div>
+      <div>
+        <div class="day-title">傍晚 · 外滩黄金夜景</div>
+        <div class="day-sub">魔都最美的时刻</div>
+      </div>
+    </div>
+    <div class="day-items">
+      <div class="day-item">
+        <div class="day-time">17:00</div>
+        <div class="day-content">抵达外滩，<strong>占据黄金观景位</strong>，等待日落黄昏与夜灯同框绝景</div>
+      </div>
+      <div class="day-item">
+        <div class="day-time">18:30</div>
+        <div class="day-content"><strong>夜游外滩</strong>，欣赏万国建筑群夜灯 + 浦东摩天大楼灯光秀</div>
+      </div>
+      <div class="day-item">
+        <div class="day-time">20:00</div>
+        <div class="day-content">前往<strong>南京路步行街</strong>购物闲逛，或在附近觅食宵夜收尾完美一天</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <strong>✦ SHANGHAI ✦</strong>
+  魔都 · 不夜城 · 东方巴黎<br><br>
+  本攻略内容仅供参考，景点营业时间及门票价格以实际为准<br>
+  祝您旅途愉快 🎉
+</footer>
+
+<script>
+  // 导航激活状态
+  const navItems = document.querySelectorAll('.nav-item');
+  const sections = ['spots','food','transit','itinerary'].map(id => document.getElementById(id));
+
+  window.addEventListener('scroll', () => {
+    const scrollY = window.scrollY + 80;
+    sections.forEach((section, i) => {
+      if (section && scrollY >= section.offsetTop) {
+        navItems.forEach(n => n.classList.remove('active'));
+        navItems[i] && navItems[i].classList.add('active');
+      }
+    });
+  });
+
+  // 导航平滑滚动
+  navItems.forEach(item => {
+    item.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(item.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+</script>
+
+</body>
+</html>

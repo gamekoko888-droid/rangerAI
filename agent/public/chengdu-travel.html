@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>成都旅游攻略 · 探索天府之国</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --red: #c0392b;
+      --gold: #d4a017;
+      --dark: #1a1208;
+      --brown: #5c3d1e;
+      --cream: #fdf6e3;
+      --text: #3d2b1f;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      max-width: 480px;
+      margin: 0 auto;
+      overflow-x: hidden;
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      position: relative;
+      height: 100vh;
+      min-height: 600px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute; inset: 0;
+      background: url('https://images.unsplash.com/photo-1548919973-5cef591cdbc9?w=900&q=80') center/cover no-repeat;
+    }
+
+    .hero-bg::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(to bottom, rgba(0,0,0,.1) 0%, rgba(20,8,2,.7) 60%, rgba(20,8,2,.95) 100%);
+    }
+
+    .hero-content {
+      position: relative; z-index: 1;
+      padding: 0 24px 48px;
+      text-align: center;
+    }
+
+    .hero-tag {
+      display: inline-block;
+      background: var(--gold);
+      color: #fff;
+      font-size: 11px;
+      letter-spacing: 3px;
+      padding: 4px 14px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+
+    .hero-title {
+      font-size: 42px;
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.1;
+      text-shadow: 0 2px 20px rgba(0,0,0,.5);
+      margin-bottom: 10px;
+    }
+
+    .hero-title span { color: var(--gold); }
+
+    .hero-subtitle {
+      font-size: 15px;
+      color: rgba(255,255,255,.8);
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+
+    .hero-stats {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+    }
+
+    .stat-item { text-align: center; }
+    .stat-num { font-size: 24px; font-weight: 800; color: var(--gold); }
+    .stat-label { font-size: 11px; color: rgba(255,255,255,.7); margin-top: 2px; }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 18px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 1;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      color: rgba(255,255,255,.5);
+      font-size: 10px; letter-spacing: 1px;
+      animation: bounce 2s infinite;
+    }
+
+    .scroll-hint::before {
+      content: '';
+      width: 20px; height: 30px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-radius: 10px;
+    }
+
+    .scroll-hint::after {
+      content: '';
+      width: 4px; height: 6px;
+      background: rgba(255,255,255,.6);
+      border-radius: 2px;
+      position: absolute;
+      top: 8px;
+      animation: scrollDot 2s infinite;
+    }
+
+    @keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-6px)} }
+    @keyframes scrollDot { 0%{opacity:1;top:8px} 100%{opacity:0;top:18px} }
+
+    /* ===== NAV ===== */
+    .sticky-nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(253,246,227,.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(192,57,43,.15);
+      padding: 12px 16px;
+      display: flex; gap: 8px; overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .sticky-nav::-webkit-scrollbar { display: none; }
+
+    .nav-btn {
+      flex-shrink: 0;
+      padding: 7px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--brown);
+      text-decoration: none;
+      border: 1px solid rgba(92,61,30,.2);
+      transition: all .25s;
+      white-space: nowrap;
+    }
+
+    .nav-btn:hover, .nav-btn.active {
+      background: var(--red);
+      color: #fff;
+      border-color: var(--red);
+    }
+
+    /* ===== SECTION HEADER ===== */
+    .section { padding: 36px 20px; }
+
+    .section-header {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .section-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+
+    .icon-red { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+    .icon-gold { background: linear-gradient(135deg, #f39c12, #d4a017); }
+    .icon-green { background: linear-gradient(135deg, #27ae60, #1e8449); }
+
+    .section-title { font-size: 20px; font-weight: 800; color: var(--dark); }
+    .section-subtitle { font-size: 12px; color: #888; margin-top: 2px; }
+
+    /* ===== SPOT CARD ===== */
+    .spot-card {
+      background: #fff;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(92,61,30,.1);
+      transition: transform .3s, box-shadow .3s;
+    }
+
+    .spot-card:active { transform: scale(.99); }
+
+    .spot-img {
+      width: 100%; height: 220px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .spot-body { padding: 20px; }
+
+    .spot-top {
+      display: flex; align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .spot-name { font-size: 20px; font-weight: 800; color: var(--dark); }
+    .spot-badge {
+      font-size: 11px; font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 12px;
+      white-space: nowrap;
+    }
+
+    .badge-free { background: #e8f5e9; color: #2e7d32; }
+    .badge-paid { background: #fff3e0; color: #e65100; }
+
+    .spot-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+
+    .tag {
+      font-size: 11px; padding: 3px 10px;
+      border-radius: 10px;
+      background: var(--cream);
+      color: var(--brown);
+      border: 1px solid rgba(92,61,30,.15);
+    }
+
+    .spot-desc {
+      font-size: 14px; line-height: 1.8;
+      color: #555;
+      margin-bottom: 16px;
+    }
+
+    .spot-info {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .info-item {
+      background: var(--cream);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .info-label {
+      font-size: 10px; color: #999;
+      letter-spacing: 1px; margin-bottom: 4px;
+    }
+
+    .info-value { font-size: 13px; font-weight: 600; color: var(--dark); }
+
+    .spot-highlight {
+      margin-top: 14px;
+      background: linear-gradient(135deg, #fff8e1, #fff3cd);
+      border-radius: 12px;
+      padding: 12px 14px;
+      border-left: 3px solid var(--gold);
+    }
+
+    .highlight-title { font-size: 12px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+    .highlight-list { list-style: none; }
+    .highlight-list li {
+      font-size: 13px; color: #664d00;
+      padding: 2px 0;
+    }
+    .highlight-list li::before { content: '✦ '; color: var(--gold); }
+
+    /* ===== FOOD GRID ===== */
+    .food-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    .food-card {
+      background: #fff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 3px 15px rgba(0,0,0,.07);
+      transition: transform .25s;
+    }
+
+    .food-card:active { transform: scale(.98); }
+
+    .food-img {
+      width: 100%; height: 110px;
+      object-fit: cover;
+    }
+
+    .food-body { padding: 10px 12px 12px; }
+    .food-name { font-size: 14px; font-weight: 700; color: var(--dark); margin-bottom: 4px; }
+    .food-desc { font-size: 11px; color: #888; line-height: 1.5; }
+
+    .food-spicy {
+      display: flex; gap: 2px; margin-top: 6px;
+    }
+    .chili { font-size: 12px; }
+
+    /* ===== TRANSPORT ===== */
+    .transport-section { background: var(--dark); border-radius: 24px; padding: 24px 20px; margin-bottom: 20px; }
+
+    .transport-title { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 16px; }
+
+    .transport-card {
+      background: rgba(255,255,255,.08);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255,255,255,.1);
+    }
+
+    .transport-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .transport-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--red), #922b21);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+
+    .transport-name { font-size: 15px; font-weight: 700; color: #fff; }
+    .transport-tag { font-size: 10px; color: var(--gold); background: rgba(212,160,23,.2); padding: 2px 8px; border-radius: 8px; }
+
+    .transport-list { list-style: none; }
+    .transport-list li {
+      font-size: 13px; color: rgba(255,255,255,.7);
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+      line-height: 1.6;
+    }
+    .transport-list li:last-child { border-bottom: none; }
+    .transport-list li span { color: var(--gold); font-weight: 600; }
+
+    /* ===== TIPS ===== */
+    .tips-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .tip-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 3px 15px rgba(0,0,0,.06);
+    }
+
+    .tip-icon { font-size: 28px; margin-bottom: 8px; }
+    .tip-title { font-size: 13px; font-weight: 700; color: var(--dark); margin-bottom: 4px; }
+    .tip-text { font-size: 11px; color: #888; line-height: 1.5; }
+
+    /* ===== ROUTE ===== */
+    .route-card {
+      background: linear-gradient(135deg, var(--red), #922b21);
+      border-radius: 20px;
+      padding: 20px;
+      color: #fff;
+      margin-bottom: 20px;
+    }
+
+    .route-title { font-size: 16px; font-weight: 800; margin-bottom: 16px; }
+
+    .route-steps { position: relative; }
+
+    .route-step {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .route-step:last-child { margin-bottom: 0; }
+
+    .route-step::before {
+      content: '';
+      position: absolute;
+      left: 15px; top: 32px;
+      width: 2px; height: calc(100% + 8px);
+      background: rgba(255,255,255,.3);
+    }
+
+    .route-step:last-child::before { display: none; }
+
+    .step-dot {
+      flex-shrink: 0;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.2);
+      border: 2px solid rgba(255,255,255,.5);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800;
+    }
+
+    .step-content { padding-top: 4px; }
+    .step-time { font-size: 10px; color: rgba(255,255,255,.6); margin-bottom: 2px; }
+    .step-place { font-size: 15px; font-weight: 700; }
+    .step-desc { font-size: 12px; color: rgba(255,255,255,.75); margin-top: 2px; line-height: 1.5; }
+
+    /* ===== DIVIDER ===== */
+    .divider {
+      text-align: center;
+      color: #ccc;
+      font-size: 18px;
+      letter-spacing: 8px;
+      padding: 4px 0 8px;
+    }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      background: var(--dark);
+      color: rgba(255,255,255,.5);
+      text-align: center;
+      padding: 32px 20px;
+      font-size: 12px;
+      line-height: 2;
+    }
+
+    .footer strong { color: var(--gold); font-size: 16px; display: block; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-tag">🐼 CHENGDU TRAVEL GUIDE</div>
+    <h1 class="hero-title">探索<span>成都</span><br>天府之国</h1>
+    <p class="hero-subtitle">宽窄巷子 · 锦里古街 · 武侯祠<br>一座你来了就不想离开的城市</p>
+    <div class="hero-stats">
+      <div class="stat-item">
+        <div class="stat-num">3</div>
+        <div class="stat-label">核心景点</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">8+</div>
+        <div class="stat-label">必吃美食</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">2天</div>
+        <div class="stat-label">推荐行程</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">向下滑动</div>
+</section>
+
+<!-- NAV -->
+<nav class="sticky-nav">
+  <a href="#spots" class="nav-btn">🏛 景点</a>
+  <a href="#food" class="nav-btn">🍜 美食</a>
+  <a href="#transport" class="nav-btn">🚇 交通</a>
+  <a href="#route" class="nav-btn">🗺 路线</a>
+  <a href="#tips" class="nav-btn">💡 贴士</a>
+</nav>
+
+<!-- SPOTS -->
+<section class="section" id="spots">
+  <div class="section-header">
+    <div class="section-icon icon-red">🏛</div>
+    <div>
+      <div class="section-title">三大必游景点</div>
+      <div class="section-subtitle">历史文化 · 市井烟火 · 三国遗迹</div>
+    </div>
+  </div>
+
+  <!-- 宽窄巷子 -->
+  <div class="spot-card">
+    <img class="spot-img" src="https://images.unsplash.com/photo-1598887142487-3c854d51eabb?w=900&q=80" alt="宽窄巷子" onerror="this.src='https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=900&q=80'">
+    <div class="spot-body">
+      <div class="spot-top">
+        <div class="spot-name">宽窄巷子</div>
+        <div class="spot-badge badge-free">免费开放</div>
+      </div>
+      <div class="spot-tags">
+        <span class="tag">清朝古街</span>
+        <span class="tag">四合院</span>
+        <span class="tag">网红打卡</span>
+        <span class="tag">历史文化</span>
+      </div>
+      <p class="spot-desc">成都遗存规模最大的清朝古街，由宽巷子、窄巷子、井巷子三条平行街道组成。青黛砖瓦四合院，承载着老成都的悠然与包容。宽巷子是"闲生活"，窄巷子是"慢生活"，井巷子是"新生活"，三条巷子代表三种不同的成都生活态度。</p>
+      <div class="spot-info">
+        <div class="info-item">
+          <div class="info-label">📍 地址</div>
+          <div class="info-value">青羊区长顺上街</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">⏰ 开放时间</div>
+          <div class="info-value">全天开放</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">🚇 地铁</div>
+          <div class="info-value">4号线宽窄巷子站</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">⌛ 建议游览</div>
+          <div class="info-value">1.5 - 2小时</div>
+        </div>
+      </div>
+      <div class="spot-highlight">
+        <div class="highlight-title">✨ 必玩打卡点</div>
+        <ul class="highlight-list">
+          <li>宽巷子老茶馆——喝盖碗茶，享受成都慢生活</li>
+          <li>窄巷子咖啡街——文艺小店、精酿啤酒一条街</li>
+          <li>井巷子砖墙——成都历史文化博物馆壁画</li>
+          <li>清晨7-9点人少，光线最美，最适合拍照</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 锦里 -->
+  <div class="spot-card">
+    <img class="spot-img" src="https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?w=900&q=80" alt="锦里" onerror="this.src='https://images.unsplash.com/photo-1598887142487-3c854d51eabb?w=900&q=80'">
+    <div class="spot-body">
+      <div class="spot-top">
+        <div class="spot-name">锦里古街</div>
+        <div class="spot-badge badge-free">免费开放</div>
+      </div>
+      <div class="spot-tags">
+        <span class="tag">三国文化</span>
+        <span class="tag">民俗美食</span>
+        <span class="tag">夜游必选</span>
+        <span class="tag">手工艺品</span>
+      </div>
+      <p class="spot-desc">中国历史上最早的商业街之一，早在秦汉时期便已闻名全国。以三国文化为灵魂，汇集酒吧区、特色小吃区、旅游工艺品区。古戏台、阿斗井、刘湘墓等人文景观星罗棋布，夜晚灯笼高挂，是成都最迷人的夜游去处。</p>
+      <div class="spot-info">
+        <div class="info-item">
+          <div class="info-label">📍 地址</div>
+          <div class="info-value">武侯区武侯祠大街</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">⏰ 开放时间</div>
+          <div class="info-value">09:00 - 22:30</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">🚌 公交</div>
+          <div class="info-value">1路/57路/82路</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">⌛ 建议游览</div>
+          <div class="info-value">1 - 2小时</div>
+        </div>
+      </div>
+      <div class="spot-highlight">
+        <div class="highlight-title">✨ 必玩打卡点</div>
+        <ul class="highlight-list">
+          <li>古戏台——欣赏川剧变脸表演</li>
+          <li>锦里小吃街——三大炮、冰粉、甜水面</li>
+          <li>入夜后灯笼亮起，最适合拍摄夜景大片</li>
+          <li>与武侯祠相连，两个景点可以打通游览</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 武侯祠 -->
+  <div class="spot-card">
+    <img class="spot-img" src="https://images.unsplash.com/photo-1566375638485-8e2afb7ff891?w=900&q=80" alt="武侯祠" onerror="this.src='https://images.unsplash.com/photo-1517488629431-6427e0ee1e5b?w=900&q=80'">
+    <div class="spot-body">
+      <div class="spot-top">
+        <div class="spot-name">武侯祠</div>
+        <div class="spot-badge badge-paid">门票 ¥60</div>
+      </div>
+      <div class="spot-tags">
+        <span class="tag">三国圣地</span>
+        <span class="tag">博物馆</span>
+        <span class="tag">古迹文物</span>
+        <span class="tag">历史名胜</span>
+      </div>
+      <p class="spot-desc">中国唯一的君臣合祀祠庙，享有"三国圣地"美誉。始建于西晋末年，是全国影响最大的三国遗迹博物馆。红墙翠柏，刘备殿、诸葛亮殿庄严肃穆，惠陵内长眠着蜀汉皇帝刘备，千年古柏见证了三国兴衰。</p>
+      <div class="spot-info">
+        <div class="info-item">
+          <div class="info-label">📍 地址</div>
+          <div class="info-value">武侯区武侯祠大街231号</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">⏰ 开放时间</div>
+          <div class="info-value">08:00 - 18:00</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">🎫 门票</div>
+          <div class="info-value">¥60/人（可网购）</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">⌛ 建议游览</div>
+          <div class="info-value">2 - 3小时</div>
+        </div>
+      </div>
+      <div class="spot-highlight">
+        <div class="highlight-title">✨ 最佳游览路线</div>
+        <ul class="highlight-list">
+          <li>大门 → 汉昭烈庙 → 唐碑 → 文臣武将廊</li>
+          <li>刘备殿 → 红墙夹道 → 惠陵 → 诸葛亮殿</li>
+          <li>三义庙 → 孔明苑 → 锦里出口</li>
+          <li>建议请专业导游讲解，文化底蕴更丰富</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider">· · ·</div>
+
+<!-- FOOD -->
+<section class="section" id="food">
+  <div class="section-header">
+    <div class="section-icon icon-gold">🍜</div>
+    <div>
+      <div class="section-title">成都必吃美食</div>
+      <div class="section-subtitle">麻辣鲜香 · 一座城市的灵魂</div>
+    </div>
+  </div>
+
+  <div class="food-grid">
+    <div class="food-card">
+      <img class="food-img" src="https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400&q=80" alt="火锅">
+      <div class="food-body">
+        <div class="food-name">🔥 成都火锅</div>
+        <div class="food-desc">麻辣鲜香，牛油锅底，九宫格必打卡</div>
+        <div class="food-spicy">
+          <span class="chili">🌶️</span><span class="chili">🌶️</span><span class="chili">🌶️</span>
+        </div>
+      </div>
+    </div>
+    <div class="food-card">
+      <img class="food-img" src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80" alt="串串香">
+      <div class="food-body">
+        <div class="food-name">🍢 串串香</div>
+        <div class="food-desc">竹签穿食材，麻辣鲜香，越吃越上瘾</div>
+        <div class="food-spicy">
+          <span class="chili">🌶️</span><span class="chili">🌶️</span>
+        </div>
+      </div>
+    </div>
+    <div class="food-card">
+      <img class="food-img" src="https://images.unsplash.com/photo-1563245372-f21724e3856d?w=400&q=80" alt="夫妻肺片">
+      <div class="food-body">
+        <div class="food-name">🥩 夫妻肺片</div>
+        <div class="food-desc">牛肉牛杂薄切，红亮麻辣，色香味俱全</div>
+        <div class="food-spicy">
+          <span class="chili">🌶️</span><span class="chili">🌶️</span>
+        </div>
+      </div>
+    </div>
+    <div class="food-card">
+      <img class="food-img" src="https://images.unsplash.com/photo-1555126634-323283e090fa?w=400&q=80" alt="龙抄手">
+      <div class="food-body">
+        <div class="food-name">🥟 龙抄手</div>
+        <div class="food-desc">皮薄馅嫩，汤底鲜美，老成都味道</div>
+        <div class="food-spicy">
+          <span class="chili">🌶️</span>
+        </div>
+      </div>
+    </div>
+    <div class="food-card">
+      <img class="food-img" src="https://images.unsplash.com/photo-1587131782738-de30ea91a542?w=400&q=80" alt="钟水饺">
+      <div class="food-body">
+        <div class="food-name">🥟 钟水饺</div>
+        <div class="food-desc">红油拌制，甜辣适口，百年老字号</div>
+        <div class="food-spicy">
+          <span class="chili">🌶️</span><span class="chili">🌶️</span>
+        </div>
+      </div>
+    </div>
+    <div class="food-card">
+      <img class="food-img" src="https://images.unsplash.com/photo-1506802913710-8b73f9d673e5?w=400&q=80" alt="冰粉">
+      <div class="food-body">
+        <div class="food-name">🧊 冰粉</div>
+        <div class="food-desc">Q弹清凉，红糖花生，锦里街头必买</div>
+        <div class="food-spicy">
+          <span style="font-size:12px;color:#888">无辣</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#fff;border-radius:16px;padding:16px;margin-top:16px;box-shadow:0 3px 15px rgba(0,0,0,.06);">
+    <div style="font-weight:800;color:var(--dark);margin-bottom:10px;font-size:15px;">🗺 美食地图 · 推荐区域</div>
+    <div style="font-size:13px;color:#555;line-height:2;">
+      <b>锦里区域：</b>三大炮、冰粉、甜水面、叶儿粑<br>
+      <b>宽窄巷子：</b>盖碗茶、糖油果子、钵钵鸡<br>
+      <b>春熙路周边：</b>龙抄手总店、钟水饺总店<br>
+      <b>建议晚餐：</b>九眼桥附近的火锅/串串最地道
+    </div>
+  </div>
+</section>
+
+<div class="divider">· · ·</div>
+
+<!-- TRANSPORT -->
+<section class="section" id="transport">
+  <div class="section-header">
+    <div class="section-icon icon-green">🚇</div>
+    <div>
+      <div class="section-title">交通指南</div>
+      <div class="section-subtitle">进出城 · 景点直达 · 省时省钱</div>
+    </div>
+  </div>
+
+  <div class="transport-section">
+    <div class="transport-title">🛬 抵达成都</div>
+
+    <div class="transport-card">
+      <div class="transport-header">
+        <div class="transport-icon">✈️</div>
+        <div>
+          <div class="transport-name">飞机入境</div>
+          <div class="transport-tag">双流/天府两大机场</div>
+        </div>
+      </div>
+      <ul class="transport-list">
+        <li><span>双流机场</span> → 离市区更近，乘地铁10号线转3号线到春熙路</li>
+        <li><span>天府机场</span> → 乘地铁18号线转1号转2号线，全程约60分钟</li>
+        <li>机场公交专线1号线可直达春熙路，约50分钟</li>
+      </ul>
+    </div>
+
+    <div class="transport-card">
+      <div class="transport-header">
+        <div class="transport-icon">🚄</div>
+        <div>
+          <div class="transport-name">高铁/火车</div>
+          <div class="transport-tag">优先选成都东站</div>
+        </div>
+      </div>
+      <ul class="transport-list">
+        <li><span>成都东站</span> → 最近市区，2号线直达春熙路</li>
+        <li><span>成都南站</span> → 地铁1号转2号线</li>
+        <li><span>成都西站</span> → 4号线直达市区</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="transport-section">
+    <div class="transport-title">🗺 景点间交通</div>
+
+    <div class="transport-card">
+      <div class="transport-header">
+        <div class="transport-icon">🚇</div>
+        <div>
+          <div class="transport-name">地铁出行</div>
+          <div class="transport-tag">最推荐 · 票价2元起</div>
+        </div>
+      </div>
+      <ul class="transport-list">
+        <li><span>宽窄巷子</span> → 地铁4号线【宽窄巷子站】出站即到</li>
+        <li><span>武侯祠/锦里</span> → 地铁3号线【武侯大道站】步行10分钟</li>
+        <li>手机领取成都电子地铁卡，无需排队买票</li>
+        <li>宽窄巷子 → 武侯祠：地铁约25分钟</li>
+      </ul>
+    </div>
+
+    <div class="transport-card">
+      <div class="transport-header">
+        <div class="transport-icon">🚌</div>
+        <div>
+          <div class="transport-name">公交 & 打车</div>
+          <div class="transport-tag">灵活出行</div>
+        </div>
+      </div>
+      <ul class="transport-list">
+        <li>武侯祠：<span>1路、57路、82路、301路、334路</span></li>
+        <li>宽窄巷子：<span>42路、47路</span> 公交可达</li>
+        <li>滴滴打车：三大景点间每程约15-25元</li>
+        <li>景区间步行：武侯祠↔锦里 <span>相连直通，无需乘车</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="divider">· · ·</div>
+
+<!-- ROUTE -->
+<section class="section" id="route">
+  <div class="section-header">
+    <div class="section-icon icon-red">🗺</div>
+    <div>
+      <div class="section-title">推荐游览路线</div>
+      <div class="section-subtitle">一天轻松玩转三大景点</div>
+    </div>
+  </div>
+
+  <div class="route-card">
+    <div class="route-title">☀️ 经典一日游路线</div>
+    <div class="route-steps">
+      <div class="route-step">
+        <div class="step-dot">1</div>
+        <div class="step-content">
+          <div class="step-time">08:00 - 10:00</div>
+          <div class="step-place">宽窄巷子（晨游）</div>
+          <div class="step-desc">清晨人少光线好，喝杯盖碗茶，吃份糖油果子</div>
+        </div>
+      </div>
+      <div class="route-step">
+        <div class="step-dot">2</div>
+        <div class="step-content">
+          <div class="step-time">10:30 - 12:30</div>
+          <div class="step-place">武侯祠（正式参观）</div>
+          <div class="step-desc">提前购票，跟随导游讲解三国历史文化</div>
+        </div>
+      </div>
+      <div class="route-step">
+        <div class="step-dot">3</div>
+        <div class="step-content">
+          <div class="step-time">12:30 - 14:00</div>
+          <div class="step-place">锦里午餐（就在武侯祠旁）</div>
+          <div class="step-desc">品尝三大炮、冰粉、钵钵鸡、甜水面</div>
+        </div>
+      </div>
+      <div class="route-step">
+        <div class="step-dot">4</div>
+        <div class="step-content">
+          <div class="step-time">14:00 - 16:00</div>
+          <div class="step-place">锦里深度游</div>
+          <div class="step-desc">逛手工艺品店，观看川剧表演，买特产</div>
+        </div>
+      </div>
+      <div class="route-step">
+        <div class="step-dot">5</div>
+        <div class="step-content">
+          <div class="step-time">19:00 - 21:00</div>
+          <div class="step-place">锦里夜游（强烈推荐）</div>
+          <div class="step-desc">灯笼亮起，拍摄夜景，体验最美成都夜晚</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 3px 15px rgba(0,0,0,.06);">
+    <div style="font-weight:800;color:var(--dark);margin-bottom:10px;font-size:15px;">💡 小贴士</div>
+    <div style="font-size:13px;color:#555;line-height:2.2;">
+      武侯祠与锦里<b>相连</b>，游完直接通行，无需单独规划<br>
+      宽窄巷子距武侯祠约<b>4公里</b>，地铁约20分钟<br>
+      建议中午选锦里附近就餐，<b>可节省1小时</b>通勤时间
+    </div>
+  </div>
+</section>
+
+<div class="divider">· · ·</div>
+
+<!-- TIPS -->
+<section class="section" id="tips">
+  <div class="section-header">
+    <div class="section-icon icon-gold">💡</div>
+    <div>
+      <div class="section-title">旅行贴士</div>
+      <div class="section-subtitle">出发前必看，避坑指南</div>
+    </div>
+  </div>
+
+  <div class="tips-grid">
+    <div class="tip-card">
+      <div class="tip-icon">🎫</div>
+      <div class="tip-title">提前购票</div>
+      <div class="tip-text">武侯祠可网上购票，节假日须提前预约，避免排长队</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">👟</div>
+      <div class="tip-title">穿舒适鞋</div>
+      <div class="tip-text">三个景点步行量大，穿运动鞋或平底鞋，不要穿高跟鞋</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">🌦️</div>
+      <div class="tip-title">成都天气</div>
+      <div class="tip-text">四季潮湿多云，春秋最佳旅游季，携带雨伞防备阵雨</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">🤳</div>
+      <div class="tip-title">拍照时机</div>
+      <div class="tip-text">宽窄巷子清晨最美，锦里夜晚最美，避开周末午后人潮</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">🌶️</div>
+      <div class="tip-title">辣度选择</div>
+      <div class="tip-text">不吃辣可选微辣或不辣，大多数餐厅可以调节辣度</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">💰</div>
+      <div class="tip-title">花费预估</div>
+      <div class="tip-text">一日游预算约300-500元，含门票、三餐、交通及购物</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <strong>🐼 成都旅游攻略</strong>
+  宽窄巷子 · 锦里 · 武侯祠<br>
+  来了成都，就不想离开<br><br>
+  <span style="font-size:10px;color:rgba(255,255,255,.3);">信息仅供参考，具体以官方公布为准</span>
+</footer>
+
+<script>
+  // 平滑高亮导航
+  const sections = document.querySelectorAll('section[id]');
+  const navBtns = document.querySelectorAll('.nav-btn');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navBtns.forEach(b => b.classList.remove('active'));
+        const active = document.querySelector(`.nav-btn[href="#${e.target.id}"]`);
+        if (active) {
+          active.classList.add('active');
+          active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+      }
+    });
+  }, { threshold: 0.4 });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

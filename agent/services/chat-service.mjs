@@ -1,0 +1,851 @@
+/**
+ * RangerAI Chat Service — Domain: Chats, Messages, Search, Tags, Sharing
+ * 
+ * v2.0: Added ChatOrchestrator for message-sending business logic.
+ * Phase 2 of architecture decoupling: Service layer extracted from database.mjs
+ * Phase 3 continuation: Business orchestration extracted from chat-api.mjs
+ * 
+ * Two layers:
+ *   1. Pure data functions (getChats, createMessage, etc.) — stateless SQL
+ *   2. ChatOrchestrator class — stateful business logic (message sending,
+ *      knowledge injection, worker dispatch, title/suggestion generation)
+ */
+import { logger } from '../lib/logger.mjs';
+import crypto from 'crypto';
+import { query, queryOne, run, runTransaction, isMySQL } from '../db-adapter.mjs';
+import { rewriteSearchQuery, rerankCandidates } from '../modules/ai-services.mjs';
+
+// ─── Helpers ────────────────────────────────────────────────
+function generateId() { return crypto.randomUUID(); }
+function now() { return isMySQL() ? 'NOW()' : "datetime('now')"; }
+
+// ═══════════════════════════════════════════════════════════════
+// Layer 1: Pure Data Functions (unchanged from v1)
+// ═══════════════════════════════════════════════════════════════
+
+// ─── Chat CRUD ──────────────────────────────────────────────
+export async function getChats(limit = 100, offset = 0, userId = null) {
+  if (userId) {
+    return await query(`
+      SELECT c.*, (SELECT COUNT(*) FROM messages WHERE chatId = c.id) as messageCount
+      FROM chats c WHERE c.userId = ? OR c.userId IS NULL
+      ORDER BY c.updatedAt DESC LIMIT ? OFFSET ?
+    `, [userId, limit, offset]);
+  }
+  return await query(`
+    SELECT c.*, (SELECT COUNT(*) FROM messages WHERE chatId = c.id) as messageCount
+    FROM chats c ORDER BY c.updatedAt DESC LIMIT ? OFFSET ?
+  `, [limit, offset]);
+}
+
+export async function getChatById(chatId) {
+  return await queryOne(`SELECT * FROM chats WHERE id = ?`, [chatId]);
+}
+
+export async function getChatBySessionKey(sessionKey) {
+  // Normalize: strip agent prefix (e.g. "agent:main:session_xxx" → "session_xxx")
+  const normalized = sessionKey ? sessionKey.replace(/^agent:[^:]+:/, '') : sessionKey;
+  return await queryOne(`SELECT * FROM chats WHERE sessionKey = ?`, [normalized]);
+}
+
+export async function createChat({ title = '新对话', model = null, userId = null, sessionKey: providedSessionKey = null } = {}) {
+  const id = providedSessionKey
+    ? (providedSessionKey.startsWith('session_') ? providedSessionKey.slice('session_'.length) : generateId())
+    : generateId();
+  const sessionKey = providedSessionKey || `session_${id}`;
+  await run(
+    `INSERT INTO chats (id, sessionKey, title, model, userId, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ${now()}, ${now()})`,
+    [id, sessionKey, title, model, userId]
+  );
+  const nowStr = new Date().toISOString();
+  return { 
+    id, sessionKey, title, model, userId, 
+    createdAt: nowStr, 
+    updatedAt: nowStr,
+    messages: [],
+    tags: ""
+  };
+}
+
+export async function updateChatTitle(chatId, title) {
+  const result = await run(`UPDATE chats SET title = ?, updatedAt = ${now()} WHERE id = ?`, [title, chatId]);
+  return result.changes > 0;
+}
+
+export async function touchChat(chatId) {
+  await run(`UPDATE chats SET updatedAt = ${now()} WHERE id = ?`, [chatId]);
+}
+
+export async function deleteChat(chatId, userId = null) {
+  if (userId) {
+    const chat = await getChatById(chatId);
+    if (!chat || (chat.userId && chat.userId !== userId)) return false;
+  }
+  await run(`DELETE FROM messages WHERE chatId = ?`, [chatId]);
+  await run(`DELETE FROM shared_chats WHERE chatId = ?`, [chatId]);
+  const result = await run(`DELETE FROM chats WHERE id = ?`, [chatId]);
+  return result.changes > 0;
+}
+
+export async function deleteChats(chatIds, userId = null) {
+  if (!chatIds || chatIds.length === 0) return 0;
+  // SEC-2: Limit array size to prevent SQL injection via oversized IN clause
+  if (chatIds.length > 100) {
+    throw new Error('Cannot delete more than 100 chats at once');
+  }
+  const placeholders = chatIds.map(() => "?").join(",");
+  if (userId) {
+    return await runTransaction(async (tx) => {
+      await tx.run(
+        `DELETE FROM messages WHERE chatId IN (SELECT id FROM chats WHERE id IN (${placeholders}) AND userId = ?)`,
+        [...chatIds, userId]
+      );
+      // P0-2: Also delete shared_chats to maintain referential integrity
+      await tx.run(
+        `DELETE FROM shared_chats WHERE chatId IN (SELECT id FROM chats WHERE id IN (${placeholders}) AND userId = ?)`,
+        [...chatIds, userId]
+      );
+      const result = await tx.run(
+        `DELETE FROM chats WHERE id IN (${placeholders}) AND userId = ?`,
+        [...chatIds, userId]
+      );
+      return result.changes;
+    });
+  } else {
+    return await runTransaction(async (tx) => {
+      await tx.run(`DELETE FROM messages WHERE chatId IN (${placeholders})`, chatIds);
+      // P0-2: Also delete shared_chats to maintain referential integrity
+      await tx.run(`DELETE FROM shared_chats WHERE chatId IN (${placeholders})`, chatIds);
+      const result = await tx.run(`DELETE FROM chats WHERE id IN (${placeholders})`, chatIds);
+      return result.changes;
+    });
+  }
+}
+
+// ─── Messages CRUD ──────────────────────────────────────────
+export async function getMessages(chatId, limit = 500, offset = 0) {
+  return await query(
+    `SELECT id, chatId, role, content, model, tokens, msgId, metadata, createdAt FROM messages WHERE chatId = ? ORDER BY id ASC LIMIT ? OFFSET ?`,
+    [chatId, limit, offset]
+  );
+}
+
+export async function createMessage({ chatId, role, content, model = null, tokens = null, msgId = null, metadata = null }) {
+  const metaStr = metadata ? (typeof metadata === 'string' ? metadata : JSON.stringify(metadata)) : null;
+  await run(
+    `INSERT INTO messages (chatId, role, content, model, tokens, msgId, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [chatId, role, content, model, tokens, msgId, metaStr]
+  );
+  await run(`UPDATE chats SET updatedAt = ${now()} WHERE id = ?`, [chatId]);
+  return { chatId, role, content, model, tokens, msgId, metadata: metaStr };
+}
+
+export async function getConversationHistory(chatId, limit = 50) {
+  // P2-2: ORDER BY id DESC LIMIT N returns newest N messages in reverse order.
+  // Wrap in subquery to return them in chronological order.
+  const rows = await query(
+    `SELECT role, content, model, msgId, metadata FROM messages WHERE chatId = ? ORDER BY id DESC LIMIT ?`,
+    [chatId, limit]
+  );
+  return rows.reverse();  // Restore chronological order
+}
+
+export async function getMessageCount(chatId) {
+  const row = await queryOne(`SELECT COUNT(*) as count FROM messages WHERE chatId = ?`, [chatId]);
+  return row ? row.count : 0;
+}
+
+export async function importSession(sessionKey, messagesArray) {
+  let chat = await getChatBySessionKey(sessionKey);
+  if (!chat) {
+    const id = generateId();
+    const title = messagesArray[0]?.content?.slice(0, 50) || '导入的对话';
+    await run(
+      `INSERT INTO chats (id, sessionKey, title, createdAt, updatedAt) VALUES (?, ?, ?, ${now()}, ${now()})`,
+      [id, sessionKey, title]
+    );
+    chat = { id, sessionKey, title };
+  }
+  let count = 0;
+  for (const msg of messagesArray) {
+    await run(
+      `INSERT INTO messages (chatId, role, content, model, tokens) VALUES (?, ?, ?, ?, ?)`,
+      [chat.id, msg.role, msg.content, msg.model || null, msg.tokens || null]
+    );
+    count++;
+  }
+  return { chatId: chat.id, imported: count };
+}
+
+export async function deleteMessagesFrom(chatId, messageId) {
+  const msg = await queryOne("SELECT id FROM messages WHERE chatId = ? AND id = ?", [chatId, messageId]);
+  if (!msg) return { deleted: 0 };
+  const result = await run("DELETE FROM messages WHERE chatId = ? AND id >= ?", [chatId, msg.id]);
+  return { deleted: result.changes };
+}
+
+export async function getMessageById(chatId, messageId) {
+  return await queryOne(
+    "SELECT id, chatId, role, content, model, tokens, msgId, metadata, createdAt FROM messages WHERE chatId = ? AND id = ?",
+    [chatId, messageId]
+  );
+}
+
+export async function getLastUserMessageBefore(chatId, messageId) {
+  return await queryOne(
+    "SELECT id, chatId, role, content, model, tokens, msgId, metadata, createdAt FROM messages WHERE chatId = ? AND id < ? AND role = 'user' ORDER BY id DESC LIMIT 1",
+    [chatId, messageId]
+  );
+}
+
+// ─── Search & Tags ──────────────────────────────────────────
+export async function updateMessageMetadata(chatId, messageId, metadataUpdates) {
+  const msg = await getMessageById(chatId, messageId);
+  if (!msg) return null;
+  let existing = {};
+  try {
+    if (msg.metadata) existing = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;
+  } catch { /* ignore parse errors */ }
+  const merged = { ...existing, ...metadataUpdates };
+  const metaStr = JSON.stringify(merged);
+  await run('UPDATE messages SET metadata = ? WHERE chatId = ? AND id = ?', [metaStr, chatId, parseInt(messageId)]);
+  return merged;
+}
+
+
+export async function searchChats(queryStr, userId = null, limit = 50) {
+  const searchTerm = `%${queryStr}%`;
+  if (userId) {
+    return await query(`
+      SELECT DISTINCT c.* FROM chats c
+      LEFT JOIN messages m ON m.chatId = c.id
+      WHERE (c.userId = ? OR c.userId IS NULL)
+        AND (c.title LIKE ? OR m.content LIKE ? OR c.tags LIKE ?)
+      ORDER BY c.updatedAt DESC LIMIT ?
+    `, [userId, searchTerm, searchTerm, searchTerm, limit]);
+  }
+  return await query(`
+    SELECT DISTINCT c.* FROM chats c
+    LEFT JOIN messages m ON m.chatId = c.id
+    WHERE c.title LIKE ? OR m.content LIKE ? OR c.tags LIKE ?
+    ORDER BY c.updatedAt DESC LIMIT ?
+  `, [searchTerm, searchTerm, searchTerm, limit]);
+}
+
+export async function getAllTags(userId = null) {
+  let rows;
+  if (userId) {
+    rows = await query(`
+      SELECT tags FROM chats 
+      WHERE (userId = ? OR userId IS NULL) AND tags IS NOT NULL AND tags != '' AND tags != '[]'
+    `, [userId]);
+  } else {
+    rows = await query(`SELECT tags FROM chats WHERE tags IS NOT NULL AND tags != '' AND tags != '[]'`);
+  }
+  const tagSet = new Set();
+  for (const row of rows) {
+    try {
+      const parsed = JSON.parse(row.tags);
+      if (Array.isArray(parsed)) parsed.forEach(t => tagSet.add(t));
+    } catch(e) { logger.error("[chat-service] Tag parse error:", e.message); }
+  }
+  return [...tagSet].sort();
+}
+
+export async function updateChatTags(chatId, tags) {
+  const tagsJson = JSON.stringify(tags);
+  const result = await run(`UPDATE chats SET tags = ?, updatedAt = ${now()} WHERE id = ?`, [tagsJson, chatId]);
+  return result.changes > 0;
+}
+
+export async function getChatsByTag(tag, userId = null, limit = 100) {
+  const searchTerm = `%"${tag}"%`;
+  if (userId) {
+    return await query(`
+      SELECT * FROM chats 
+      WHERE (userId = ? OR userId IS NULL) AND tags LIKE ?
+      ORDER BY updatedAt DESC LIMIT ?
+    `, [userId, searchTerm, limit]);
+  }
+  return await query(`
+    SELECT * FROM chats WHERE tags LIKE ?
+    ORDER BY updatedAt DESC LIMIT ?
+  `, [searchTerm, limit]);
+}
+
+// ─── Shared Chats ───────────────────────────────────────────
+export async function shareChat(chatId, sharedWithUserId, sharedByUserId, permission = 'read') {
+  if (isMySQL()) {
+    return await run(
+      `INSERT INTO shared_chats (chatId, sharedWithUserId, sharedByUserId, permission) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE permission = VALUES(permission), sharedByUserId = VALUES(sharedByUserId)`,
+      [chatId, sharedWithUserId, sharedByUserId, permission]
+    );
+  }
+  return await run(
+    `INSERT OR REPLACE INTO shared_chats (chatId, sharedWithUserId, sharedByUserId, permission) VALUES (?, ?, ?, ?)`,
+    [chatId, sharedWithUserId, sharedByUserId, permission]
+  );
+}
+
+export async function unshareChat(chatId, sharedWithUserId) {
+  return await run('DELETE FROM shared_chats WHERE chatId = ? AND sharedWithUserId = ?', [chatId, sharedWithUserId]);
+}
+
+export async function getSharedWithMe(userId) {
+  return await query(`
+    SELECT sc.*, c.title, c.updatedAt, c.tags, c.model,
+           u.username as sharedByUsername, u.displayName as sharedByDisplayName
+    FROM shared_chats sc
+    JOIN chats c ON sc.chatId = c.id
+    JOIN users u ON sc.sharedByUserId = u.id
+    WHERE sc.sharedWithUserId = ?
+    ORDER BY sc.createdAt DESC
+  `, [userId]);
+}
+
+export async function getChatShares(chatId) {
+  return await query(`
+    SELECT sc.*, u.username, u.displayName
+    FROM shared_chats sc
+    JOIN users u ON sc.sharedWithUserId = u.id
+    WHERE sc.chatId = ?
+    ORDER BY sc.createdAt DESC
+  `, [chatId]);
+}
+
+export async function hasShareAccess(chatId, userId) {
+  return await queryOne('SELECT permission FROM shared_chats WHERE chatId = ? AND sharedWithUserId = ?', [chatId, userId]);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// Layer 2: ChatOrchestrator — Business Logic (extracted from chat-api.mjs)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * ChatOrchestrator handles the complex business logic of message sending,
+ * including knowledge injection, worker dispatch, title/suggestion generation.
+ * 
+ * Injected via DI — does NOT import any runtime deps directly.
+ */
+export class ChatOrchestrator {
+  /**
+   * @param {object} deps - Injected dependencies
+   * @param {object} deps.db - Database operations (ctx.db)
+   * @param {object} deps.workerManager - Worker manager instance
+   * @param {object} deps.eventBuffer - Event buffer instance
+   * @param {object} deps.taskStore - Task store service
+   * @param {object} deps.rateLimiter - Rate limiter service
+   * @param {Map}    deps.activeTasksBySession - Active tasks map
+   * @param {Map}    deps.wsClients - WebSocket clients map
+   * @param {Map}    deps.toolMetadataByMsgId - Tool metadata map
+   * @param {Function} deps.sendEvent - WebSocket event sender
+   * @param {Function} deps.expandFileAttachments - File attachment expander
+   * @param {Function} deps.generateTitle - AI title generator
+   * @param {Function} deps.generateSuggestions - AI suggestion generator
+   * @param {Function} deps.inlineFallback - Inline fallback handler
+   */
+  constructor(deps) {
+    this.db = deps.db;
+    this.workerManager = deps.workerManager;
+    this.eventBuffer = deps.eventBuffer;
+    this.taskStore = deps.taskStore;
+    this.rateLimiter = deps.rateLimiter;
+    this.activeTasksBySession = deps.activeTasksBySession;
+    this.wsClients = deps.wsClients;
+    this.toolMetadataByMsgId = deps.toolMetadataByMsgId;
+    this.sendEvent = deps.sendEvent;
+    this.expandFileAttachments = deps.expandFileAttachments;
+    this.generateTitle = deps.generateTitle;
+    this.generateSuggestions = deps.generateSuggestions;
+    this.inlineFallback = deps.inlineFallback;
+    logger.info('[ChatOrchestrator] Initialized');
+    // Periodic stale task cleaner: every 30s, clean tasks older than 3 minutes
+    this._staleCleanerInterval = setInterval(() => {
+      const now = Date.now();
+      const STALE_THRESHOLD = 30 * 1000; // 30 seconds (was 3 minutes)
+      for (const [sk, info] of this.activeTasksBySession) {
+        const age = now - info.startedAt;
+        if (age > STALE_THRESHOLD) {
+          // Check if there's actually a pending task in workerManager
+          const hasPending = this.workerManager?.pendingTasks?.has(info.msgId);
+          if (!hasPending) {
+            logger.info('[ChatOrchestrator] STALE_CLEANER: Removing orphaned activeTask ' + info.msgId + ' (age: ' + Math.round(age/1000) + 's, no pending task)');
+            if (this.eventBuffer?.completeTask) {
+              try { this.eventBuffer.completeTask(info.msgId); } catch(e) { /* v22.0 */ console.error("[chat-service] silent catch:", e?.message || e); }
+            }
+            if (this.taskStore?.completeTask) {
+              this.taskStore.completeTask(info.msgId, '').catch(() => {});
+            }
+            this.activeTasksBySession.delete(sk);
+          }
+        }
+      }
+    }, 30000);
+  }
+
+  /**
+   * Validate and parse a message-send request body.
+   * @returns {{ ok: boolean, error?: string, status?: number, content: string, attachments: Array, processedContent: string }}
+   */
+  async validateAndParse(body) {
+    if (!body.content || typeof body.content !== 'string' || body.content.length > 100000) {
+      return { ok: false, error: 'Message content is required', status: 400 };
+    }
+
+    const attachments = Array.isArray(body.attachments) ? body.attachments.filter(a =>
+      a && typeof a === 'object' && a.url && a.type
+    ).map(a => ({
+      type: a.type,
+      url: a.url,
+      name: a.name || 'unnamed',
+      mimeType: a.mimeType || 'application/octet-stream',
+      size: a.size || 0
+    })) : [];
+
+    let processedContent = body.content;
+    if (this.expandFileAttachments) {
+      try {
+        processedContent = await this.expandFileAttachments(body.content);
+      } catch (e) {
+        logger.info(`[ChatOrchestrator] File expansion error: ${e.message}`);
+      }
+    }
+
+    return { ok: true, content: body.content, attachments, processedContent };
+  }
+
+  /**
+   * Check rate limit and active task for a session.
+   * @returns {{ ok: boolean, error?: string, status?: number }}
+   */
+  checkRateAndActiveTask(sessionKey) {
+    const ts = () => new Date().toISOString();
+
+    // Rate limiting
+    if (this.rateLimiter) {
+      const msgCheck = this.rateLimiter.checkMessage(sessionKey);
+      if (!msgCheck.allowed) {
+        return { ok: false, error: '请求过于频繁，请稍后再试', status: 429 };
+      }
+      this.rateLimiter.recordMessage(sessionKey);
+    }
+
+    // Active task check (with 2-min timeout auto-cleanup)
+    const activeTask = this.activeTasksBySession.get(sessionKey);
+    if (activeTask) {
+      const taskAge = Date.now() - activeTask.startedAt;
+      const TASK_TIMEOUT = 45 * 1000; // 45 seconds (was 3 minutes)
+      if (taskAge > TASK_TIMEOUT) {
+        logger.info(`[${ts()}] [ChatOrchestrator] Auto-cleaning stale task ${activeTask.msgId} (age: ${Math.round(taskAge/1000)}s)`);
+        this.activeTasksBySession.delete(sessionKey);
+        if (this.eventBuffer?.completeTask) this.eventBuffer.completeTask(activeTask.msgId);
+        if (this.taskStore?.completeTask) this.taskStore.completeTask(activeTask.msgId, '').catch((e) => { logger.debug('[ChatOrchestrator] completeTask failed:', e.message); });
+        // P1-3: Also clean up the pending task in WorkerManager to free resources
+        if (this.workerManager?.pendingTasks?.has(activeTask.msgId)) {
+          const pendingTask = this.workerManager.pendingTasks.get(activeTask.msgId);
+          this.workerManager._clearTaskTimers?.(activeTask.msgId);
+          this.workerManager.pendingTasks.delete(activeTask.msgId);
+          if (pendingTask?.reject) pendingTask.reject(new Error('Stale task auto-cleaned'));
+          logger.info(`[${ts()}] [ChatOrchestrator] Also cleaned pending task from WorkerManager`);
+        }
+      } else {
+        return { ok: false, error: '当前对话正在处理中，请等待完成', status: 409 };
+      }
+    }
+
+    return { ok: true };
+  }
+
+  /**
+   * Build knowledge context from auto-search and manual doc IDs.
+   * @returns {{ knowledgeContext: string|null, injectedDocIds: Set }}
+   */
+  async buildKnowledgeContext(taskContent, msgId, manualDocIds = []) {
+    const ts = () => new Date().toISOString();
+    let knowledgeContext = null;
+    const injectedDocIds = new Set();
+
+    // Auto-search
+    if (taskContent && taskContent.length > 2) {
+      try {
+        let autoResults = [];
+        try {
+          const optimizedQuery = await rewriteSearchQuery(taskContent);
+          autoResults = await this.db.searchKnowledgeHybrid(optimizedQuery, null, 6);
+          // Phase 3: Reranker
+          autoResults = await rerankCandidates(optimizedQuery, autoResults);
+          
+          // Phase 4: Score-based filtering — prevent irrelevant knowledge injection
+          // After reranking, filter out low-relevance results to avoid injecting
+          // unrelated content (e.g., weekly reports into game creation requests)
+          const MIN_RERANK_SCORE = 5.0; // On 0-10 scale, 5.0 = marginally relevant
+          const MIN_VECTOR_SCORE = 0.40; // Cosine similarity threshold for vector-only results
+          autoResults = autoResults.filter(doc => {
+            // If reranker assigned a finalScore, use that (0-10 scale)
+            if (typeof doc.finalScore === 'number') {
+              if (doc.finalScore < MIN_RERANK_SCORE) {
+                logger.info(`[ChatOrchestrator] Filtered low-relevance doc: "${(doc.title || '').substring(0, 50)}" (finalScore=${doc.finalScore.toFixed(1)})`);
+                return false;
+              }
+              return true;
+            }
+            // Fallback: use vector/RRF score
+            const rawScore = doc.rrfScore || doc.score || 0;
+            if (rawScore < MIN_VECTOR_SCORE) {
+              logger.info(`[ChatOrchestrator] Filtered low-relevance doc: "${(doc.title || '').substring(0, 50)}" (score=${rawScore.toFixed(4)})`);
+              return false;
+            }
+            return true;
+          });
+          // Keep only top 3 after filtering
+          autoResults = autoResults.slice(0, 3);
+          
+          logger.info(`[ChatOrchestrator] Hybrid + Rerank + Filter (query: "${optimizedQuery}") returned ${autoResults.length} relevant results.`);
+        } catch (hybridErr) {
+          logger.info(`[ChatOrchestrator] Hybrid search failed, falling back to FTS: ${hybridErr.message}`);
+          autoResults = await this.db.searchKnowledgeFTS(taskContent, null, 3);
+        }
+        if (autoResults && autoResults.length > 0) {
+          const MAX_AUTO_CHARS = 8000;
+          let totalChars = 0;
+          const snippets = [];
+          for (const doc of autoResults) {
+            const remaining = MAX_AUTO_CHARS - totalChars;
+            if (remaining <= 0) break;
+            
+            // Phase 2: Small-to-Big Retrieval (Context Windowing)
+            // If we have a specific matched chunk, try to extract surrounding context instead of just the top of the document
+            let contentToInject = doc.content || '';
+            const matchTarget = doc.chunkText || ''; // Assuming searchKnowledgeHybrid exposes chunkText (need to ensure this)
+            
+            if (matchTarget && contentToInject.includes(matchTarget) && contentToInject.length > remaining) {
+              const idx = contentToInject.indexOf(matchTarget);
+              // Grab ~500 chars before and the rest after, up to the remaining limit
+              const startIdx = Math.max(0, idx - 500);
+              contentToInject = (startIdx > 0 ? "..." : "") + contentToInject.substring(startIdx, startIdx + remaining);
+            } else {
+              contentToInject = contentToInject.substring(0, remaining);
+            }
+            
+            const content = contentToInject;
+            snippets.push(`### ${doc.title}\n${content}`);
+            totalChars += content.length;
+            injectedDocIds.add(doc.id);
+            try {
+              await this.db.createKnowledgeReference({ messageId: msgId, knowledgeDocId: doc.id, snippet: content.substring(0, 200) });
+            } catch(refErr) { /* ignore duplicate */ }
+          }
+          if (snippets.length > 0) {
+            knowledgeContext = snippets.join('\n\n---\n\n');
+            logger.info(`[${ts()}] [ChatOrchestrator] Auto-injected ${snippets.length} knowledge docs (${totalChars} chars) for msgId=${msgId}`);
+          }
+        }
+      } catch (autoErr) {
+        logger.info(`[${ts()}] [ChatOrchestrator] Auto knowledge search error: ${autoErr.message}`);
+      }
+    }
+
+    // Manual selection
+    if (manualDocIds && manualDocIds.length > 0) {
+      try {
+        const knowledgeDocs = await this.db.getKnowledgeDocsByIds(manualDocIds);
+        const newDocs = knowledgeDocs.filter(d => !injectedDocIds.has(d.id));
+        if (newDocs.length > 0) {
+          const MAX_KNOWLEDGE_CHARS = 15000;
+          let totalChars = (knowledgeContext || '').length;
+          const snippets = [];
+          for (const doc of newDocs) {
+            const remaining = MAX_KNOWLEDGE_CHARS - totalChars;
+            if (remaining <= 0) break;
+            const content = (doc.content || '').substring(0, remaining);
+            snippets.push(`### ${doc.title}\n${content}`);
+            totalChars += content.length;
+            try {
+              await this.db.createKnowledgeReference({ messageId: msgId, knowledgeDocId: doc.id, snippet: content.substring(0, 200) });
+            } catch(refErr) { /* ignore duplicate */ }
+          }
+          const manualContext = snippets.join('\n\n---\n\n');
+          knowledgeContext = knowledgeContext
+            ? knowledgeContext + '\n\n---\n\n' + manualContext
+            : manualContext;
+          if (totalChars >= MAX_KNOWLEDGE_CHARS) {
+            knowledgeContext += '\n...[内容已截断]';
+          }
+          logger.info(`[${ts()}] [ChatOrchestrator] Manual-injected ${newDocs.length} knowledge docs for msgId=${msgId}`);
+        }
+      } catch (kErr) {
+        logger.info(`[${ts()}] [ChatOrchestrator] Knowledge injection error: ${kErr.message}`);
+      }
+    }
+
+    return { knowledgeContext, injectedDocIds };
+  }
+
+  /**
+   * Execute the full message-sending pipeline (async, non-blocking).
+   * Called after HTTP 202 response is sent.
+   * 
+   * @param {object} params
+   * @param {string} params.chatId
+   * @param {string} params.msgId
+   * @param {object} params.chat - Chat record from DB
+   * @param {string} params.processedContent - Content after file expansion
+   * @param {string} params.rawContent - Original user content
+   * @param {Array}  params.history - Conversation history
+   * @param {Array}  params.attachments - Parsed attachments
+   * @param {object} params.body - Original request body (for metadata, roleId, knowledgeDocIds)
+   */
+  async executeMessagePipeline({ chatId, msgId, chat, processedContent, rawContent, history, attachments, body, traceId, userId, userRole = 'member' }) {
+    // R33-FIX: Defensive fallback — ensure processedContent is never undefined
+    if (!processedContent && rawContent) {
+      logger.warn(`[${new Date().toISOString()}] [ChatOrchestrator] processedContent was undefined, falling back to rawContent`);
+      processedContent = rawContent;
+    }
+    const ts = () => new Date().toISOString();
+    
+    // Iter-60: Set logger context for the async worker task
+    if (logger && logger.setContext) {
+      logger.setContext({ traceId, msgId });
+    }
+
+    const ws = this.wsClients.get(chatId);
+    logger.info(`[${ts()}] [CO-DEBUG] executeMessagePipeline: chatId=${chatId}, msgId=${msgId}, ws=${ws ? "exists" : "NULL"}, wsReadyState=${ws?.readyState}, wsClientsSize=${this.wsClients.size}`);
+    let reply = null;
+    let resolvedModel = null; // [P0-2-FIX] hoisted outside try block to avoid ReferenceError
+    let taskHeartbeat = null;
+    const MAX_TASK_DURATION = 600000;
+
+    try {
+      // Heartbeat for WS clients
+      if (ws && ws.readyState === 1) {
+        taskHeartbeat = setInterval(() => {
+          if (ws.readyState === 1) {
+            this.sendEvent(ws, { type: 'progress', taskId: msgId, phase: 'processing', timestamp: Date.now() });
+          }
+        }, 10000);
+      }
+
+      const processingGuardTimer = setTimeout(() => {
+        logger.info(`[${ts()}] [ChatOrchestrator] SAFETY: Task ${msgId} stuck for 5min, force cleanup`);
+        // P0-4: Actually clean up the stuck task instead of just logging
+        try {
+          if (this.activeTasksBySession.has(chat.sessionKey)) {
+            this.activeTasksBySession.delete(chat.sessionKey);
+            logger.info(`[${ts()}] [ChatOrchestrator] SAFETY: Cleared activeTask for session ${chat.sessionKey}`);
+          }
+          if (this.eventBuffer?.completeTask) this.eventBuffer.completeTask(msgId);
+          if (this.taskStore?.completeTask) this.taskStore.completeTask(msgId, '').catch(() => {});
+          if (this.rateLimiter?.completeTask) this.rateLimiter.completeTask(chat.sessionKey);
+          if (ws && ws.readyState === 1) {
+            this.sendEvent(ws, { type: 'error', message: '任务处理超时，请重新发送消息' });
+            this.sendEvent(ws, { type: 'status', status: 'idle' });
+          }
+        } catch (guardErr) {
+          logger.info(`[${ts()}] [ChatOrchestrator] SAFETY cleanup error: ${guardErr.message}`);
+        }
+      }, 5 * 60 * 1000); // 5 min safety timer (was MAX_TASK_DURATION + 120s)
+
+      // Handle forceAgent metadata
+      const forceAgent = body.metadata?.forceAgent === true;
+      const forceHint = forceAgent ? (body.metadata?.hint || '') : '';
+      const taskContent = forceAgent && forceHint
+        ? `[SYSTEM: ${forceHint}]\n\n${processedContent}`
+        : processedContent;
+
+      try {
+        // Resolve AI role system prompt
+        let roleSystemPrompt = null;
+        if (body.roleId && body.roleId !== 'default') {
+          try {
+            const role = await this.db.getRoleById(body.roleId);
+            if (role) {
+              roleSystemPrompt = role.system_prompt;
+              logger.info(`[${ts()}] [ChatOrchestrator] Using AI role: ${role.name} (${body.roleId})`);
+            }
+          } catch (e) {
+            logger.info(`[${ts()}] [ChatOrchestrator] Failed to get role: ${e.message}`);
+          }
+        }
+
+        // Knowledge context injection
+        const { knowledgeContext } = await this.buildKnowledgeContext(
+          taskContent, msgId, body.knowledgeDocIds
+        );
+
+        // Build effective task content with knowledge context instruction
+        let effectiveTaskContent = taskContent;
+        if (knowledgeContext) {
+          // Use [KNOWLEDGE_CONTEXT] tags that worker's segmentLongMessage() can parse.
+          // The worker will extract knowledge content and inject it via chat.inject
+          // as separate context segments, keeping only the user question in chat.send.
+          const knowledgeInstruction = [
+            `[KNOWLEDGE_CONTEXT]`,
+            knowledgeContext,
+            `[/KNOWLEDGE_CONTEXT]`,
+            taskContent
+          ].join('\n');
+          effectiveTaskContent = knowledgeInstruction;
+        }
+
+        logger.info(`[${ts()}] [orchestrator] Sending to worker: attachments=${JSON.stringify(attachments || null)}`);
+      logger.info(`[${ts()}] [CO-DEBUG] About to call sendTask for msgId=${msgId}`);
+      const taskResult = await this.workerManager.sendTask(
+          msgId, chat.sessionKey, effectiveTaskContent, history, ws,
+          body.model || undefined,
+          attachments.length > 0 ? attachments : undefined,
+          roleSystemPrompt,
+          traceId, // Iter-60: propagate traceId
+          chatId,  // v10.0: pass chatId for event routing
+          userId,  // F9: propagate userId for trace
+          userRole // security: propagate userRole for access control
+        );
+      // [P0-2-FIX] sendTask now returns { reply, model }; extract both
+      reply = taskResult?.reply ?? taskResult ?? null;
+      resolvedModel = taskResult?.model || null;
+      } catch (workerErr) {
+        logger.info(`[${ts()}] [ChatOrchestrator] Worker failed for ${msgId}: ${workerErr.message}`);
+        if (ws && ws.readyState === 1) {
+          this.sendEvent(ws, { type: 'recovery_status', phase: 'fallback', message: '系统遇到问题，正在切换到备用模式...' });
+        }
+        if (this.inlineFallback) {
+          reply = await this.inlineFallback(processedContent, history, ws, this.sendEvent);
+        }
+      }
+
+      clearTimeout(processingGuardTimer);
+      logger.info(`[${ts()}] [CO-DEBUG] sendTask returned for msgId=${msgId}, reply=${reply ? "exists(" + String(reply).length + " chars)" : "NULL"}, resolvedModel=${resolvedModel || "NULL"}, taskResult_type=${typeof taskResult}, taskResult_keys=${taskResult && typeof taskResult === 'object' ? Object.keys(taskResult).join(',') : 'N/A'}`);
+
+      if (ws && ws.readyState === 1 && (reply === null || reply === undefined)) {
+        this.sendEvent(ws, { type: 'status', status: 'idle' });
+      }
+
+      // Collect tool metadata
+      let toolMetadataJson = null;
+      try {
+        logger.info(`[${ts()}] [CO-DEBUG] toolMetadataByMsgId check: exists=${!!this.toolMetadataByMsgId}, size=${this.toolMetadataByMsgId?.size}, has(msgId)=${this.toolMetadataByMsgId?.has(msgId)}, msgId=${msgId}`);
+        if (this.toolMetadataByMsgId && this.toolMetadataByMsgId.has(msgId)) {
+          const toolMeta = this.toolMetadataByMsgId.get(msgId);
+          if (toolMeta.tools.length > 0 || toolMeta.steps.length > 0) {
+            toolMetadataJson = JSON.stringify(toolMeta);
+          }
+          this.toolMetadataByMsgId.delete(msgId);
+        }
+      } catch (metaErr) {
+        logger.info(`[${ts()}] [ChatOrchestrator] Failed to serialize tool metadata: ${metaErr.message}`);
+      }
+
+      // Save assistant reply
+      // [R56-FIX] Check if ws-realtime already saved this message (dual-save dedup)
+      const wsAlreadySaved = taskResult?.dbSaved === true;
+      logger.info(`[${ts()}] [CO-DEBUG] About to save reply for msgId=${msgId}, reply=${reply !== null && reply !== undefined ? "exists" : "NULL"}, wsAlreadySaved=${wsAlreadySaved}`);
+      if (reply !== null && reply !== undefined) {
+        if (wsAlreadySaved) {
+          logger.info(`[${ts()}] [ChatOrchestrator] [R56-FIX] Skipping DB save — ws-realtime already saved msgId=${msgId}`);
+        } else {
+          // F8: Save estimated tokens with assistant message; P0-2-FIX: persist model
+          const estTokens = reply ? Math.ceil(reply.length / 2) : null;
+          await createMessage({ chatId, role: 'assistant', content: reply, msgId, tokens: estTokens, model: resolvedModel, metadata: toolMetadataJson });
+          logger.info(`[${ts()}] [ChatOrchestrator] Saved assistant reply for chat ${chatId}${toolMetadataJson ? ' (with tool metadata: ' + toolMetadataJson.length + ' bytes)' : ''}`);
+        }
+      }
+
+      // AI Title Generation (async, non-blocking)
+      const messageCount = await getMessageCount(chatId);
+      if (messageCount <= 2) {
+        this._generateTitleAsync(chatId, rawContent, reply, chat.sessionKey, ws);
+      }
+
+      // AI Follow-up Suggestions (async, non-blocking)
+      this._generateSuggestionsAsync(rawContent, reply, ws, chatId);
+
+    } catch (err) {
+      logger.info(`[${ts()}] [ChatOrchestrator] Task ${msgId} error: ${err.message}`);
+      if (ws && ws.readyState === 1) {
+        this.sendEvent(ws, { type: 'error', message: `处理出错: ${err.message}` });
+        this.sendEvent(ws, { type: 'status', status: 'idle' });
+      }
+    } finally {
+      if (taskHeartbeat) clearInterval(taskHeartbeat);
+      if (this.rateLimiter?.completeTask) this.rateLimiter.completeTask(chat.sessionKey);
+
+      const _cMsgId = this.activeTasksBySession.get(chat.sessionKey)?.msgId;
+      if (_cMsgId) {
+        this.eventBuffer.completeTask(_cMsgId);
+        this.taskStore.completeTask(_cMsgId, reply ?? '').catch((e) => { logger.debug('[ChatOrchestrator] completeTask failed:', e.message); });
+      }
+      logger.info('[ChatOrchestrator] FINALLY: Cleaning activeTask for session ' + chat.sessionKey + ' (msgId: ' + msgId + ')');
+      this.activeTasksBySession.delete(chat.sessionKey);
+      // Ensure client gets idle status even if earlier sends failed
+      try {
+        if (ws && ws.readyState === 1) {
+          this.sendEvent(ws, { type: 'status', status: 'idle' });
+        }
+      } catch (e) { /* best-effort idle notification */ }
+    }
+  }
+
+  /** @private */
+  _generateTitleAsync(chatId, userContent, reply, sessionKey, ws) {
+    (async () => {
+      try {
+        if (this.generateTitle) {
+          const title = await this.generateTitle(userContent, reply, sessionKey);
+          if (title) {
+            await updateChatTitle(chatId, title);
+            // Iter-61: Send title_update via Redis IPC (api-server -> ws-realtime)
+            // Direct WS send doesn't work because api-server and ws-realtime are separate processes
+            try {
+              const { sendCommand } = await import('../lib/redis-ipc.mjs');
+              await sendCommand({ type: 'send_ws_event', payload: { chatId, event: { type: 'title_update', chatId, title } } });
+              logger.info(`[ChatOrchestrator] title_update sent via IPC for ${chatId}`);
+            } catch (ipcErr) {
+              logger.info(`[ChatOrchestrator] title_update IPC failed: ${ipcErr.message}`);
+            }
+            logger.info(`[ChatOrchestrator] Title generated for ${chatId}: ${title}`);
+          }
+        }
+      } catch (e) {
+        logger.info(`[ChatOrchestrator] Title gen error: ${e.message}`);
+      }
+    })();
+  }
+
+  /** @private */
+  _generateSuggestionsAsync(userContent, reply, ws, chatId) {
+    // [session-isolation-fix] chatId passed explicitly to prevent concurrent request overwrite
+    const targetChatId = chatId; // capture at call time, not shared instance var
+    (async () => {
+      try {
+        if (this.generateSuggestions) {
+          const suggestions = await this.generateSuggestions(userContent, reply);
+          if (suggestions) {
+            // Iter-61: Send suggestions via Redis IPC
+            try {
+              const { sendCommand } = await import('../lib/redis-ipc.mjs');
+              if (targetChatId) {
+                await sendCommand({ type: 'send_ws_event', payload: { chatId: targetChatId, event: { type: 'suggestions', suggestions } } });
+                logger.info(`[ChatOrchestrator] suggestions sent to chat ${targetChatId}`);
+              }
+            } catch (ipcErr) {
+              logger.info('[ChatOrchestrator] suggestions IPC failed: ' + ipcErr.message);
+            }
+          }
+        }
+      } catch (e) {
+        logger.info(`[ChatOrchestrator] Suggestions gen error: ${e.message}`);
+      }
+    })();
+  }
+
+  /**
+   * Cleanup resources (timers) held by this orchestrator.
+   * Call during graceful shutdown.
+   */
+  destroy() {
+    if (this._staleCleanerInterval) {
+      clearInterval(this._staleCleanerInterval);
+      this._staleCleanerInterval = null;
+    }
+  }
+}

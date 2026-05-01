@@ -1,0 +1,37 @@
+node_modules/
+sessions/
+files/
+uploads/
+*.log
+.env
+secrets.json
+agent-secrets.env
+
+# Iter-61: Comprehensive ignore rules
+*.bak
+*.bak-*
+.safe-backups/
+.archive-bak/
+.archive-bak-*/
+backups/
+dist-backups/
+worker/archive/
+*.db-journal
+*.db-wal
+*.db-shm
+rangerai.db
+db/
+__tests__/coverage/
+.nyc_output/
+tmp/
+.DS_Store
+# v24.0: Additional runtime data exclusions
+event-buffer/
+event-buffers/
+output/
+screenshots/
+logs/
+database.sqlite
+config/browser-cookies.json
+.env
+dist/

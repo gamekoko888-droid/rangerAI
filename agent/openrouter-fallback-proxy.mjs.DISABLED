@@ -1,0 +1,298 @@
+/**
+ * openrouter-fallback-proxy.mjs — R75-FIX
+ * 
+ * Proxy between OpenClaw Gateway and OpenRouter/DeepSeek.
+ * 
+ * Flow:
+ *   1. Try OpenRouter first (handles reasoning_content automatically)
+ *   2. If OpenRouter returns 429/503/502, retry with DeepSeek direct API
+ *   3. R75: For DeepSeek direct fallback:
+ *      - Set reasoning_content="" for ALL assistant messages (not delete, not disable thinking)
+ *      - Remove reasoning_effort from request body (conflicts with thinking:disabled)
+ *      - Keep thinking mode enabled (DeepSeek V4 Pro requires it)
+ *      - This approach was verified via direct API test (Test 4: OK)
+ */
+import http from 'http';
+import https from 'https';
+
+const LISTEN_PORT = 18792;
+const LISTEN_HOST = '127.0.0.1';
+
+// Primary: OpenRouter
+const OPENROUTER_HOST = 'openrouter.ai';
+const OPENROUTER_KEY = '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';
+
+// Fallback: DeepSeek direct API
+const DEEPSEEK_HOST = 'api.deepseek.com';
+const DEEPSEEK_KEY = 'sk-4589c30b577d4771a2f214a1ee9a5ba9';
+
+// Model mapping: OpenRouter model ID -> DeepSeek direct model ID
+const MODEL_MAP = {
+  'deepseek/deepseek-v4-pro': 'deepseek-v4-pro',
+  'deepseek/deepseek-chat': 'deepseek-chat',
+  'deepseek/deepseek-reasoner': 'deepseek-reasoner',
+  'deepseek/deepseek-v4-flash': 'deepseek-v4-flash',
+};
+
+let stats = { total: 0, openrouter: 0, deepseek_direct: 0, errors: 0 };
+
+function log(msg) {
+  console.log(`[${new Date().toISOString()}] [proxy] ${msg}`);
+}
+
+/**
+ * R75-FIX: Prepare request body for DeepSeek direct API.
+ * 
+ * The problem chain:
+ * 1. Gateway sends reasoning_effort (because model has reasoning:true)
+ * 2. Gateway includes assistant messages with reasoning_content from previous turns
+ * 3. DeepSeek API requires reasoning_content to be present when thinking mode is on
+ * 4. We CANNOT disable thinking (reasoning_effort conflicts with thinking:disabled)
+ * 5. We MUST keep thinking enabled and set reasoning_content="" for all assistant messages
+ * 
+ * Verified approach (Test 4): reasoning_content="" + thinking mode on = OK
+ */
+function prepareForDeepSeekDirect(parsed) {
+  const modified = { ...parsed };
+  
+  // Map model ID
+  if (modified.model && MODEL_MAP[modified.model]) {
+    modified.model = MODEL_MAP[modified.model];
+  }
+  
+  // Remove OpenRouter-specific fields
+  delete modified.route;
+  delete modified.provider;
+  
+  // R75: Do NOT set thinking:disabled (conflicts with reasoning_effort)
+  // Do NOT delete reasoning_effort (Gateway needs it)
+  // Instead: ensure reasoning_content="" for ALL assistant messages
+  
+  let rcFixed = 0;
+  if (modified.messages) {
+    modified.messages = modified.messages.map(msg => {
+      const cleaned = { ...msg };
+      if (cleaned.role === 'assistant') {
+        // ALWAYS set reasoning_content to empty string for assistant messages
+        // This satisfies DeepSeek's requirement regardless of whether
+        // the original had reasoning_content or not
+        if (!cleaned.reasoning_content && cleaned.reasoning_content !== '') {
+          // reasoning_content is missing, null, or undefined - set to ""
+          cleaned.reasoning_content = "";
+          rcFixed++;
+        }
+        // If reasoning_content already exists (from Gateway's history), keep it as-is
+        // DeepSeek wants the original value passed back
+        
+        // Fix empty content for assistant messages without tool_calls
+        if ((!cleaned.content || cleaned.content === '' || cleaned.content === null) && !cleaned.tool_calls) {
+          cleaned.content = '(continued)';
+        }
+      }
+      return cleaned;
+    });
+  }
+  
+  if (rcFixed > 0) {
+    log(`R75: Set reasoning_content="" for ${rcFixed} assistant messages missing it`);
+  }
+  
+  return modified;
+}
+
+function makeRequest(host, path, method, headers, body, isStreaming) {
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: host,
+      port: 443,
+      path: path,
+      method: method,
+      headers: headers,
+    }, (proxyRes) => {
+      if (isStreaming && proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
+        resolve({ statusCode: proxyRes.statusCode, headers: proxyRes.headers, stream: proxyRes });
+      } else {
+        let data = '';
+        proxyRes.on('data', chunk => data += chunk);
+        proxyRes.on('end', () => {
+          resolve({ statusCode: proxyRes.statusCode, headers: proxyRes.headers, body: data });
+        });
+      }
+    });
+    
+    req.on('error', reject);
+    req.setTimeout(120000, () => {
+      req.destroy(new Error('Request timeout'));
+    });
+    
+    req.write(body);
+    req.end();
+  });
+}
+
+const server = http.createServer(async (req, res) => {
+  if (req.method !== 'POST' || !req.url.startsWith('/v1/')) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: { message: 'Not found' } }));
+    return;
+  }
+  
+  stats.total++;
+  
+  // Read request body
+  let body = '';
+  for await (const chunk of req) body += chunk;
+  
+  // Parse to check model
+  let parsed;
+  try {
+    parsed = JSON.parse(body);
+  } catch (e) {
+    // Can't parse, just forward as-is
+  }
+  
+  const isDeepSeekModel = parsed?.model && (
+    parsed.model.includes('deepseek') || 
+    MODEL_MAP[parsed.model]
+  );
+  const isStreaming = parsed?.stream === true;
+  
+  // Forward to OpenRouter
+  const orHeaders = { ...req.headers };
+  orHeaders.host = OPENROUTER_HOST;
+  orHeaders.authorization = `Bearer ${OPENROUTER_KEY}`;
+  orHeaders['content-length'] = Buffer.byteLength(body);
+  delete orHeaders.connection;
+  
+  try {
+    const orResult = await makeRequest(
+      OPENROUTER_HOST, `/api${req.url}`, 'POST', orHeaders, body, isStreaming
+    );
+    
+    // If OpenRouter succeeded, pipe response back
+    if (orResult.statusCode >= 200 && orResult.statusCode < 300) {
+      stats.openrouter++;
+      if (orResult.stream) {
+        res.writeHead(orResult.statusCode, orResult.headers);
+        orResult.stream.pipe(res);
+      } else {
+        res.writeHead(orResult.statusCode, orResult.headers);
+        res.end(orResult.body);
+      }
+      return;
+    }
+    
+    // If OpenRouter returned 429/502/503 and it's a DeepSeek model, try direct API
+    const retryable = [429, 502, 503].includes(orResult.statusCode);
+    if (retryable && isDeepSeekModel && parsed) {
+      log(`OpenRouter returned ${orResult.statusCode} for ${parsed.model}, trying DeepSeek direct API...`);
+      
+      // Log key request fields for debugging
+      const debugFields = [];
+      if (parsed.reasoning_effort) debugFields.push(`reasoning_effort=${parsed.reasoning_effort}`);
+      if (parsed.thinking) debugFields.push(`thinking=${JSON.stringify(parsed.thinking)}`);
+      const msgCount = parsed.messages?.length || 0;
+      const assistantMsgs = parsed.messages?.filter(m => m.role === 'assistant') || [];
+      const withRC = assistantMsgs.filter(m => m.reasoning_content != null).length;
+      const withTC = assistantMsgs.filter(m => m.tool_calls?.length > 0).length;
+      debugFields.push(`msgs=${msgCount} assistant=${assistantMsgs.length} withRC=${withRC} withTC=${withTC}`);
+      log(`R75-DEBUG: ${debugFields.join(', ')}`);
+      
+      const dsBody = prepareForDeepSeekDirect(parsed);
+      const dsBodyStr = JSON.stringify(dsBody);
+      
+      const dsHeaders = {
+        'content-type': 'application/json',
+        'authorization': `Bearer ${DEEPSEEK_KEY}`,
+        'content-length': Buffer.byteLength(dsBodyStr),
+      };
+      
+      try {
+        const dsResult = await makeRequest(
+          DEEPSEEK_HOST, '/v1/chat/completions', 'POST', dsHeaders, dsBodyStr, isStreaming
+        );
+        
+        if (dsResult.statusCode >= 200 && dsResult.statusCode < 300) {
+          stats.deepseek_direct++;
+          log(`DeepSeek direct API succeeded for ${dsBody.model}`);
+          if (dsResult.stream) {
+            res.writeHead(dsResult.statusCode, dsResult.headers);
+            dsResult.stream.pipe(res);
+          } else {
+            res.writeHead(dsResult.statusCode, dsResult.headers);
+            res.end(dsResult.body);
+          }
+          return;
+        }
+        
+        // DeepSeek direct also failed
+        log(`DeepSeek direct also failed: ${dsResult.statusCode} body=${dsResult.body?.substring(0, 500)}`);
+        res.writeHead(dsResult.statusCode, dsResult.headers);
+        if (dsResult.stream) {
+          dsResult.stream.pipe(res);
+        } else {
+          res.end(dsResult.body);
+        }
+        return;
+      } catch (dsErr) {
+        log(`DeepSeek direct error: ${dsErr.message}, returning OpenRouter error`);
+      }
+    }
+    
+    // Return OpenRouter's error response
+    res.writeHead(orResult.statusCode, orResult.headers);
+    res.end(orResult.body);
+    
+  } catch (err) {
+    stats.errors++;
+    log(`Upstream error: ${err.message}`);
+    
+    // If OpenRouter failed entirely and it's a DeepSeek model, try direct
+    if (isDeepSeekModel && parsed) {
+      log(`OpenRouter connection failed, trying DeepSeek direct API...`);
+      try {
+        const dsBody = prepareForDeepSeekDirect(parsed);
+        const dsBodyStr = JSON.stringify(dsBody);
+        const dsHeaders = {
+          'content-type': 'application/json',
+          'authorization': `Bearer ${DEEPSEEK_KEY}`,
+          'content-length': Buffer.byteLength(dsBodyStr),
+        };
+        
+        const dsResult = await makeRequest(
+          DEEPSEEK_HOST, '/v1/chat/completions', 'POST', dsHeaders, dsBodyStr, isStreaming
+        );
+        
+        if (dsResult.stream) {
+          res.writeHead(dsResult.statusCode, dsResult.headers);
+          dsResult.stream.pipe(res);
+        } else {
+          res.writeHead(dsResult.statusCode, dsResult.headers);
+          res.end(dsResult.body);
+        }
+        stats.deepseek_direct++;
+        return;
+      } catch (dsErr) {
+        log(`DeepSeek direct also failed: ${dsErr.message}`);
+      }
+    }
+    
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: { message: `Proxy error: ${err.message}` } }));
+  }
+});
+
+// Stats endpoint
+setInterval(() => {
+  if (stats.total > 0) {
+    log(`Stats: total=${stats.total} openrouter=${stats.openrouter} deepseek_direct=${stats.deepseek_direct} errors=${stats.errors}`);
+  }
+}, 300000); // Every 5 minutes
+
+server.listen(LISTEN_PORT, LISTEN_HOST, () => {
+  log(`Listening on ${LISTEN_HOST}:${LISTEN_PORT}`);
+  log(`Primary: OpenRouter (${OPENROUTER_HOST})`);
+  log(`Fallback: DeepSeek Direct (${DEEPSEEK_HOST})`);
+  log(`R75: reasoning_content="" for all assistant messages (thinking stays enabled)`);
+  log(`Model map: ${JSON.stringify(MODEL_MAP)}`);
+});

@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>马来西亚高校共享洗衣机项目</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --primary: #1a5f3f;
+      --primary-light: #2d8a5e;
+      --gold: #c9a227;
+      --gold-light: #f0c94a;
+      --bg: #f5f7f5;
+      --white: #ffffff;
+      --text: #1a1a1a;
+      --text-muted: #666;
+      --card-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background: url('https://images.unsplash.com/photo-1545173168-9f1947eebb7f?w=800&q=80') center/cover no-repeat;
+    }
+
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(10, 40, 25, 0.3) 0%,
+        rgba(10, 40, 25, 0.7) 60%,
+        rgba(10, 40, 25, 0.95) 100%
+      );
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      padding: 40px 24px 50px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(201, 162, 39, 0.2);
+      border: 1px solid var(--gold);
+      color: var(--gold-light);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--gold-light);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    .hero h1 {
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--white);
+      line-height: 1.3;
+      margin-bottom: 12px;
+    }
+
+    .hero h1 span {
+      color: var(--gold-light);
+    }
+
+    .hero-sub {
+      font-size: 15px;
+      color: rgba(255,255,255,0.75);
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 16px;
+      padding: 16px 10px;
+      text-align: center;
+    }
+
+    .stat-num {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--gold-light);
+      line-height: 1;
+    }
+
+    .stat-unit {
+      font-size: 13px;
+      color: var(--gold-light);
+      font-weight: 600;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.7);
+      margin-top: 4px;
+    }
+
+    /* ===== SECTION ===== */
+    .section {
+      padding: 40px 20px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .section-icon {
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .section-title span {
+      color: var(--primary);
+    }
+
+    /* ===== UNIVERSITY BANNER ===== */
+    .uni-banner {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+      margin: 0 20px;
+    }
+
+    .uni-banner-img {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      opacity: 0.4;
+    }
+
+    .uni-banner-content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .uni-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.7);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .uni-name {
+      font-size: 20px;
+      font-weight: 800;
+      color: white;
+      line-height: 1.3;
+      margin-bottom: 12px;
+    }
+
+    .uni-info {
+      display: flex;
+      gap: 16px;
+    }
+
+    .uni-info-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.85);
+    }
+
+    /* ===== WHY SECTION ===== */
+    .why-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .why-card {
+      background: white;
+      border-radius: 16px;
+      padding: 18px 16px;
+      box-shadow: var(--card-shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .why-card.full {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      align-items: center;
+    }
+
+    .why-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .why-icon.green { background: #e8f5ee; }
+    .why-icon.blue { background: #e8f0fb; }
+    .why-icon.orange { background: #fef3e2; }
+    .why-icon.red { background: #fee8e8; }
+
+    .why-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    .why-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ===== IMAGE GALLERY ===== */
+    .gallery {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding: 4px 20px 4px;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .gallery::-webkit-scrollbar { display: none; }
+
+    .gallery-item {
+      flex-shrink: 0;
+      width: 160px;
+      height: 110px;
+      border-radius: 14px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .gallery-item img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s;
+    }
+
+    /* ===== REQUIREMENTS ===== */
+    .req-section {
+      background: white;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+    }
+
+    .req-tab-header {
+      display: flex;
+    }
+
+    .req-tab {
+      flex: 1;
+      padding: 16px 10px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: #f8faf8;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+    }
+
+    .req-tab.active {
+      color: var(--primary);
+      background: white;
+      border-bottom-color: var(--primary);
+    }
+
+    .req-content {
+      padding: 20px;
+    }
+
+    .req-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .req-item:last-child { border-bottom: none; }
+
+    .req-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+
+    .req-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    .req-highlight {
+      display: inline-block;
+      background: #e8f5ee;
+      color: var(--primary);
+      font-weight: 700;
+      padding: 1px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin: 0 2px;
+    }
+
+    /* ===== BRANDS ===== */
+    .brands-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 16px 0;
+    }
+
+    .brand-chip {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white;
+      padding: 8px 20px;
+      border-radius: 999px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 12px rgba(26,95,63,0.3);
+    }
+
+    .sirim-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #fef3e2, #fff8ee);
+      border: 1px solid #f0c94a;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-top: 12px;
+    }
+
+    .sirim-icon {
+      font-size: 28px;
+    }
+
+    .sirim-text {
+      font-size: 13px;
+      color: #8a6800;
+      line-height: 1.5;
+    }
+
+    .sirim-text strong {
+      display: block;
+      font-size: 15px;
+      color: #6a4e00;
+    }
+
+    /* ===== COOPERATION ===== */
+    .coop-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .coop-step {
+      display: flex;
+      gap: 16px;
+      position: relative;
+    }
+
+    .coop-left {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 40px;
+    }
+
+    .coop-circle {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(26,95,63,0.3);
+    }
+
+    .coop-line {
+      width: 2px;
+      flex: 1;
+      background: linear-gradient(to bottom, var(--primary-light), transparent);
+      margin: 6px 0;
+      min-height: 30px;
+    }
+
+    .coop-body {
+      flex: 1;
+      padding-bottom: 24px;
+    }
+
+    .coop-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+      padding-top: 8px;
+    }
+
+    .coop-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .coop-tag {
+      display: inline-block;
+      background: #e8f5ee;
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 6px;
+      margin-top: 6px;
+    }
+
+    /* ===== PROFIT ===== */
+    .profit-card {
+      background: linear-gradient(135deg, var(--primary) 0%, #0f3d28 100%);
+      border-radius: 20px;
+      padding: 24px 20px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .profit-card::before {
+      content: '💰';
+      position: absolute;
+      font-size: 120px;
+      opacity: 0.06;
+      right: -20px;
+      top: -20px;
+    }
+
+    .profit-title {
+      font-size: 14px;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 8px;
+    }
+
+    .profit-main {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--gold-light);
+      margin-bottom: 8px;
+    }
+
+    .profit-sub {
+      font-size: 13px;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.6;
+    }
+
+    /* ===== MAP IMAGE ===== */
+    .map-img-wrap {
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+      height: 200px;
+    }
+
+    .map-img-wrap img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+
+    .map-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(26,95,63,0.85) 0%, transparent 50%);
+      display: flex;
+      align-items: flex-end;
+      padding: 20px;
+    }
+
+    .map-text {
+      color: white;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .map-text strong {
+      display: block;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--gold-light);
+      margin-bottom: 4px;
+    }
+
+    /* ===== CTA ===== */
+    .cta-section {
+      padding: 40px 20px 60px;
+      text-align: center;
+    }
+
+    .cta-card {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      border-radius: 24px;
+      padding: 32px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-card::after {
+      content: '';
+      position: absolute;
+      width: 200px; height: 200px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 50%;
+      right: -60px; top: -60px;
+    }
+
+    .cta-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: white;
+      margin-bottom: 10px;
+    }
+
+    .cta-title span { color: var(--gold-light); }
+
+    .cta-sub {
+      font-size: 14px;
+      color: rgba(255,255,255,0.75);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .cta-btn {
+      display: inline-block;
+      background: var(--gold-light);
+      color: #5a3e00;
+      font-size: 16px;
+      font-weight: 800;
+      padding: 14px 36px;
+      border-radius: 999px;
+      text-decoration: none;
+      box-shadow: 0 6px 20px rgba(240,201,74,0.4);
+    }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      background: #111;
+      color: rgba(255,255,255,0.5);
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+    }
+
+    /* ===== DIVIDER ===== */
+    .divider {
+      height: 8px;
+      background: var(--bg);
+    }
+
+    /* Entrance animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .section { animation: fadeUp 0.5s ease both; }
+  </style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-badge">🌏 招募合作伙伴</div>
+    <h1>马来西亚高校<span>共享洗衣机</span>项目</h1>
+    <p class="hero-sub">深耕马来西亚高校市场，拥抱巨大的共享洗衣机换机潮，现开放资方合作</p>
+    <div class="hero-stats">
+      <div class="stat-card">
+        <div class="stat-num">17<span class="stat-unit">栋</span></div>
+        <div class="stat-label">宿舍楼区</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">1.7<span class="stat-unit">万</span></div>
+        <div class="stat-label">在校学生</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">N<span class="stat-unit">所</span></div>
+        <div class="stat-label">待接马来系校</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- UNIVERSITY BANNER -->
+<div class="section" style="padding-bottom: 0;">
+  <div class="section-header">
+    <div class="section-icon" style="background:#e8f5ee;">🏫</div>
+    <div class="section-title">首发试点 · <span>标杆高校</span></div>
+  </div>
+</div>
+
+<div class="uni-banner">
+  <img class="uni-banner-img" src="https://images.unsplash.com/photo-1562774053-701939374585?w=800&q=80" alt="校园">
+  <div class="uni-banner-content">
+    <div class="uni-label">PILOT UNIVERSITY</div>
+    <div class="uni-name">马来西亚国际伊斯兰大学<br>（鹅麦校区）</div>
+    <div class="uni-info">
+      <div class="uni-info-item">🏠 17个宿舍区</div>
+      <div class="uni-info-item">👥 约17,000人</div>
+    </div>
+  </div>
+</div>
+
+<!-- GALLERY -->
+<div style="padding: 20px 0 0;">
+  <div class="gallery">
+    <div class="gallery-item">
+      <img src="https://images.unsplash.com/photo-1604335399105-a0c585fd81a1?w=400&q=80" alt="现代洗衣机">
+    </div>
+    <div class="gallery-item">
+      <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" alt="洗衣房">
+    </div>
+    <div class="gallery-item">
+      <img src="https://images.unsplash.com/photo-1567721913486-6585f069b3d6?w=400&q=80" alt="洗衣机滚筒">
+    </div>
+    <div class="gallery-item">
+      <img src="https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=400&q=80" alt="大学宿舍">
+    </div>
+  </div>
+</div>
+
+<div class="divider" style="margin-top:20px;"></div>
+
+<!-- WHY CHANGE -->
+<section class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:#fef3e2;">🔄</div>
+    <div class="section-title">为何换机？<span>四大痛点</span></div>
+  </div>
+
+  <div class="why-grid">
+    <div class="why-card">
+      <div class="why-icon green">🥁</div>
+      <div>
+        <div class="why-title">设备老旧</div>
+        <div class="why-desc">均为老款机型，学校计划全面升级为现代滚筒洗衣机</div>
+      </div>
+    </div>
+    <div class="why-card">
+      <div class="why-icon blue">📱</div>
+      <div>
+        <div class="why-title">支付落后</div>
+        <div class="why-desc">现役投币式机器，需替换为电子支付模式</div>
+      </div>
+    </div>
+    <div class="why-card full">
+      <div class="why-icon orange">🏢</div>
+      <div>
+        <div class="why-title">原供应商资金问题</div>
+        <div class="why-desc">现有供应商出现资金问题，合同即将终止，采购窗口开放</div>
+      </div>
+    </div>
+    <div class="why-card full">
+      <div class="why-icon red">🔧</div>
+      <div>
+        <div class="why-title">售后维修跟不上</div>
+        <div class="why-desc">维修响应慢、备件短缺，严重影响学生日常使用体验</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- REQUIREMENTS -->
+<section class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:#e8f0fb;">📋</div>
+    <div class="section-title">学校要求 · <span>准入标准</span></div>
+  </div>
+
+  <div class="req-section">
+    <div class="req-tab-header">
+      <div class="req-tab active" onclick="switchTab(0)">🧺 机器要求</div>
+      <div class="req-tab" onclick="switchTab(1)">🤝 合作模式</div>
+    </div>
+
+    <div class="req-content" id="tab0">
+      <div class="req-item">
+        <div class="req-dot"></div>
+        <div class="req-text">必须使用<span class="req-highlight">大牌商用型号</span>，指定品牌包含 <strong>海尔、美的、奥克斯</strong> 等知名厂商</div>
+      </div>
+      <div class="req-item">
+        <div class="req-dot"></div>
+        <div class="req-text">必须通过<span class="req-highlight">马来西亚 SIRIM 认证</span></div>
+      </div>
+      <div class="req-item">
+        <div class="req-dot"></div>
+        <div class="req-text">如品牌方已完成认证，可直接<span class="req-highlight">授权使用</span>，无需重复申请</div>
+      </div>
+
+      <div class="brands-row">
+        <div class="brand-chip">海尔</div>
+        <div class="brand-chip">美的</div>
+        <div class="brand-chip">奥克斯</div>
+      </div>
+
+      <div class="sirim-badge">
+        <div class="sirim-icon">🏆</div>
+        <div class="sirim-text">
+          <strong>SIRIM 认证</strong>
+          马来西亚国家标准认证，是进入本地电器市场的强制性准入门槛
+        </div>
+      </div>
+    </div>
+
+    <div class="req-content" id="tab1" style="display:none;">
+      <div class="req-item">
+        <div class="req-dot"></div>
+        <div class="req-text">马来系大学规定，供应商必须由<span class="req-highlight">土著公司</span>对接（强制要求）</div>
+      </div>
+      <div class="req-item">
+        <div class="req-dot"></div>
+        <div class="req-text"><span class="req-highlight">我司为土著公司</span>，拥有马来西亚大学直接对接资质</div>
+      </div>
+      <div class="req-item">
+        <div class="req-dot"></div>
+        <div class="req-text">资方在马来西亚的公司可以直接与我司合作，由我司负责大学端对接</div>
+      </div>
+      <div class="req-item">
+        <div class="req-dot"></div>
+        <div class="req-text">具体<span class="req-highlight">收益分成比例</span>面议，灵活商定</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- COOPERATION FLOW -->
+<section class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:#e8f5ee;">🔗</div>
+    <div class="section-title">合作流程 · <span>简单高效</span></div>
+  </div>
+
+  <div class="coop-flow">
+    <div class="coop-step">
+      <div class="coop-left">
+        <div class="coop-circle">💼</div>
+        <div class="coop-line"></div>
+      </div>
+      <div class="coop-body">
+        <div class="coop-title">资方 / 合作伙伴接洽</div>
+        <div class="coop-desc">资方提供设备或资金，与我司签订合作协议，确定分成比例</div>
+        <div class="coop-tag">双方协商</div>
+      </div>
+    </div>
+    <div class="coop-step">
+      <div class="coop-left">
+        <div class="coop-circle">🏛️</div>
+        <div class="coop-line"></div>
+      </div>
+      <div class="coop-body">
+        <div class="coop-title">我司对接高校</div>
+        <div class="coop-desc">凭借土著公司资质，由我司正式与马来西亚各大学签约落地</div>
+        <div class="coop-tag">已有资质</div>
+      </div>
+    </div>
+    <div class="coop-step">
+      <div class="coop-left">
+        <div class="coop-circle">🧺</div>
+        <div class="coop-line"></div>
+      </div>
+      <div class="coop-body">
+        <div class="coop-title">设备进场 · 上线运营</div>
+        <div class="coop-desc">洗衣机完成 SIRIM 认证，进场安装，接入电子支付系统并运营</div>
+        <div class="coop-tag">快速落地</div>
+      </div>
+    </div>
+    <div class="coop-step">
+      <div class="coop-left">
+        <div class="coop-circle">💰</div>
+      </div>
+      <div class="coop-body">
+        <div class="coop-title">按约分成 · 持续收益</div>
+        <div class="coop-desc">按合同分成比例定期结算，随着更多高校接入持续扩大收益</div>
+        <div class="coop-tag">长期收益</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SCALE -->
+<section class="section">
+  <div class="section-header">
+    <div class="section-icon" style="background:#fef3e2;">🌍</div>
+    <div class="section-title">市场规模 · <span>持续扩张</span></div>
+  </div>
+
+  <div class="map-img-wrap" style="margin-bottom:16px;">
+    <img src="https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=800&q=80" alt="马来西亚">
+    <div class="map-overlay">
+      <div class="map-text">
+        <strong>全马来系大学换机计划</strong>
+        除伊斯兰大学外，众多马来系高校将陆续完成换机，<br>市场潜力巨大，先入者优势明显
+      </div>
+    </div>
+  </div>
+
+  <div class="profit-card">
+    <div class="profit-title">分成合作 · 共享收益</div>
+    <div class="profit-main">按比例分成，面议商定</div>
+    <div class="profit-sub">每所大学 17,000+ 用户基数<br>陆续接入多所高校，收益持续叠加<br>由我司负责运维，资方轻资产参与</div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-section">
+  <div class="cta-card">
+    <div class="cta-title">把握机遇<br><span>共同开拓马来西亚高校市场</span></div>
+    <div class="cta-sub">我们已有土著公司资质 · 直接对接高校<br>欢迎有资金或设备资源的合作方洽谈</div>
+    <a href="#" class="cta-btn">📞 立即联系洽谈</a>
+  </div>
+</div>
+
+<div class="footer">
+  <p>马来西亚高校共享洗衣机项目 · 内部招商资料</p>
+  <p style="margin-top:4px;">© 2025 All Rights Reserved</p>
+</div>
+
+<script>
+  function switchTab(idx) {
+    document.querySelectorAll('.req-tab').forEach((t, i) => {
+      t.classList.toggle('active', i === idx);
+    });
+    document.getElementById('tab0').style.display = idx === 0 ? 'block' : 'none';
+    document.getElementById('tab1').style.display = idx === 1 ? 'block' : 'none';
+  }
+
+  // Scroll entrance animation
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = '1';
+        e.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.section, .uni-banner, .gallery').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    observer.observe(el);
+  });
+</script>
+</body>
+</html>

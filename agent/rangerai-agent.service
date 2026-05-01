@@ -1,0 +1,23 @@
+[Unit]
+Description=RangerAI Agent Backend
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/rangerai-agent
+ExecStart=/usr/bin/node /opt/rangerai-agent/server.mjs
+Restart=always
+RestartSec=5
+StartLimitBurst=10
+StartLimitIntervalSec=60
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=15
+EnvironmentFile=-/opt/rangerai-agent/.env
+EnvironmentFile=-/opt/rangerai-agent/agent-secrets.env
+StandardOutput=append:/var/log/rangerai/server.log
+StandardError=append:/var/log/rangerai/server.log
+
+[Install]
+WantedBy=multi-user.target

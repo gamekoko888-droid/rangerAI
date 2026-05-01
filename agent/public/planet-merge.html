@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🌌 星球合并 - Planet Merge</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:#02020e;
+  display:flex;align-items:flex-start;justify-content:center;
+  min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  overflow-x:hidden;touch-action:none;user-select:none;-webkit-user-select:none;
+}
+#gw{position:relative;width:400px;margin:0 auto;padding:10px 0 20px;}
+#topBar{
+  background:linear-gradient(180deg,#0e0e2a 0%,#07071a 100%);
+  border:1px solid rgba(120,140,255,0.18);
+  border-bottom:none;border-radius:18px 18px 0 0;
+  padding:10px 18px;display:flex;align-items:center;justify-content:space-between;
+}
+.sbox{text-align:center;min-width:70px;}
+.slabel{font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px;}
+.snum{font-size:26px;font-weight:800;color:#fff;line-height:1;transition:transform 0.15s;}
+.snum.pop{transform:scale(1.25);}
+#nextBox{display:flex;flex-direction:column;align-items:center;gap:3px;}
+#nextLabel{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:1px;}
+#nextCanvas{border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);}
+#gameCanvas{display:block;cursor:crosshair;}
+#bottomBar{
+  background:linear-gradient(0deg,#0e0e2a 0%,#07071a 100%);
+  border:1px solid rgba(120,140,255,0.18);border-top:none;
+  border-radius:0 0 18px 18px;
+  padding:8px 12px;display:flex;gap:4px;overflow-x:auto;
+  scrollbar-width:none;justify-content:center;align-items:flex-end;
+}
+#bottomBar::-webkit-scrollbar{display:none;}
+.pchip{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;}
+.pchip canvas{display:block;}
+.pchip-name{font-size:9px;color:rgba(255,255,255,0.35);white-space:nowrap;}
+#overlay{
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  background:rgba(2,2,16,0.93);backdrop-filter:blur(14px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:200;border-radius:18px;padding:28px 24px;
+}
+#overlay.hidden{display:none;}
+.oemoji{font-size:54px;margin-bottom:10px;}
+.otitle{font-size:34px;font-weight:900;color:#fff;margin-bottom:6px;letter-spacing:-0.5px;}
+.osub{font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:22px;text-align:center;line-height:1.7;}
+.oscore{font-size:56px;font-weight:900;color:#ffaa00;text-shadow:0 0 30px rgba(255,170,0,0.7);margin-bottom:4px;line-height:1;}
+.obest{font-size:13px;color:rgba(255,255,255,0.35);margin-bottom:26px;}
+.pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:22px;width:100%;}
+.pgi{display:flex;flex-direction:column;align-items:center;gap:4px;background:rgba(255,255,255,0.04);border-radius:10px;padding:10px 4px;}
+.pgidot{border-radius:50%;}
+.pginame{font-size:10px;color:rgba(255,255,255,0.55);}
+.pgiscore{font-size:10px;color:rgba(255,210,0,0.65);}
+.pbtn{
+  background:linear-gradient(135deg,#5c7cfa 0%,#9b59b6 100%);
+  color:#fff;border:none;padding:13px 44px;font-size:17px;font-weight:800;
+  border-radius:50px;cursor:pointer;box-shadow:0 8px 28px rgba(92,124,250,0.45);
+  transition:all 0.2s;letter-spacing:0.5px;
+}
+.pbtn:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(92,124,250,0.65);}
+.pbtn:active{transform:translateY(0);}
+#floatLayer{position:absolute;top:0;left:0;pointer-events:none;z-index:150;}
+</style>
+</head>
+<body>
+<div id="gw">
+  <div id="topBar">
+    <div class="sbox">
+      <div class="slabel">分数</div>
+      <div class="snum" id="scoreEl">0</div>
+    </div>
+    <div id="nextBox">
+      <div id="nextLabel" class="slabel">NEXT</div>
+      <canvas id="nextCanvas" width="58" height="58"></canvas>
+    </div>
+    <div class="sbox">
+      <div class="slabel">最高分</div>
+      <div class="snum" id="bestEl">0</div>
+    </div>
+  </div>
+  <canvas id="gameCanvas" width="400" height="560"></canvas>
+  <div id="bottomBar"></div>
+  <canvas id="floatLayer" width="400" height="700" style="position:absolute;top:0;left:0;pointer-events:none;z-index:150;"></canvas>
+  <div id="overlay"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<script>
+// ===== PLANETS =====
+const P = [
+  {name:'陨石',  r:16, c:'#7a7a8e', g:'#aaaabb', sc:1},
+  {name:'月球',  r:22, c:'#aaaabc', g:'#d8d8ee', sc:3},
+  {name:'火星',  r:30, c:'#bf3e1e', g:'#ff5533', sc:6},
+  {name:'地球',  r:40, c:'#1a6baf', g:'#44aaff', sc:10},
+  {name:'海王星',r:52, c:'#2244cc', g:'#4466ff', sc:16},
+  {name:'土星',  r:66, c:'#c5a03a', g:'#ffdd66', sc:24},
+  {name:'木星',  r:84, c:'#bf7228', g:'#ffaa44', sc:34},
+  {name:'太阳',  r:104,c:'#dd7700', g:'#ffee22', sc:50},
+];
+const MAX_DROP = 4; // only levels 0-4 are droppable
+const W=400,H=560,WALL=14,DROP_Y=65,DANGER_Y=115;
+
+// ===== MATTER.JS =====
+const {Engine,World,Bodies,Body,Events}=Matter;
+let engine,world;
+let planetBodies=[];
+let pendingMerge=[];
+let particles=[];
+let floatTexts=[];
+let score=0,bestScore=+localStorage.getItem('pmBest')||0;
+let curLevel=0,nextLevel=0,cursorX=200;
+let canDrop=true,running=false,gameOverTimer=null;
+let animId=null,lastTs=0,flashPhase=0;
+let comboCount=0,comboTimer=null;
+
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+const nc=document.getElementById('nextCanvas');
+const nctx=nc.getContext('2d');
+const fl=document.getElementById('floatLayer');
+const flctx=fl.getContext('2d');
+
+// Stars
+const stars=Array.from({length:130},()=>({
+  x:Math.random()*W, y:Math.random()*H,
+  r:Math.random()*1.5+0.3,
+  a:Math.random(), da:(Math.random()-0.5)*0.008
+}));
+
+// Audio
+const AudioCtx=window.AudioContext||window.webkitAudioContext;
+let ac;
+function getAC(){if(!ac)try{ac=new AudioCtx();}catch(e){}return ac;}
+function beep(freq,dur,type='sine',vol=0.15){
+  const a=getAC();if(!a)return;
+  const o=a.createOscillator(),g=a.createGain();
+  o.connect(g);g.connect(a.destination);
+  o.type=type;o.frequency.value=freq;
+  g.gain.setValueAtTime(vol,a.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+dur);
+  o.start();o.stop(a.currentTime+dur);
+}
+function playMerge(level){
+  const freqs=[220,262,330,392,494,587,698,880];
+  beep(freqs[level]||880,0.25,'triangle',0.12);
+  if(level>=6)beep(freqs[level]*2,0.4,'sine',0.08);
+}
+function playDrop(){beep(180,0.08,'sine',0.06);}
+
+// ===== PHYSICS =====
+function initPhysics(){
+  engine=Engine.create({gravity:{x:0,y:2.2}});
+  world=engine.world;
+  const wallOpts={isStatic:true,friction:0.5,restitution:0.15,label:'wall'};
+  World.add(world,[
+    Bodies.rectangle(W/2,H+WALL/2,W+WALL*2,WALL,wallOpts),
+    Bodies.rectangle(-WALL/2,H/2,WALL,H*3,wallOpts),
+    Bodies.rectangle(W+WALL/2,H/2,WALL,H*3,wallOpts),
+  ]);
+  Events.on(engine,'collisionStart',onCollide);
+}
+
+function onCollide(evt){
+  for(const pair of evt.pairs){
+    const a=pair.bodyA,b=pair.bodyB;
+    if(!a.gd||!b.gd)continue;
+    if(a.gd.merging||b.gd.merging)continue;
+    if(a.gd.lv!==b.gd.lv)continue;
+    if(a.gd.lv>=P.length-1)continue;
+    a.gd.merging=true; b.gd.merging=true;
+    pendingMerge.push({a,b});
+  }
+}
+
+function addPlanet(x,y,lv,vx=0,vy=0){
+  const body=Bodies.circle(x,y,P[lv].r,{
+    restitution:0.18,friction:0.45,frictionAir:0.012,
+    density:0.0008*(lv+1),label:'planet'
+  });
+  body.gd={lv,merging:false,born:Date.now()};
+  if(vx||vy)Body.setVelocity(body,{x:vx,y:vy});
+  planetBodies.push(body);
+  World.add(world,body);
+  return body;
+}
+
+function removeBody(b){
+  World.remove(world,b);
+  const i=planetBodies.indexOf(b);
+  if(i!==-1)planetBodies.splice(i,1);
+}
+
+function processMerges(){
+  if(!pendingMerge.length)return;
+  const todo=[...pendingMerge]; pendingMerge=[];
+  for(const{a,b}of todo){
+    if(!planetBodies.includes(a)||!planetBodies.includes(b))continue;
+    const mx=(a.position.x+b.position.x)/2;
+    const my=(a.position.y+b.position.y)/2;
+    const nlv=a.gd.lv+1;
+    const avx=(a.velocity.x+b.velocity.x)*0.25;
+    const avy=(a.velocity.y+b.velocity.y)*0.25;
+    removeBody(a); removeBody(b);
+    const nb=addPlanet(mx,my,nlv,avx,avy);
+    nb.gd.born=Date.now();
+    const gained=P[nlv].sc;
+    score+=gained;
+    // Combo
+    comboCount++;
+    if(comboTimer)clearTimeout(comboTimer);
+    comboTimer=setTimeout(()=>{comboCount=0;},1800);
+    if(comboCount>=2){
+      const bonus=Math.floor(gained*0.5*(comboCount-1));
+      score+=bonus;
+      spawnFloat(mx,my-10,`🔥连击x${comboCount} +${bonus}`,P[nlv].g,true);
+    } else {
+      spawnFloat(mx,my-8,`+${gained}`,P[nlv].g,false);
+    }
+    updateScore();
+    spawnParticles(mx,my,P[nlv].g,nlv>=6?50:20);
+    playMerge(nlv);
+    if(nlv===P.length-1)triggerSun(mx,my);
+  }
+}
+
+function spawnParticles(x,y,color,n){
+  for(let i=0;i<n;i++){
+    const a=Math.PI*2*i/n+Math.random()*0.4;
+    const sp=1.5+Math.random()*4.5;
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,
+      r:2+Math.random()*4,color,life:1,decay:0.022+Math.random()*0.018});
+  }
+}
+
+function spawnFloat(x,y,text,color,big){
+  floatTexts.push({x,y,text,color:color||'#ffaa00',big:!!big,life:1,vy:-1.2});
+}
+
+function triggerSun(x,y){
+  for(let i=0;i<80;i++){
+    const a=Math.random()*Math.PI*2;
+    const sp=2+Math.random()*10;
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,
+      r:3+Math.random()*8,
+      color:['#ffee00','#ffaa00','#ffffff','#ffcc44'][Math.floor(Math.random()*4)],
+      life:1,decay:0.012+Math.random()*0.012});
+  }
+  spawnFloat(x,y-20,'🌟 最强合并！','#ffee00',true);
+  beep(440,0.1,'sine',0.1);
+  setTimeout(()=>beep(550,0.1,'sine',0.1),120);
+  setTimeout(()=>beep(660,0.15,'sine',0.1),240);
+  setTimeout(()=>beep(880,0.4,'triangle',0.12),360);
+}
+
+function checkGameOver(){
+  if(!running)return;
+  const now=Date.now();
+  let danger=false;
+  for(const b of planetBodies){
+    if(!b.gd)continue;
+    if(now-b.gd.born<900)continue;
+    const spd=Math.hypot(b.velocity.x,b.velocity.y);
+    if(spd<1.2 && b.position.y-P[b.gd.lv].r<DANGER_Y){
+      danger=true; break;
+    }
+  }
+  if(danger){
+    if(!gameOverTimer)gameOverTimer=setTimeout(doGameOver,1100);
+  } else {
+    if(gameOverTimer){clearTimeout(gameOverTimer);gameOverTimer=null;}
+  }
+}
+
+function doGameOver(){
+  if(!running)return;
+  running=false; canDrop=false;
+  if(score>bestScore){bestScore=score;localStorage.setItem('pmBest',bestScore);}
+  showGameOver();
+}
+
+// ===== RENDER =====
+function render(ts){
+  const dt=Math.min(ts-lastTs,50); lastTs=ts;
+  Engine.update(engine,dt);
+  processMerges();
+  checkGameOver();
+
+  // Background
+  ctx.fillStyle='#02020e';
+  ctx.fillRect(0,0,W,H);
+
+  // Stars
+  for(const s of stars){
+    s.a+=s.da;
+    if(s.a>1){s.a=1;s.da=-Math.abs(s.da);}
+    if(s.a<0.1){s.a=0.1;s.da=Math.abs(s.da);}
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,255,255,${s.a*0.6})`;
+    ctx.fill();
+  }
+
+  // Danger line
+  const inDanger=planetBodies.some(b=>{
+    if(!b.gd||Date.now()-b.gd.born<900)return false;
+    return b.position.y-P[b.gd.lv].r<DANGER_Y+40;
+  });
+  if(inDanger){
+    flashPhase+=0.12;
+    const al=0.25+Math.sin(flashPhase)*0.2;
+    ctx.fillStyle=`rgba(255,30,30,${al*0.12})`;
+    ctx.fillRect(0,0,W,DANGER_Y);
+    ctx.strokeStyle=`rgba(255,70,70,${al})`;
+    ctx.lineWidth=1.5;ctx.setLineDash([7,5]);
+    ctx.beginPath();ctx.moveTo(0,DANGER_Y);ctx.lineTo(W,DANGER_Y);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=`rgba(255,100,100,${al})`;
+    ctx.font='10px sans-serif';ctx.textAlign='right';ctx.textBaseline='alphabetic';
+    ctx.fillText('⚠ 危险',W-8,DANGER_Y-4);
+  } else {
+    ctx.strokeStyle='rgba(80,80,180,0.18)';
+    ctx.lineWidth=1;ctx.setLineDash([4,6]);
+    ctx.beginPath();ctx.moveTo(0,DANGER_Y);ctx.lineTo(W,DANGER_Y);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Planets
+  for(const b of planetBodies){
+    if(!b.gd)continue;
+    drawPlanet(ctx,b.position.x,b.position.y,b.gd.lv,b.angle);
+  }
+
+  // Particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx; p.y+=p.vy;
+    p.vx*=0.94; p.vy*=0.94;
+    p.life-=p.decay;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    ctx.globalAlpha=p.life;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);
+    ctx.fillStyle=p.color;ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // Float texts
+  flctx.clearRect(0,0,400,700);
+  for(let i=floatTexts.length-1;i>=0;i--){
+    const f=floatTexts[i];
+    f.y+=f.vy; f.life-=0.022;
+    if(f.life<=0){floatTexts.splice(i,1);continue;}
+    flctx.globalAlpha=Math.min(1,f.life*2);
+    flctx.font=f.big?'bold 15px sans-serif':'bold 13px sans-serif';
+    flctx.fillStyle=f.color;
+    flctx.textAlign='center';flctx.textBaseline='middle';
+    const yOff=60; // topBar offset
+    flctx.fillText(f.text,f.x,f.y+yOff);
+  }
+  flctx.globalAlpha=1;
+
+  // Drop cursor guide
+  if(running&&canDrop){
+    const pr=P[curLevel].r;
+    ctx.strokeStyle='rgba(255,255,255,0.12)';
+    ctx.lineWidth=1;ctx.setLineDash([3,5]);
+    ctx.beginPath();ctx.moveTo(cursorX,DROP_Y+pr);ctx.lineTo(cursorX,DANGER_Y);
+    ctx.stroke();ctx.setLineDash([]);
+    ctx.globalAlpha=0.65;
+    drawPlanet(ctx,cursorX,DROP_Y,curLevel,0);
+    ctx.globalAlpha=1;
+  }
+
+  animId=requestAnimationFrame(render);
+}
+
+// ===== DRAW PLANET =====
+function drawPlanet(ctx,x,y,lv,angle){
+  const p=P[lv];
+  // Outer glow
+  const gGrad=ctx.createRadialGradient(x,y,p.r*0.6,x,y,p.r*2.5);
+  gGrad.addColorStop(0,hexA(p.g,0.28));
+  gGrad.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath();ctx.arc(x,y,p.r*2.5,0,Math.PI*2);
+  ctx.fillStyle=gGrad;ctx.fill();
+
+  // Saturn rings (behind body)
+  if(lv===5){
+    ctx.save();ctx.translate(x,y);ctx.rotate(angle*0.5+0.35);ctx.scale(1,0.28);
+    ctx.beginPath();ctx.arc(0,0,p.r*1.75,0,Math.PI*2);
+    ctx.strokeStyle='rgba(220,180,80,0.55)';ctx.lineWidth=6;ctx.stroke();
+    ctx.beginPath();ctx.arc(0,0,p.r*1.45,0,Math.PI*2);
+    ctx.strokeStyle='rgba(200,160,60,0.35)';ctx.lineWidth=4;ctx.stroke();
+    ctx.restore();
+  }
+
+  // Body gradient
+  const bGrad=ctx.createRadialGradient(x-p.r*0.28,y-p.r*0.28,0,x,y,p.r);
+  bGrad.addColorStop(0,p.g);
+  bGrad.addColorStop(0.45,p.c);
+  bGrad.addColorStop(1,darken(p.c,0.45));
+  ctx.beginPath();ctx.arc(x,y,p.r,0,Math.PI*2);
+  ctx.fillStyle=bGrad;ctx.fill();
+
+  // Jupiter stripes
+  if(lv===6){
+    ctx.save();ctx.beginPath();ctx.arc(x,y,p.r,0,Math.PI*2);ctx.clip();
+    ctx.fillStyle='rgba(255,210,140,0.12)';
+    for(let i=-4;i<=4;i++){
+      ctx.fillRect(x-p.r,y+i*p.r*0.38-p.r*0.1,p.r*2,p.r*0.14);
+    }
+    ctx.restore();
+  }
+
+  // Sun corona rays
+  if(lv===7){
+    for(let i=0;i<10;i++){
+      const a=Math.PI*2*i/10+angle*0.3;
+      ctx.strokeStyle='rgba(255,230,50,0.4)';ctx.lineWidth=2.5;
+      ctx.beginPath();
+      ctx.moveTo(x+Math.cos(a)*p.r*1.05,y+Math.sin(a)*p.r*1.05);
+      ctx.lineTo(x+Math.cos(a)*p.r*1.65,y+Math.sin(a)*p.r*1.65);
+      ctx.stroke();
+    }
+  }
+
+  // Shine
+  ctx.beginPath();ctx.arc(x-p.r*0.3,y-p.r*0.32,p.r*0.22,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.32)';ctx.fill();
+
+  // Earth details: continent hint
+  if(lv===3){
+    ctx.save();ctx.beginPath();ctx.arc(x,y,p.r,0,Math.PI*2);ctx.clip();
+    ctx.fillStyle='rgba(50,160,70,0.45)';
+    ctx.beginPath();ctx.ellipse(x-p.r*0.15,y-p.r*0.1,p.r*0.32,p.r*0.45,angle+0.4,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(x+p.r*0.3,y+p.r*0.1,p.r*0.22,p.r*0.3,angle-0.3,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+
+  // Planet name
+  if(p.r>=30){
+    ctx.font=`bold ${Math.max(9,Math.floor(p.r*0.21))}px sans-serif`;
+    ctx.fillStyle='rgba(255,255,255,0.82)';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(p.name,x,y);
+  }
+}
+
+function darken(hex,f){
+  const r=parseInt(hex.slice(1,3),16)||0;
+  const g=parseInt(hex.slice(3,5),16)||0;
+  const b=parseInt(hex.slice(5,7),16)||0;
+  return `rgb(${Math.floor(r*f)},${Math.floor(g*f)},${Math.floor(b*f)})`;
+}
+function hexA(hex,a){
+  const r=parseInt(hex.slice(1,3),16)||0;
+  const g=parseInt(hex.slice(3,5),16)||0;
+  const b=parseInt(hex.slice(5,7),16)||0;
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ===== NEXT PLANET =====
+function drawNext(lv){
+  nctx.clearRect(0,0,58,58);
+  const p=P[lv];
+  const s=Math.min(22,p.r*0.68);
+  const cx=29,cy=29;
+  const gg=nctx.createRadialGradient(cx-s*0.3,cy-s*0.3,0,cx,cy,s);
+  gg.addColorStop(0,p.g); gg.addColorStop(0.5,p.c); gg.addColorStop(1,darken(p.c,0.45));
+  const gl=nctx.createRadialGradient(cx,cy,s*0.5,cx,cy,s*2.2);
+  gl.addColorStop(0,hexA(p.g,0.25)); gl.addColorStop(1,'rgba(0,0,0,0)');
+  nctx.beginPath();nctx.arc(cx,cy,s*2.2,0,Math.PI*2);nctx.fillStyle=gl;nctx.fill();
+  nctx.beginPath();nctx.arc(cx,cy,s,0,Math.PI*2);nctx.fillStyle=gg;nctx.fill();
+  nctx.beginPath();nctx.arc(cx-s*0.3,cy-s*0.3,s*0.25,0,Math.PI*2);
+  nctx.fillStyle='rgba(255,255,255,0.38)';nctx.fill();
+}
+
+// ===== SCORE =====
+function updateScore(){
+  const el=document.getElementById('scoreEl');
+  el.textContent=score;
+  el.classList.remove('pop');
+  requestAnimationFrame(()=>el.classList.add('pop'));
+  document.getElementById('bestEl').textContent=Math.max(score,bestScore);
+}
+
+// ===== DROP =====
+function dropPlanet(){
+  if(!canDrop||!running)return;
+  canDrop=false;
+  const pr=P[curLevel].r;
+  const px=Math.max(pr+2,Math.min(W-pr-2,cursorX));
+  addPlanet(px,DROP_Y,curLevel);
+  playDrop();
+  curLevel=nextLevel;
+  nextLevel=Math.floor(Math.random()*(MAX_DROP+1));
+  drawNext(nextLevel);
+  setTimeout(()=>{if(running)canDrop=true;},550);
+}
+
+// ===== GUIDE BAR =====
+function buildGuide(){
+  const bar=document.getElementById('bottomBar');
+  bar.innerHTML='';
+  P.forEach((p,i)=>{
+    const chip=document.createElement('div');
+    chip.className='pchip';
+    const sz=Math.max(12,Math.min(26,p.r*0.55));
+    chip.innerHTML=`<canvas width="${sz*2}" height="${sz*2}" style="width:${sz}px;height:${sz}px;border-radius:50%"></canvas>
+      <div class="pchip-name">${p.name}</div>`;
+    const c=chip.querySelector('canvas');
+    const cx2=c.getContext('2d');
+    const cc=sz,cr=sz*0.9;
+    const g=cx2.createRadialGradient(cc-cr*0.3,cc-cr*0.3,0,cc,cc,cr);
+    g.addColorStop(0,p.g);g.addColorStop(0.5,p.c);g.addColorStop(1,darken(p.c,0.45));
+    cx2.beginPath();cx2.arc(cc,cc,cr,0,Math.PI*2);cx2.fillStyle=g;cx2.fill();
+    bar.appendChild(chip);
+  });
+}
+
+// ===== OVERLAYS =====
+function showStart(){
+  const ol=document.getElementById('overlay');
+  ol.classList.remove('hidden');
+  ol.innerHTML=`
+    <div class="oemoji">🌌</div>
+    <div class="otitle">星球合并</div>
+    <div class="osub">移动鼠标（或手指）选择投放位置<br>点击/触碰投出星球，相同星球碰撞会合并！<br>连续合并触发连击加成 🔥</div>
+    <div class="pgrid">${P.map(p=>`
+      <div class="pgi">
+        <div class="pgidot" style="width:${Math.min(30,p.r*0.55)}px;height:${Math.min(30,p.r*0.55)}px;
+          background:radial-gradient(circle at 35% 30%,${p.g},${p.c} 55%,${darken(p.c,0.45)})"></div>
+        <div class="pginame">${p.name}</div>
+        <div class="pgiscore">+${p.sc}</div>
+      </div>`).join('')}
+    </div>
+    <button class="pbtn" id="startBtn">开始游戏 🚀</button>`;
+  document.getElementById('startBtn').onclick=()=>{
+    initPhysics(); startGame();
+  };
+}
+
+function showGameOver(){
+  const isNew=score>=bestScore&&score>0;
+  const ol=document.getElementById('overlay');
+  ol.classList.remove('hidden');
+  ol.innerHTML=`
+    <div class="oemoji">${isNew?'🏆':'💫'}</div>
+    <div class="otitle">${isNew?'新纪录！':'游戏结束'}</div>
+    <div class="oscore">${score}</div>
+    <div class="obest">历史最高：${bestScore} 分</div>
+    <button class="pbtn" id="restartBtn">再来一局 🔄</button>`;
+  document.getElementById('restartBtn').onclick=()=>{
+    World.clear(world,true);
+    planetBodies=[];pendingMerge=[];particles=[];floatTexts=[];comboCount=0;
+    startGame();
+  };
+}
+
+function startGame(){
+  if(animId)cancelAnimationFrame(animId);
+  planetBodies=[];pendingMerge=[];particles=[];floatTexts=[];
+  score=0;canDrop=true;running=false;gameOverTimer=null;flashPhase=0;comboCount=0;
+  curLevel=Math.floor(Math.random()*(MAX_DROP+1));
+  nextLevel=Math.floor(Math.random()*(MAX_DROP+1));
+  updateScore();drawNext(nextLevel);
+  document.getElementById('overlay').classList.add('hidden');
+  running=true;lastTs=performance.now();
+  animId=requestAnimationFrame(render);
+}
+
+// ===== INPUT =====
+function updateCursor(clientX){
+  const rect=canvas.getBoundingClientRect();
+  cursorX=Math.max(P[curLevel].r+4,Math.min(W-P[curLevel].r-4,clientX-rect.left));
+}
+canvas.addEventListener('mousemove',e=>updateCursor(e.clientX));
+canvas.addEventListener('click',e=>{updateCursor(e.clientX);dropPlanet();});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();updateCursor(e.touches[0].clientX);
+},{passive:false});
+canvas.addEventListener('touchend',e=>{
+  e.preventDefault();dropPlanet();
+},{passive:false});
+
+// ===== INIT =====
+document.getElementById('bestEl').textContent=bestScore;
+buildGuide();
+showStart();
+
+// Draw static bg before start
+ctx.fillStyle='#02020e';ctx.fillRect(0,0,W,H);
+for(const s of stars){
+  ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+  ctx.fillStyle=`rgba(255,255,255,${s.a*0.6})`;ctx.fill();
+}
+</script>
+</body>
+</html>

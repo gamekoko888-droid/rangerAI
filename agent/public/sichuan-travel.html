@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>四川旅游攻略 · 天府之国</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --red: #c0392b;
+      --gold: #e67e22;
+      --dark: #1a1a2e;
+      --card: #16213e;
+      --text: #eee;
+      --muted: #aaa;
+    }
+    body {
+      font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+      background: var(--dark);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      position: relative;
+      height: 100vh;
+      min-height: 580px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(26,26,46,0.92) 100%),
+        url('https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?w=1400&q=80') center/cover no-repeat;
+    }
+    .hero-content { position: relative; z-index: 1; padding: 0 20px; }
+    .hero-tag {
+      display: inline-block;
+      background: rgba(192,57,43,0.85);
+      color: #fff;
+      font-size: 12px;
+      letter-spacing: 4px;
+      padding: 5px 16px;
+      border-radius: 20px;
+      margin-bottom: 18px;
+      text-transform: uppercase;
+    }
+    .hero h1 {
+      font-size: clamp(2.4rem, 8vw, 4.2rem);
+      font-weight: 800;
+      line-height: 1.15;
+      text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      margin-bottom: 14px;
+    }
+    .hero h1 span { color: #f39c12; }
+    .hero p {
+      font-size: clamp(0.95rem, 3vw, 1.15rem);
+      color: rgba(255,255,255,0.82);
+      max-width: 500px;
+      line-height: 1.7;
+      margin-bottom: 32px;
+    }
+    .hero-stats {
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .hero-stat { text-align: center; }
+    .hero-stat .num {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #f39c12;
+      display: block;
+    }
+    .hero-stat .label { font-size: 0.75rem; color: rgba(255,255,255,0.6); }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1;
+      animation: bounce 2s infinite;
+      color: rgba(255,255,255,0.5);
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .scroll-hint::after {
+      content: '';
+      width: 1px;
+      height: 40px;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.5), transparent);
+    }
+    @keyframes bounce {
+      0%,100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(8px); }
+    }
+
+    /* ===== SECTION ===== */
+    section { padding: 64px 16px; max-width: 640px; margin: 0 auto; }
+    .section-header { text-align: center; margin-bottom: 36px; }
+    .section-header .tag {
+      display: inline-block;
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--gold);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .section-header h2 {
+      font-size: clamp(1.5rem, 5vw, 2rem);
+      font-weight: 700;
+    }
+    .section-header p {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-top: 8px;
+      line-height: 1.6;
+    }
+
+    /* ===== SPOTS CARDS ===== */
+    .spots-grid { display: flex; flex-direction: column; gap: 20px; }
+    .spot-card {
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+      height: 240px;
+      cursor: pointer;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      transition: transform 0.3s;
+    }
+    .spot-card:active { transform: scale(0.98); }
+    .spot-card img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s;
+    }
+    .spot-card:hover img { transform: scale(1.05); }
+    .spot-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 55%);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 20px;
+    }
+    .spot-badge {
+      display: inline-block;
+      background: var(--red);
+      color: #fff;
+      font-size: 10px;
+      padding: 3px 10px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      width: fit-content;
+    }
+    .spot-overlay h3 { font-size: 1.3rem; font-weight: 700; }
+    .spot-overlay p { font-size: 0.82rem; color: rgba(255,255,255,0.75); margin-top: 4px; line-height: 1.5; }
+    .spot-meta {
+      display: flex;
+      gap: 14px;
+      margin-top: 10px;
+    }
+    .spot-meta span {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.6);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ===== ROUTE ===== */
+    .route-section { background: var(--card); border-radius: 24px; padding: 32px 20px; }
+    .route-title { font-size: 1rem; font-weight: 700; margin-bottom: 20px; color: var(--gold); }
+    .route-days { display: flex; flex-direction: column; gap: 0; }
+    .route-day {
+      display: flex;
+      gap: 16px;
+      position: relative;
+    }
+    .route-day::before {
+      content: '';
+      position: absolute;
+      left: 19px;
+      top: 40px;
+      bottom: 0;
+      width: 2px;
+      background: rgba(230,126,34,0.25);
+    }
+    .route-day:last-child::before { display: none; }
+    .day-dot {
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--red), var(--gold));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #fff;
+      margin-top: 0;
+      z-index: 1;
+    }
+    .day-content { padding: 8px 0 28px; }
+    .day-content h4 { font-size: 0.95rem; font-weight: 700; }
+    .day-content p { font-size: 0.82rem; color: var(--muted); margin-top: 4px; line-height: 1.6; }
+
+    /* ===== FOOD ===== */
+    .food-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .food-card {
+      background: var(--card);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+    .food-card img { width: 100%; height: 130px; object-fit: cover; }
+    .food-info { padding: 12px; }
+    .food-info h4 { font-size: 0.88rem; font-weight: 700; }
+    .food-info p { font-size: 0.74rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+    .food-tag {
+      display: inline-block;
+      font-size: 10px;
+      background: rgba(192,57,43,0.2);
+      color: #e74c3c;
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-top: 6px;
+    }
+
+    /* ===== TIPS ===== */
+    .tips-grid { display: flex; flex-direction: column; gap: 14px; }
+    .tip-item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      background: var(--card);
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .tip-icon {
+      font-size: 1.6rem;
+      min-width: 40px;
+      text-align: center;
+    }
+    .tip-item h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 4px; }
+    .tip-item p { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+
+    /* ===== FOOTER ===== */
+    footer {
+      background: #0d0d1a;
+      text-align: center;
+      padding: 40px 20px;
+    }
+    footer .logo { font-size: 1.6rem; font-weight: 800; color: var(--gold); margin-bottom: 8px; }
+    footer p { font-size: 0.8rem; color: var(--muted); line-height: 1.6; }
+    footer .divider { width: 40px; height: 2px; background: var(--red); margin: 14px auto; }
+
+    /* ===== SEASON BAR ===== */
+    .season-bar {
+      display: grid;
+      grid-template-columns: repeat(4,1fr);
+      gap: 10px;
+      margin-bottom: 0;
+    }
+    .season {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 14px 10px;
+      text-align: center;
+    }
+    .season .icon { font-size: 1.6rem; margin-bottom: 6px; }
+    .season h4 { font-size: 0.82rem; font-weight: 700; }
+    .season p { font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-tag">✈ 天府之国</div>
+    <h1>探索<span>四川</span><br/>这一次走心</h1>
+    <p>雪山、古城、熊猫、火锅——<br/>四川是中国最会"宠"旅客的省份</p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="num">5</span>
+        <span class="label">处世界遗产</span>
+      </div>
+      <div class="hero-stat">
+        <span class="num">300+</span>
+        <span class="label">种特色美食</span>
+      </div>
+      <div class="hero-stat">
+        <span class="num">1800</span>
+        <span class="label">只大熊猫</span>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">向下探索</div>
+</div>
+
+<!-- 必去景点 -->
+<section>
+  <div class="section-header">
+    <div class="tag">Top Spots</div>
+    <h2>🗺️ 六大必去景点</h2>
+    <p>从成都平原到雪域高原，每一处都是震撼</p>
+  </div>
+  <div class="spots-grid">
+
+    <div class="spot-card">
+      <img src="https://images.unsplash.com/photo-1518091043644-c1d4457512c6?w=800&q=80" alt="九寨沟" loading="lazy" />
+      <div class="spot-overlay">
+        <span class="spot-badge">🏆 世界遗产</span>
+        <h3>九寨沟</h3>
+        <p>五彩斑斓的高原湖泊群，被誉为"童话世界"</p>
+        <div class="spot-meta">
+          <span>📍 阿坝藏族羌族自治州</span>
+          <span>🕐 建议2天</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <img src="https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?w=800&q=80" alt="峨眉山" loading="lazy" />
+      <div class="spot-overlay">
+        <span class="spot-badge">🏔️ 佛教名山</span>
+        <h3>峨眉山</h3>
+        <p>四大佛教名山之一，金顶云海令人叹为观止</p>
+        <div class="spot-meta">
+          <span>📍 乐山市</span>
+          <span>🕐 建议1-2天</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <img src="https://images.unsplash.com/photo-1566438480900-0609be27a4be?w=800&q=80" alt="成都大熊猫" loading="lazy" />
+      <div class="spot-overlay">
+        <span class="spot-badge">🐼 国宝之家</span>
+        <h3>成都大熊猫基地</h3>
+        <p>与大熊猫零距离，感受最真实的萌物日常</p>
+        <div class="spot-meta">
+          <span>📍 成都北郊</span>
+          <span>🕐 建议半天</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <img src="https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80" alt="宽窄巷子" loading="lazy" />
+      <div class="spot-overlay">
+        <span class="spot-badge">🏮 历史街区</span>
+        <h3>宽窄巷子</h3>
+        <p>清代古街巷群落，品茶、掏耳、看川剧变脸</p>
+        <div class="spot-meta">
+          <span>📍 成都市中心</span>
+          <span>🕐 建议2-3小时</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <img src="https://images.unsplash.com/photo-1538428494232-9c0d8a3ab403?w=800&q=80" alt="稻城亚丁" loading="lazy" />
+      <div class="spot-overlay">
+        <span class="spot-badge">🌄 最后的净土</span>
+        <h3>稻城亚丁</h3>
+        <p>蓝天白云下的雪山圣地，高原徒步圣地</p>
+        <div class="spot-meta">
+          <span>📍 甘孜藏族自治州</span>
+          <span>🕐 建议2-3天</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <img src="https://images.unsplash.com/photo-1576867757603-05b134ebc379?w=800&q=80" alt="乐山大佛" loading="lazy" />
+      <div class="spot-overlay">
+        <span class="spot-badge">🗿 世界奇观</span>
+        <h3>乐山大佛</h3>
+        <p>世界最大石刻佛像，与峨眉山联合世界遗产</p>
+        <div class="spot-meta">
+          <span>📍 乐山市</span>
+          <span>🕐 建议半天</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- 最佳时节 -->
+<section style="padding-top: 0;">
+  <div class="section-header">
+    <div class="tag">Best Time</div>
+    <h2>🌿 四季旅行指南</h2>
+    <p>四川四季皆有可玩，但最佳时节各有不同</p>
+  </div>
+  <div class="season-bar">
+    <div class="season">
+      <div class="icon">🌸</div>
+      <h4>春</h4>
+      <p>赏花 踏青 游成都</p>
+    </div>
+    <div class="season">
+      <div class="icon">🌊</div>
+      <h4>夏</h4>
+      <p>九寨 亚丁 避暑</p>
+    </div>
+    <div class="season" style="border: 1px solid rgba(230,126,34,0.4);">
+      <div class="icon">🍁</div>
+      <h4>秋 ⭐</h4>
+      <p>最佳 九寨红叶</p>
+    </div>
+    <div class="season">
+      <div class="icon">❄️</div>
+      <h4>冬</h4>
+      <p>温泉 火锅 年味</p>
+    </div>
+  </div>
+</section>
+
+<!-- 推荐路线 -->
+<section style="padding-top: 0;">
+  <div class="section-header">
+    <div class="tag">Route</div>
+    <h2>🚀 7天经典路线</h2>
+  </div>
+  <div class="route-section">
+    <div class="route-title">成都 · 峨眉 · 乐山 · 九寨 黄金环线</div>
+    <div class="route-days">
+      <div class="route-day">
+        <div class="day-dot">Day1</div>
+        <div class="day-content">
+          <h4>抵达成都 · 宽窄巷子</h4>
+          <p>落地天府国际机场，入住市区酒店。傍晚游宽窄巷子，品尝成都小吃，感受慢生活。</p>
+        </div>
+      </div>
+      <div class="route-day">
+        <div class="day-dot">Day2</div>
+        <div class="day-content">
+          <h4>熊猫基地 · 锦里 · 武侯祠</h4>
+          <p>早起7点前到大熊猫基地看早餐时间最萌的熊猫，下午游锦里古街，晚间观看川剧变脸。</p>
+        </div>
+      </div>
+      <div class="route-day">
+        <div class="day-dot">Day3</div>
+        <div class="day-content">
+          <h4>峨眉山登顶</h4>
+          <p>高铁至峨眉山站，缆车上金顶，俯瞰云海日落，宿山顶感受佛教圣地氛围。</p>
+        </div>
+      </div>
+      <div class="route-day">
+        <div class="day-dot">Day4</div>
+        <div class="day-content">
+          <h4>乐山大佛 · 返程成都</h4>
+          <p>早上游乐山大佛（建议坐船观大佛全貌），午后返回成都，晚间在春熙路逛街购物。</p>
+        </div>
+      </div>
+      <div class="route-day">
+        <div class="day-dot">Day5</div>
+        <div class="day-content">
+          <h4>飞往九寨沟</h4>
+          <p>早班机飞九黄机场，到达后游览长海、五花海等核心景点，景色如画，傍晚宿沟口。</p>
+        </div>
+      </div>
+      <div class="route-day">
+        <div class="day-dot">Day6</div>
+        <div class="day-content">
+          <h4>黄龙 · 五彩池</h4>
+          <p>转场黄龙景区，徒步3小时至五彩池，钙华彩池群震撼人心。注意高反，慢走多休息。</p>
+        </div>
+      </div>
+      <div class="route-day">
+        <div class="day-dot">Day7</div>
+        <div class="day-content">
+          <h4>返回成都 · 收官火锅</h4>
+          <p>飞回成都，下午三星堆博物馆参观，晚间吃一顿正宗成都火锅，完美收官！</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 美食 -->
+<section style="padding-top: 0;">
+  <div class="section-header">
+    <div class="tag">Food</div>
+    <h2>🍜 必吃8大美食</h2>
+    <p>来四川，不吃这些等于白来</p>
+  </div>
+  <div class="food-grid">
+
+    <div class="food-card">
+      <img src="https://images.unsplash.com/photo-1569050467447-ce54b3bbc37d?w=400&q=80" alt="火锅" loading="lazy" />
+      <div class="food-info">
+        <h4>🔥 成都火锅</h4>
+        <p>麻辣沸腾，百味汇聚，城市灵魂所在</p>
+        <span class="food-tag">必吃 No.1</span>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <img src="https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=400&q=80" alt="担担面" loading="lazy" />
+      <div class="food-info">
+        <h4>🍜 担担面</h4>
+        <p>芝麻酱+红油，面条细薄，香辣入味</p>
+        <span class="food-tag">街头经典</span>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <img src="https://images.unsplash.com/photo-1574484284002-952d92456975?w=400&q=80" alt="麻婆豆腐" loading="lazy" />
+      <div class="food-info">
+        <h4>🌶️ 麻婆豆腐</h4>
+        <p>麻辣鲜香，豆腐嫩滑，川菜经典代表</p>
+        <span class="food-tag">川菜之魂</span>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <img src="https://images.unsplash.com/photo-1563245372-f21724e3856d?w=400&q=80" alt="钵钵鸡" loading="lazy" />
+      <div class="food-info">
+        <h4>🍡 钵钵鸡</h4>
+        <p>红油浸泡串串，冷热皆宜，边走边吃</p>
+        <span class="food-tag">网红小吃</span>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <img src="https://images.unsplash.com/photo-1607532941433-304659e8198a?w=400&q=80" alt="夫妻肺片" loading="lazy" />
+      <div class="food-info">
+        <h4>🥩 夫妻肺片</h4>
+        <p>牛肉牛杂，红油拌匀，下酒神器</p>
+        <span class="food-tag">下酒必备</span>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <img src="https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=400&q=80" alt="冰粉" loading="lazy" />
+      <div class="food-info">
+        <h4>🍧 冰粉</h4>
+        <p>透明爽滑，红糖花生，夏日消暑神器</p>
+        <span class="food-tag">解辣神器</span>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <img src="https://images.unsplash.com/photo-1547592180-85f173990554?w=400&q=80" alt="宫保鸡丁" loading="lazy" />
+      <div class="food-info">
+        <h4>🍗 宫保鸡丁</h4>
+        <p>鸡丁花生辣椒，甜辣微酸，全球闻名</p>
+        <span class="food-tag">川菜国际名</span>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <img src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&q=80" alt="盖碗茶" loading="lazy" />
+      <div class="food-info">
+        <h4>☕ 盖碗茶</h4>
+        <p>老茶馆一坐半天，成都慢生活精华</p>
+        <span class="food-tag">生活方式</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- 实用贴士 -->
+<section style="padding-top: 0;">
+  <div class="section-header">
+    <div class="tag">Tips</div>
+    <h2>💡 旅行必读贴士</h2>
+  </div>
+  <div class="tips-grid">
+    <div class="tip-item">
+      <div class="tip-icon">🏔️</div>
+      <div>
+        <h4>高原反应提前准备</h4>
+        <p>前往九寨沟、稻城亚丁等高海拔景区，建议出发前购买红景天，到达后第一天不要剧烈运动，多喝水。</p>
+      </div>
+    </div>
+    <div class="tip-item">
+      <div class="tip-icon">🎫</div>
+      <div>
+        <h4>景区门票须提前预约</h4>
+        <p>九寨沟、大熊猫基地等热门景点需要提前在官方小程序预约，旺季至少提前7-10天。</p>
+      </div>
+    </div>
+    <div class="tip-item">
+      <div class="tip-icon">🌧️</div>
+      <div>
+        <h4>随时准备雨具</h4>
+        <p>四川盆地多阴雨天气，尤其成都"蜀犬吠日"，出门必备折叠伞或冲锋衣。</p>
+      </div>
+    </div>
+    <div class="tip-item">
+      <div class="tip-icon">🌶️</div>
+      <div>
+        <h4>肠胃提前适应</h4>
+        <p>四川饮食偏麻辣，肠胃敏感者建议循序渐进，不要第一天就挑战超辣火锅。</p>
+      </div>
+    </div>
+    <div class="tip-item">
+      <div class="tip-icon">🚇</div>
+      <div>
+        <h4>成都市内交通便捷</h4>
+        <p>成都地铁网络成熟，市内景点之间推荐坐地铁。跨市出行建议高铁+景区班车。</p>
+      </div>
+    </div>
+    <div class="tip-item">
+      <div class="tip-icon">💰</div>
+      <div>
+        <h4>旅行预算参考</h4>
+        <p>7天双人行预算约3000-5000元/人（不含机票），含住宿、餐饮、门票、市内交通。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="logo">🐼 四川旅游攻略</div>
+  <div class="divider"></div>
+  <p>天府之国 · 一生必去一次</p>
+  <p style="margin-top: 8px; font-size: 0.75rem;">图片来自 Unsplash · 数据仅供参考</p>
+</footer>
+
+</body>
+</html>

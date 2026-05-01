@@ -1,0 +1,385 @@
+// [v25.9.2] Global EPIPE protection
+process.stdout.on("error", (err) => { if (err.code === "EPIPE") return; });
+process.stderr.on("error", (err) => { if (err.code === "EPIPE") return; });
+/**
+ * api-server.mjs — HTTP API Process (Iter-59: Process Separation)
+ *
+ * Pure REST API server. No WebSocket, no Worker management.
+ * Worker status and commands are relayed via Redis IPC to ws-realtime.mjs.
+ *
+ * Handles:
+ *   - All /api/* REST routes (auth, chat CRUD, tickets, KOLs, knowledge, etc.)
+ *   - Health checks, admin panel, static files
+ *   - Workflow scheduler
+ *   - Gateway memory monitor
+ *
+ * @version 70 — Iter-59: HTTP/WS process separation
+ */
+import { logger } from "./lib/logger.mjs"
+import { setupSandboxRoutes } from "./api/sandbox-api.mjs";;
+import http from "http";
+import { execSync as _execSync } from "child_process";
+import fs from "fs";
+import { loadEnvFile, loadSecretsJson, loadBootstrap } from "./lib/bootstrap.mjs";
+import { ts } from "./modules/helpers.mjs";
+import { sendEvent, smartReplayEvents, loadSession, saveSession } from "./modules/helpers.mjs";
+import { generateTitle, generateSuggestions, generateHistorySummary, inlineFallback, cleanupAiServices } from "./modules/ai-services.mjs";
+import { getAvailableProviders, getAvailableSkills, getAvailableTools, getSystemCapabilities } from "./modules/provider-discovery.mjs";
+import { expandFileAttachments } from "./modules/file-handler.mjs";
+import * as httpRoutes from "./modules/http-router.mjs";
+import { handleRatingApi } from "./api/rating-api.mjs";
+import { handleReportApi } from "./api/report-api.mjs";
+import { handle as handleDataUploadApi } from "./api/data-upload-api.mjs";
+import { redisPool } from "./redis-pool.mjs";
+import { initIPC, getWorkerStatus, getActiveTasks, sendCommand, sendRequest } from "./lib/redis-ipc.mjs";
+
+// Iter-52: Split API Handlers
+import { handleAuthApi } from "./api/auth-api.mjs";
+import { handleSystemApi } from "./api/system-api.mjs";
+import { handleChatApi } from "./api/chat-api.mjs";
+import { handleTicketKolApi } from "./api/ticket-kol-api.mjs";
+import { handleKnowledgeApi } from "./api/knowledge-api.mjs";
+import { handleWorkflowApi } from "./api/workflow-api.mjs";
+import { handleUserManagementApi } from "./api/user-management-api.mjs";
+// TD-012: Removed — scheduler now managed by background-jobs.mjs
+// TD-014: Removed — alert-cron.mjs deleted
+// TD-012: Removed — buildSchedulerDeps now in background-jobs.mjs
+import { startBackgroundJobs } from './services/background-jobs.mjs';
+
+// ─── Load Environment ────────────────────────────────────────
+const RANGERAI_ENV_FILE = process.env.RANGERAI_ENV_FILE || "/opt/rangerai-agent/.env";
+const RANGERAI_SECRETS_FILE = process.env.RANGERAI_SECRETS_FILE || "/opt/rangerai-agent/agent-secrets.env";
+loadEnvFile(RANGERAI_ENV_FILE);
+loadEnvFile(RANGERAI_SECRETS_FILE);
+const RANGERAI_SECRETS_JSON = process.env.RANGERAI_SECRETS_JSON || "/opt/rangerai-agent/secrets.json";
+const SECRETS = loadSecretsJson(RANGERAI_SECRETS_JSON);
+for (const [key, val] of Object.entries(SECRETS)) {
+  if (process.env[key] === undefined && typeof val === "string") {
+    process.env[key] = val;
+  }
+}
+
+const API_PORT = parseInt(process.env.API_PORT || "3002", 10);
+
+// ─── Redis Pool Connect ─────────────────────────────────────
+await redisPool.connect();
+logger.info(`[${ts()}] [api-server] Redis pool: ${redisPool.isReady() ? "connected" : "degraded"}`);
+
+// ─── Redis IPC Init (API role — publisher only) ─────────────
+await initIPC({
+  role: "api",
+  onNotification: (msg) => {
+    if (msg.type === "ws_restarted") {
+      // WS process restarted — clear all activeTasksBySession to prevent 409 chatBusy
+      const activeMap = ctx?.runtime?.activeTasksBySession;
+      if (activeMap && activeMap.size > 0) {
+        logger.info(`[${ts()}] [api-server] WS restarted (PID: ${msg.pid}), clearing ${activeMap.size} stale activeTask(s)`);
+        activeMap.clear();
+      } else {
+        logger.info(`[${ts()}] [api-server] WS restarted (PID: ${msg.pid}), no active tasks to clear`);
+      }
+    }
+  }
+});
+
+// ─── Dynamic Imports: auth / monitor / rateLimiter ───────────
+const { auth, monitor, rateLimiter } = await loadBootstrap(ts);
+
+// ─── Context Assembly (API-specific) ────────────────────────
+// We still use setupContext but the WS/Worker parts will be unused stubs
+import { setupContext } from "./lib/context-setup.mjs";
+
+const ctx = await setupContext(
+  { auth, monitor, rateLimiter, redisPool },
+  {
+    sendEvent, smartReplayEvents, loadSession, saveSession,
+    getAvailableProviders, getAvailableSkills, getAvailableTools, getSystemCapabilities,
+    expandFileAttachments, inlineFallback, generateTitle, generateSuggestions, generateHistorySummary,
+  }
+);
+
+const { eventBuffer, sessions, activeTasksBySession } = ctx.runtime;
+const { taskStore } = ctx.services;
+
+// ─── Worker Proxy Object ────────────────────────────────────
+// Provides the same interface as workerManager but delegates to Redis IPC.
+// This allows existing route modules to work without changes initially.
+const workerManagerProxy = {
+  get status() {
+    // Synchronous fallback — real status is fetched async
+    return this._cachedStatus || { workerReady: false, pendingTasks: 0 };
+  },
+  _cachedStatus: null,
+  pendingTasks: new Map(), // Will be populated from Redis periodically
+
+  // Async method to refresh status from Redis
+  async refreshStatus() {
+    const status = await getWorkerStatus();
+    if (status) {
+      this._cachedStatus = status;
+    }
+    const tasks = await getActiveTasks();
+    this.pendingTasks.clear();
+    for (const t of tasks) {
+      this.pendingTasks.set(t.msgId, t);
+    }
+  },
+
+  // Iter-60: sendTask via IPC — dispatches message pipeline to WS process
+  async sendTask(msgId, sessionKey, content, history, ws, model, attachments, roleSystemPrompt, traceId, chatId, userId, userRole) {
+    // ws parameter is ignored here — WS process has the actual WebSocket connection
+    // We send the task via IPC and the WS process handles the rest
+    try {
+      const result = await sendRequest({
+        type: "dispatch_task",
+        payload: {
+          msgId, sessionKey, content,
+          history: history || [],
+          model: model || undefined,
+          attachments: attachments || undefined,
+          roleSystemPrompt: roleSystemPrompt || undefined,
+          userId: userId || undefined,
+          userRole: userRole || "member",
+        }
+      }, 660000); // 11 min timeout (matches MAX_TASK_DURATION + buffer)
+      // [P0-2-FIX] Return { reply, model } so ChatOrchestrator can persist model
+      return { reply: result?.reply || null, model: result?.model || null };
+    } catch (err) {
+      logger.info(`[api-server] sendTask IPC failed for ${msgId}: ${err.message}`);
+      // Clear activeTask on IPC failure to prevent 409 chatBusy
+      try {
+        if (activeTasksBySession && sessionKey) {
+          activeTasksBySession.delete(sessionKey);
+          logger.info(`[api-server] Cleared activeTask for session ${sessionKey} after IPC failure`);
+        }
+      } catch (e) { /* best-effort */ }
+      throw new Error(`Worker unavailable: ${err.message}`);
+    }
+  },
+  // Commands forwarded to WS process via IPC
+  restartWorker() {
+    sendCommand({ type: "restart_worker" });
+    logger.info("[api-server] Sent restart_worker command to WS process");
+  },
+  recoverBrowser() {
+    sendCommand({ type: "recover_browser" });
+    logger.info("[api-server] Sent recover_browser command to WS process");
+    return true;
+  },
+  // Request-response: send command and wait for response from WS process
+  async sendRequest(cmd, timeoutMs) {
+    return sendRequest(cmd, timeoutMs);
+  },
+
+  get worker() {
+    // Return a proxy that forwards send() to IPC
+    // For request-response patterns, routes should use workerManager.sendRequest() instead
+    return {
+      pid: workerManagerProxy._cachedStatus?.workerPid || 0,
+      send(msg) {
+        sendCommand({ type: msg.type, payload: msg });
+      },
+      on() { /* no-op in API process */ },
+      once() { /* no-op in API process */ },
+      removeListener() { /* no-op in API process */ },
+    };
+  },
+};
+
+// Refresh worker status every 5 seconds
+const _workerRefreshTimer = setInterval(() => workerManagerProxy.refreshStatus(), 5000);
+// Initial refresh
+await workerManagerProxy.refreshStatus();
+
+// ─── WS Clients Proxy ──────────────────────────────────────
+// In API process, wsClients.delete() sends IPC command to WS process
+const wsClientsProxy = {
+  get(chatId) {
+    // API process doesn't have actual WS connections — return null
+    // The WS process will use its own wsClients.get() when handling dispatch_task
+    return null;
+  },
+  set(chatId, ws) {
+    // No-op in API process — WS clients are managed by ws-realtime.mjs
+  },
+  delete(chatId) {
+    sendCommand({ type: "cleanup_ws", payload: { chatIds: [chatId] } });
+  },
+  // Batch delete
+  deleteMany(chatIds) {
+    sendCommand({ type: "cleanup_ws", payload: { chatIds } });
+  },
+  has(chatId) { return false; },
+  get size() { return 0; }, // API process doesn't track WS clients
+  [Symbol.iterator]() { return [][Symbol.iterator](); },
+  entries() { return new Map().entries(); },
+  keys() { return new Map().keys(); },
+  values() { return new Map().values(); },
+  forEach() { /* no-op */ },
+};
+
+// ─── Iter-60: Override ChatOrchestrator deps for API process ───
+// The ChatOrchestrator was created with a real WorkerManager (which doesn't work
+// in the API process). Override with the IPC-based proxy.
+if (ctx.runtime.orchestrator) {
+  ctx.runtime.orchestrator.workerManager = workerManagerProxy;
+  ctx.runtime.orchestrator.wsClients = wsClientsProxy;
+  logger.info("[api-server] Overrode ChatOrchestrator deps (workerManager → proxy, wsClients → proxy)");
+}
+// Also override ctx.runtime for any other code that accesses these
+ctx.runtime.wsClients = wsClientsProxy;
+
+// ─── HTTP Routes Init ───────────────────────────────────────
+const handleTiktokApi = ctx.runtime.handleTiktokApi;
+
+httpRoutes.init({
+  ctx,
+  workerManager: workerManagerProxy,
+  eventBuffer,
+  taskStore,
+  activeTasksBySession,
+  sessions,
+  wsClients: wsClientsProxy,
+  SECRETS,
+  _execSync,
+  getAvailableProviders,
+  getAvailableSkills,
+  getAvailableTools,
+  getSystemCapabilities,
+  handleChatApi,
+  handleAuthApi,
+  handleSystemApi,
+  handleTicketKolApi,
+  handleKnowledgeApi,
+  handleWorkflowApi,
+  handleUserManagementApi,
+  handleTiktokApi,
+  handleReportApi,
+  handleDataUploadApi,
+  handleRatingApi,
+});
+
+// ─── HTTP Server (API only, no WS) ─────────────────────────
+const server = http.createServer(async (req, res) => {
+  return httpRoutes.handleRequest(req, res);
+});
+
+// ─── Signal Handlers ────────────────────────────────────────
+let _shuttingDown = false;
+process.on("SIGTERM", async () => {
+  if (_shuttingDown) return;
+  _shuttingDown = true;
+  logger.info(`[${ts()}] [api-server] SIGTERM → graceful shutdown`);
+  clearInterval(_workerRefreshTimer);
+  if (typeof _gatewayMemMonitorTimer !== "undefined") clearInterval(_gatewayMemMonitorTimer);
+  cleanupAiServices();
+  server.close(() => logger.info(`[${ts()}] [api-server] HTTP server closed`));
+  try { await redisPool.shutdown(); } catch (e) { /* best-effort */ }
+  try { await ctx.db.closeDatabase(); } catch (e) { /* best-effort */ }
+  setTimeout(() => { process.exit(0); }, 2000);
+});
+
+process.on("SIGINT", () => {
+  logger.info(`[${ts()}] [api-server] SIGINT → delegating to SIGTERM`);
+  process.kill(process.pid, "SIGTERM");
+});
+
+process.on("uncaughtException", (err) => {
+  if (err.code === "EPIPE" || err.message?.includes("EPIPE")) return; // [v25.9.2] Suppress EPIPE
+  logger.error(`[${ts()}] [api-server] Uncaught: ${err.message}\n${err.stack}`);
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.error(`[${ts()}] [api-server] Unhandled rejection: ${reason}`);
+});
+
+// ─── Start ──────────────────────────────────────────────────
+async function start() {
+  logger.info(`[${ts()}] RangerAI API Server v70 — Iter-59: Process Separation`);
+  logger.info(`[${ts()}] PID: ${process.pid}`);
+
+  try {
+    await ctx.db.initDatabase();
+    logger.info(`[${ts()}] [api-server] Database initialized`);
+    const warmCache = ctx.runtime.warmCache;
+    if (warmCache) {
+      warmCache()
+        .then(() => logger.info(`[${ts()}] [api-server] Embedding cache warmed`))
+        .catch((e) => logger.warn(`[${ts()}] [api-server] Embedding cache warm failed: ${e.message}`));
+    }
+  } catch (dbErr) {
+    logger.error(`[${ts()}] [api-server] CRITICAL: DB init failed: ${dbErr.message}`);
+  }
+
+  try { fs.mkdirSync(ctx.config.FILES_DIR, { recursive: true }); } catch (e) { /* best-effort */ }
+  try { fs.mkdirSync(ctx.config.EVENT_BUFFER_DIR, { recursive: true }); } catch (e) { /* best-effort */ }
+
+  // TaskStore connect (for task polling routes)
+  const redisOk = await taskStore.connect();
+  if (redisOk) {
+    logger.info(`[${ts()}] [api-server] Redis TaskStore connected`);
+  } else {
+    logger.warn(`[${ts()}] [api-server] Redis TaskStore UNAVAILABLE`);
+  }
+
+  // NOTE: workerManager.spawn() is NOT called here — that's the WS process's job
+
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      logger.info(`[api-server] Port ${API_PORT} in use, retrying...`);
+      try { _execSync(`fuser -k ${API_PORT}/tcp`); } catch (e) { /* best-effort */ }
+      setTimeout(() => { server.close(); server.listen(API_PORT, "127.0.0.1"); }, 2000);
+    }
+  });
+
+  server.listen(API_PORT, "127.0.0.1", () => {
+    logger.info(`[${ts()}] [api-server] Listening on 127.0.0.1:${API_PORT}`);
+  });
+
+  // ─── Workflow Scheduler ─────────────────────────────────
+  // TD-012 FIX: Removed direct scheduler calls — now managed by background-jobs.mjs
+
+  // ─── Alert Cron ─────────────────────────────────────────
+  // TD-012 FIX: Removed direct alert cron calls — will be managed by background-jobs.mjs
+  // TD-014: modules/alert-cron.mjs to be deleted
+
+  // ─── Gateway Memory Monitor ─────────────────────────────
+  const GATEWAY_MEMORY_CHECK_INTERVAL = 300000;
+  const GATEWAY_MEMORY_LIMIT_MB = 2048;
+  let _gatewayRestartCooldown = 0;
+  const _gatewayMemMonitorTimer = setInterval(() => {
+    try {
+      const psOutput = _execSync(
+        "ps -o pid,rss,comm -C openclaw-gateway --no-headers 2>/dev/null || echo ''",
+        { timeout: 5000, encoding: "utf-8" }
+      ).trim();
+      if (!psOutput) return;
+      const parts = psOutput.split(/\s+/);
+      const pid = parseInt(parts[0], 10);
+      const rssKB = parseInt(parts[1], 10);
+      const rssMB = Math.round(rssKB / 1024);
+      if (rssMB > GATEWAY_MEMORY_LIMIT_MB) {
+        const now = Date.now();
+        if (now - _gatewayRestartCooldown < 600000) return;
+        _gatewayRestartCooldown = now;
+        logger.warn(`[${ts()}] [gateway-monitor] RSS=${rssMB}MB > limit — restarting`);
+        try { _execSync(`kill -TERM ${pid} 2>/dev/null || true`, { timeout: 3000 }); } catch (e) { /* best-effort */ }
+      }
+    } catch (e) { /* non-fatal */ }
+  }, GATEWAY_MEMORY_CHECK_INTERVAL);
+  logger.info(`[${ts()}] [api-server] Gateway memory monitor started`);
+
+  // ─── Supervisor Background Jobs ─────────────────────────
+  try {
+    const bgCtx = { logger, taskStore, config: { PORT: API_PORT }, runtime: {} };
+    startBackgroundJobs(bgCtx);
+    logger.info(`[${ts()}] [api-server] Supervisor background jobs started`);
+  } catch (bgErr) {
+    logger.warn(`[${ts()}] [api-server] Background jobs failed: ${bgErr.message}`);
+  }
+}
+
+start().catch((err) => {
+  logger.error(`[${ts()}] [api-server] FATAL: ${err.message}\n${err.stack}`);
+  process.exit(1);
+});

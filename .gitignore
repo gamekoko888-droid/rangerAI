@@ -1,0 +1,14 @@
+node_modules/
+.env
+*.db
+*.db.*
+logs/
+files/
+uploads/
+backups/
+dist-backups/
+event-buffers/
+sessions/
+dist-client/
+dist-standalone/
+public/assets/

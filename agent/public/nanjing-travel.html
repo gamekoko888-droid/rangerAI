@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>金陵漫游 · 南京旅行指南</title>
+  <style>
+    /* ===== 全局重置 ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+                   "Microsoft YaHei", sans-serif;
+      background: #0a0a0a;
+      color: #f0ece4;
+      overflow-x: hidden;
+    }
+    a { color: inherit; text-decoration: none; }
+    img { display: block; width: 100%; object-fit: cover; }
+    button { cursor: pointer; border: none; background: none; font: inherit; color: inherit; }
+
+    /* ===== 设计令牌 ===== */
+    :root {
+      --gold: #c9a84c;
+      --gold-light: #f0d080;
+      --gold-dark: #8c6e28;
+      --red: #c0392b;
+      --ink: #1a1208;
+      --text-main: #f0ece4;
+      --text-muted: #b0a898;
+      --card-bg: rgba(255,255,255,0.04);
+      --card-border: rgba(201,168,76,0.22);
+      --radius-lg: 20px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+      --max-w: 560px;
+    }
+
+    /* ===== HERO 区域 ===== */
+    .hero {
+      position: relative;
+      height: 100svh;
+      min-height: 580px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 20px 64px;
+      overflow: hidden;
+      text-align: center;
+    }
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to bottom, rgba(10,8,3,0.2) 0%, rgba(10,8,3,0.55) 55%, rgba(10,8,3,0.96) 100%),
+        url('https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Sun_Yat-sen_Mausoleum.jpg/1200px-Sun_Yat-sen_Mausoleum.jpg')
+        center/cover no-repeat;
+      transform: scale(1.05);
+      animation: heroZoom 22s ease-in-out infinite alternate;
+      will-change: transform;
+    }
+    @keyframes heroZoom {
+      from { transform: scale(1.05); }
+      to   { transform: scale(1.13); }
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--red) 20%, var(--gold) 50%, var(--red) 80%, transparent);
+      z-index: 2;
+    }
+    .hero-seal {
+      position: absolute;
+      top: 24px; right: 20px;
+      width: 52px; height: 52px;
+      border: 2px solid var(--red);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--red);
+      font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+      writing-mode: vertical-rl;
+      opacity: 0.82;
+      z-index: 2;
+    }
+    .hero-eyebrow {
+      position: relative;
+      font-size: 11px;
+      letter-spacing: 0.38em;
+      text-transform: uppercase;
+      color: var(--gold-light);
+      margin-bottom: 12px;
+      opacity: 0.88;
+    }
+    .hero-title {
+      position: relative;
+      font-size: clamp(44px, 13vw, 82px);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 0.04em;
+      background: linear-gradient(135deg, #fff 0%, var(--gold-light) 50%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+    .hero-subtitle {
+      position: relative;
+      font-size: 14px;
+      color: rgba(240,236,228,0.68);
+      letter-spacing: 0.22em;
+      margin-bottom: 36px;
+    }
+    .hero-cta {
+      position: relative;
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 14px 30px;
+      background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+      border-radius: 50px;
+      font-size: 15px; font-weight: 600;
+      color: var(--ink);
+      letter-spacing: 0.05em;
+      box-shadow: 0 8px 32px rgba(201,168,76,0.38);
+      transition: transform 0.18s, box-shadow 0.18s;
+    }
+    .hero-cta:active { transform: scale(0.96); box-shadow: 0 4px 16px rgba(201,168,76,0.28); }
+    .hero-scroll {
+      position: absolute;
+      bottom: 18px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      opacity: 0.45;
+      animation: bounce 2.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .hero-scroll span { font-size: 9px; letter-spacing: 0.25em; color: var(--gold-light); }
+    @keyframes bounce {
+      0%,100% { transform: translateX(-50%) translateY(0); }
+      50%      { transform: translateX(-50%) translateY(7px); }
+    }
+
+    /* ===== 通用 Section ===== */
+    .section { padding: 60px 20px; }
+    .section-header { text-align: center; margin-bottom: 32px; }
+    .section-tag {
+      display: inline-block;
+      font-size: 10px; letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--gold);
+      border: 1px solid var(--gold-dark);
+      border-radius: 50px;
+      padding: 4px 13px;
+      margin-bottom: 11px;
+    }
+    .section-title {
+      font-size: clamp(24px, 6.5vw, 34px);
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, var(--gold-light) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+    .section-desc { margin-top: 9px; font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+
+    /* ===== 分割线 ===== */
+    .divider {
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 20px;
+      max-width: var(--max-w); margin: 0 auto;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px;
+    }
+    .divider::before { background: linear-gradient(90deg, transparent, var(--gold-dark)); }
+    .divider::after  { background: linear-gradient(90deg, var(--gold-dark), transparent); }
+    .divider-icon { color: var(--gold); font-size: 16px; flex-shrink: 0; }
+
+    /* ===== 景点区域 Tab 切换 ===== */
+    .spots-tabs {
+      display: flex;
+      gap: 8px;
+      max-width: var(--max-w);
+      margin: 0 auto 24px;
+      padding: 0 2px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .spots-tabs::-webkit-scrollbar { display: none; }
+    .spot-tab {
+      flex-shrink: 0;
+      padding: 9px 20px;
+      border-radius: 50px;
+      border: 1px solid var(--card-border);
+      font-size: 13px; font-weight: 600;
+      color: var(--text-muted);
+      background: var(--card-bg);
+      transition: all 0.22s;
+      white-space: nowrap;
+    }
+    .spot-tab.active {
+      background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+      color: var(--ink);
+      border-color: transparent;
+      box-shadow: 0 4px 16px rgba(201,168,76,0.28);
+    }
+
+    .spots-container {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      position: relative;
+      overflow: hidden;
+    }
+    .spot-panel {
+      display: none;
+    }
+    .spot-panel.active {
+      display: block;
+      animation: panelIn 0.32s ease;
+    }
+    @keyframes panelIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== 景点卡片 ===== */
+    .spot-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      position: relative;
+    }
+    .spot-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: var(--radius-lg);
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(201,168,76,0.38), transparent 55%);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .spot-img-wrap {
+      position: relative;
+      height: 210px;
+      overflow: hidden;
+    }
+    .spot-img-wrap img { height: 100%; transition: transform 0.5s ease; }
+    .spot-img-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(to bottom, transparent 38%, rgba(10,8,3,0.88) 100%);
+    }
+    .spot-badge {
+      position: absolute; top: 13px; left: 13px;
+      background: var(--red); color: #fff;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+      padding: 4px 10px; border-radius: 50px;
+    }
+    .spot-rating {
+      position: absolute; top: 13px; right: 13px;
+      display: flex; align-items: center; gap: 4px;
+      background: rgba(10,8,3,0.52); backdrop-filter: blur(6px);
+      border-radius: 50px; padding: 4px 10px;
+      font-size: 12px; color: var(--gold-light); font-weight: 600;
+    }
+    .spot-name-overlay { position: absolute; bottom: 13px; left: 14px; right: 14px; }
+    .spot-name-cn { font-size: 22px; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.55); }
+    .spot-name-en { font-size: 11px; color: rgba(255,255,255,0.6); letter-spacing: 0.1em; margin-top: 2px; }
+
+    .spot-body { padding: 18px; }
+    .spot-desc { font-size: 14px; color: rgba(240,236,228,0.78); line-height: 1.75; margin-bottom: 15px; }
+    .spot-tags { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+    .spot-tag {
+      font-size: 12px; padding: 4px 11px;
+      border-radius: 50px;
+      border: 1px solid var(--card-border);
+      color: var(--gold-light);
+      background: rgba(201,168,76,0.07);
+    }
+    .spot-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .spot-meta-item {
+      display: flex; flex-direction: column; gap: 3px;
+      background: rgba(255,255,255,0.04);
+      border-radius: var(--radius-sm);
+      padding: 10px 11px;
+    }
+    .spot-meta-label { font-size: 10px; color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; }
+    .spot-meta-value { font-size: 13px; color: var(--text-main); font-weight: 600; }
+    .spot-meta-value.free { color: #4cba8a; }
+    .spot-highlights { margin-top: 14px; padding-top: 13px; border-top: 1px solid rgba(255,255,255,0.07); }
+    .spot-highlights-title { font-size: 11px; color: var(--gold); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 8px; }
+    .spot-highlight-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .spot-highlight-list li {
+      font-size: 13px; color: rgba(240,236,228,0.68);
+      padding-left: 15px; position: relative; line-height: 1.55;
+    }
+    .spot-highlight-list li::before {
+      content: '◆'; position: absolute; left: 0; top: 5px;
+      color: var(--gold); font-size: 6px;
+    }
+
+    /* ===== 美食区域 ===== */
+    .food-section { background: linear-gradient(180deg, #0a0a0a 0%, #120e04 60%, #0a0a0a 100%); }
+    .food-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 11px;
+      max-width: var(--max-w);
+      margin: 0 auto;
+    }
+    .food-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 15px 13px;
+      position: relative; overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .food-card::after {
+      content: attr(data-emoji);
+      position: absolute; right: -3px; bottom: -7px;
+      font-size: 40px; opacity: 0.13;
+      user-select: none; pointer-events: none;
+    }
+    .food-card.featured {
+      grid-column: span 2;
+      display: flex; align-items: center; gap: 14px;
+      padding: 17px 16px;
+    }
+    .food-card.featured::after { font-size: 54px; right: 2px; bottom: -8px; }
+    .food-card-no { font-size: 10px; color: var(--gold-dark); font-weight: 700; letter-spacing: 0.1em; margin-bottom: 5px; }
+    .food-name { font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 5px; }
+    .food-desc { font-size: 12px; color: var(--text-muted); line-height: 1.58; }
+    .food-price {
+      display: inline-block; margin-top: 8px;
+      font-size: 11px; color: var(--gold);
+      background: rgba(201,168,76,0.1);
+      border-radius: 50px; padding: 2px 8px;
+    }
+    .food-featured-icon { font-size: 38px; flex-shrink: 0; }
+
+    /* ===== 实用信息 ===== */
+    .info-cards {
+      display: flex; flex-direction: column; gap: 12px;
+      max-width: var(--max-w); margin: 0 auto;
+    }
+    .info-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      display: flex; gap: 14px; align-items: flex-start;
+    }
+    .info-icon {
+      width: 42px; height: 42px; flex-shrink: 0;
+      border-radius: 11px;
+      background: rgba(201,168,76,0.09);
+      border: 1px solid var(--card-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 19px;
+    }
+    .info-title { font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 7px; }
+    .info-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+    .info-list li {
+      font-size: 13px; color: var(--text-muted);
+      line-height: 1.55; padding-left: 14px; position: relative;
+    }
+    .info-list li::before { content: '–'; position: absolute; left: 0; color: var(--gold-dark); }
+    .info-list li strong { color: var(--text-main); font-weight: 600; }
+
+    /* ===== 季节 Banner ===== */
+    .season-banner {
+      max-width: var(--max-w); margin: 0 auto 44px;
+      padding: 0 20px;
+    }
+    .season-banner-inner {
+      background: linear-gradient(135deg, #1a0c04, #2a1608);
+      border: 1px solid rgba(192,57,43,0.32);
+      border-radius: var(--radius-lg);
+      padding: 20px 18px;
+      display: flex; align-items: flex-start; gap: 14px;
+    }
+    .season-icon { font-size: 34px; flex-shrink: 0; padding-top: 2px; }
+    .season-title { font-size: 14px; font-weight: 700; color: #e8c5a0; margin-bottom: 5px; }
+    .season-desc { font-size: 13px; color: rgba(232,197,160,0.7); line-height: 1.6; }
+
+    /* ===== 底部攻略汇总 ===== */
+    .summary-section {
+      background: linear-gradient(180deg, #0a0a0a 0%, #0d0b06 100%);
+      padding: 60px 20px 24px;
+    }
+    .summary-grid {
+      display: flex; flex-direction: column; gap: 10px;
+      max-width: var(--max-w); margin: 0 auto;
+    }
+    .summary-row {
+      display: flex; gap: 10px;
+    }
+    .summary-card {
+      flex: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 16px 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .summary-card-wide {
+      flex: 2;
+    }
+    .summary-card-head {
+      display: flex; align-items: center; gap: 7px;
+      margin-bottom: 10px;
+    }
+    .summary-card-icon { font-size: 18px; }
+    .summary-card-title { font-size: 13px; font-weight: 700; color: var(--gold-light); }
+    .summary-card-body { font-size: 12px; color: var(--text-muted); line-height: 1.65; }
+    .summary-card-body strong { color: var(--text-main); font-weight: 600; }
+    .summary-tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .summary-tag {
+      font-size: 11px; padding: 3px 9px;
+      border-radius: 50px;
+      background: rgba(201,168,76,0.09);
+      border: 1px solid rgba(201,168,76,0.18);
+      color: var(--gold-light);
+    }
+    .summary-tag.red {
+      background: rgba(192,57,43,0.12);
+      border-color: rgba(192,57,43,0.25);
+      color: #e8957a;
+    }
+    .summary-tag.green {
+      background: rgba(76,186,138,0.1);
+      border-color: rgba(76,186,138,0.22);
+      color: #6ddcaa;
+    }
+
+    /* ===== 快速索引表 ===== */
+    .quick-table {
+      max-width: var(--max-w); margin: 28px auto 0;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .quick-table-head {
+      background: rgba(201,168,76,0.1);
+      display: grid; grid-template-columns: 1.8fr 1fr 1fr 1fr;
+      padding: 10px 14px;
+      font-size: 11px; font-weight: 700;
+      color: var(--gold); letter-spacing: 0.08em;
+    }
+    .quick-table-row {
+      display: grid; grid-template-columns: 1.8fr 1fr 1fr 1fr;
+      padding: 10px 14px;
+      font-size: 12px; border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .quick-table-row:nth-child(odd) { background: rgba(255,255,255,0.02); }
+    .quick-table-cell { color: var(--text-muted); }
+    .quick-table-cell:first-child { color: var(--text-main); font-weight: 600; }
+    .chip-free { color: #6ddcaa; font-weight: 600; }
+    .chip-pay  { color: var(--gold-light); }
+
+    /* ===== Footer ===== */
+    .footer {
+      padding: 40px 20px 56px;
+      text-align: center;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .footer-brand { font-size: 20px; font-weight: 800; color: var(--gold); letter-spacing: 0.12em; margin-bottom: 9px; }
+    .footer-text { font-size: 12px; color: var(--text-muted); line-height: 1.75; max-width: 270px; margin: 0 auto 14px; }
+    .footer-divider { width: 44px; height: 1px; background: var(--gold-dark); margin: 0 auto 12px; }
+    .footer-copyright { font-size: 11px; color: rgba(176,168,152,0.4); }
+
+    /* ===== 悬浮导航点 ===== */
+    .nav-dots {
+      position: fixed; right: 12px; top: 50%;
+      transform: translateY(-50%);
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 200;
+    }
+    .nav-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(201,168,76,0.3);
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .nav-dot.active { background: var(--gold); transform: scale(1.6); }
+
+    /* ===== 动画系统 ===== */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(22px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+    .fade-in.from-left  { transform: translateX(-20px) translateY(0); }
+    .fade-in.from-right { transform: translateX(20px) translateY(0); }
+    .fade-in.scale-in   { transform: scale(0.95); }
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0) translateX(0) scale(1);
+    }
+
+    /* ===== 移动端适配 ===== */
+    @media (max-width: 380px) {
+      .food-grid { grid-template-columns: 1fr; }
+      .food-card.featured { flex-direction: column; }
+      .hero-title { font-size: 40px; }
+      .summary-row { flex-direction: column; }
+      .quick-table-head,
+      .quick-table-row { grid-template-columns: 1.6fr 0.9fr 0.8fr 0.9fr; font-size: 11px; padding: 9px 10px; }
+    }
+    @media (min-width: 560px) {
+      .spots-tabs { justify-content: center; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hero-bg { animation: none; }
+      .fade-in { opacity: 1 !important; transform: none !important; }
+      .hero-scroll { animation: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- 悬浮导航 -->
+<nav class="nav-dots" aria-label="页面导航">
+  <div class="nav-dot active" title="顶部" onclick="scrollTo({top:0,behavior:'smooth'})"></div>
+  <div class="nav-dot" title="景点" onclick="document.getElementById('spots').scrollIntoView({behavior:'smooth'})"></div>
+  <div class="nav-dot" title="美食" onclick="document.getElementById('food').scrollIntoView({behavior:'smooth'})"></div>
+  <div class="nav-dot" title="攻略" onclick="document.getElementById('info').scrollIntoView({behavior:'smooth'})"></div>
+  <div class="nav-dot" title="汇总" onclick="document.getElementById('summary').scrollIntoView({behavior:'smooth'})"></div>
+</nav>
+
+<!-- ==================== HERO ==================== -->
+<section class="hero" id="hero">
+  <div class="hero-bg" role="img" aria-label="中山陵全景"></div>
+  <div class="hero-seal" aria-hidden="true">金陵<br>游记</div>
+  <p class="hero-eyebrow">Discover Nanjing · 六朝古都</p>
+  <h1 class="hero-title">金陵漫游</h1>
+  <p class="hero-subtitle">千年帝都 · 烟雨江南 · 民国风华</p>
+  <a class="hero-cta" href="#spots">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    开始探索
+  </a>
+  <div class="hero-scroll" aria-hidden="true">
+    <span>SCROLL</span>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+  </div>
+</section>
+
+<!-- ==================== 景点 Tab ==================== -->
+<section class="section" id="spots">
+  <div class="section-header fade-in">
+    <div class="section-tag">Top Attractions</div>
+    <h2 class="section-title">必游景点</h2>
+    <p class="section-desc">三处经典，串联南京两千年历史脉络</p>
+  </div>
+
+  <!-- Tab 切换按钮 -->
+  <div class="spots-tabs" role="tablist" aria-label="景点选择">
+    <button class="spot-tab active" role="tab" aria-selected="true" onclick="switchTab(0)" id="tab-0">🏛 中山陵</button>
+    <button class="spot-tab" role="tab" aria-selected="false" onclick="switchTab(1)" id="tab-1">🏮 夫子庙</button>
+    <button class="spot-tab" role="tab" aria-selected="false" onclick="switchTab(2)" id="tab-2">🌊 玄武湖</button>
+  </div>
+
+  <div class="spots-container">
+
+    <!-- 面板 0：中山陵 -->
+    <div class="spot-panel active" id="panel-0" role="tabpanel" aria-labelledby="tab-0">
+      <article class="spot-card">
+        <div class="spot-img-wrap">
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Sun_Yat-sen_Mausoleum.jpg/1200px-Sun_Yat-sen_Mausoleum.jpg"
+            alt="中山陵全景"
+            loading="lazy"
+            onerror="this.style.background='linear-gradient(135deg,#1a1208,#2d2010)';this.removeAttribute('src')"
+          >
+          <div class="spot-img-overlay"></div>
+          <span class="spot-badge">世界遗产</span>
+          <div class="spot-rating">★ 4.9</div>
+          <div class="spot-name-overlay">
+            <div class="spot-name-cn">中山陵</div>
+            <div class="spot-name-en">Sun Yat-sen Mausoleum</div>
+          </div>
+        </div>
+        <div class="spot-body">
+          <p class="spot-desc">
+            坐落于紫金山南麓，是中华民国国父孙中山先生的陵寝。392级台阶由下至上，象征当年中华民国人口数。中西合璧的建筑风格融合中国古典与西方现代之美，被誉为"民国第一陵"。
+          </p>
+          <div class="spot-tags">
+            <span class="spot-tag">民国历史</span>
+            <span class="spot-tag">建筑艺术</span>
+            <span class="spot-tag">紫金山</span>
+            <span class="spot-tag">日出圣地</span>
+          </div>
+          <div class="spot-meta">
+            <div class="spot-meta-item">
+              <span class="spot-meta-label">开放时间</span>
+              <span class="spot-meta-value">08:00 – 18:00</span>
+            </div>
+            <div class="spot-meta-item">
+              <span class="spot-meta-label">门票</span>
+              <span class="spot-meta-value free">免费</span>
+            </div>
+            <div class="spot-meta-item">
+              <span class="spot-meta-label">交通</span>
+              <span class="spot-meta-value">地铁2号线</span>
+            </div>
+            <div class="spot-meta-item">
+              <span class="spot-meta-label">建议时长</span>
+              <span class="spot-meta-value">2 – 3 小时</span>
+            </div>
+          </div>
+          <div class="spot-highlights">
+            <p class="spot-highlights-title">游览亮点</p>
+            <ul class="spot-highlight-list">
+              <li>392级花岗岩台阶，向上望不见路，向下望不见阶，震撼感十足</li>
+              <li>祭堂内孙中山卧像，庄严肃穆，值得静静驻足凝视</li>
+              <li>春季漫山梅花盛开，3月是南京赏梅最佳去处</li>
+              <li>傍晚时分光影绝美，建议下午4点后入园角度最佳</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <!-- 面板 1：夫子庙秦淮河 -->
+    <div class="spot-panel" id="panel-1" role="tabpanel" aria-labelledby="tab-1">
+      <article class="spot-card">
+        <div class="spot-img-wrap" style="background: linear-gradient(135deg, #1a0c04, #2d1a08);">
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Qinhuai_River_Night_Scene.jpg/1200px-Qinhuai_River_Night_Scene.jpg"
+            alt="秦淮河夜景"
+            loading="lazy"
+            onerror="this.style.cssText='height:100%;background:linear-gradient(135deg,#1a0c04,#2d1a08)';this.removeAttribute('src')"
+          >
+          <div class="spot-img-overlay" style="background: linear-gradient(to bottom, rgba(30,12,0,0.25) 0%, rgba(8,4,0,0.92) 100%);"></div>
+          <span class="spot-badge">5A景区</span>
+          <div class="spot-rating">★ 4.8</div>
+          <div class="spot-name-overlay">
+            <div class="spot-name-cn">夫子庙·秦淮河</div>
+            <div class="spot-name-en">Confucius Temple · Qinhuai River</div>
+          </div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);text-align:center;opacity:0.55;pointer-events:none;">
+            <div style="font-size:44px;">🏮</div>
+            <div style="font-size:11px;color:var(--gold-light);letter-spacing:0.2em;margin-top:4px;">秦淮夜色</div>
+          </div>
+        </div>
+        <div class="spot-body">
+          <p class="spot-desc">
+            十里秦淮，六朝金粉之地。夫子庙供奉孔子，香火千年；秦淮河两岸画舫穿梭，灯火阑珊。入夜后大红灯笼与波光交相辉映，堪称南京最美夜景。
+          </p>
+          <div class="spot-tags">
+            <span class="spot-tag">千年文庙</span>
+            <span class="spot-tag">夜游圣地</span>
+            <span class="spot-tag">美食一条街</span>
+            <span class="spot-tag">画舫游览</span>
+          </div>
+          <div class="spot-meta">
+            <div class="spot-meta-item">
+              <span class="spot-meta-label">景区时间</span>
+              <span class="spot-meta-value">全天开放</span>
+            </div>
+            <div class="spot-meta-item">
+              <span class="spot-meta-label">夜游画舫</span>
+              <span class="spot-meta-value">¥80</span>
+            </div>
+            <div class="spot-meta-item">
+              <span class="spot-meta-label">交通</span>
+              <span class="spot-meta-value">地铁3号线</span>
+            </div>
+            <div class="spot-meta-item">
+              <span class="spot-meta-label">最佳时段</span>
+              <span class="spot-meta-value">19:00 后</span>
+            </div>
+          </div>
+          <div class="spot-highlights">
+            <p class="spot-highlights-title">游览亮点</p>
+            <ul class="spot-highlight-list">
+              <li>坐画舫夜游，两岸灯火倒映水中，如梦如幻不可错过</li>
+              <li>大成殿内欣赏评弹演出，感受正宗江南丝竹之声</li>
+              <li>贡院遗址科举文化博物馆免费参观，历史感极强</li>
+              <li>周边汇聚南京最全美食，鸭血粉丝、汤包应有尽有</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <!-- 面板 2：玄武湖 -->
+    <div class="spot-panel" id="panel-2" role="tabpanel" aria-labelledby="tab-2">
+      <article class="spot-card">
+        <div class="spot-img-wrap" style="background: linear-gradient(135deg, #041020, #082038);">
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/XuanwuLake.jpg/1200px-XuanwuLake.jpg"
+            alt="玄武湖夕阳"
+            loading="lazy"
+            onerror="this.style.cssText='height:100%;background:linear-gradient(135deg,#041020,#082038)';this.removeAttribute('src')"
+          >
+          <div class="spot-img-overlay" style="background: linear-gradient(to bottom, rgba(4,16,32,0.18) 0%, rgba(4,8,20,0.93) 100%);"></div>
+          <span class="spot-badge">城市绿肺</span>
+          <div class="spot-rating">★ 4.7</div>
+          <div class="spot-name-overlay">
+            <div class="spot-name-cn">玄武湖</div>
+            <div class="spot-name-en">Xuanwu Lake Park</div>
+          </div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);text-align:center;opacity:0.52;pointer-events:none;">
+            <div style="font-size:44px;">🌊</div>
+            <div style="font-size:11px;color:#a8d4f0;letter-spacing:0.2em;margin-top:4px;">湖光山色</div>
+          </div>
+        </div>
+        <div class="spot-body">
+          <p class="spot-desc">
+            南京市中心最大城市公园，与明城墙相依相伴。五洲岛屿星罗棋布，荷花盛季更是绝美。登上城墙俯瞰，玄武湖烟波浩渺，紫金山背景如画，是南京最治愈的慢时光。
+          </p>
+          <div class="spot-tags">
+            <span class="spot-tag">城墙景观</span>
+            <span class="spot-tag">荷花胜地</span>
+            <span class="spot-tag">环湖骑行</span>
+            <span class="spot-tag">亲子公园</span>
+          </div>
+          <div class="spot-meta">
+            <div class="spot-meta-item">
+              <span class="spot-meta-label">开放时间</span>
+              <span class="spot-meta-value">06:00 – 21:00</span>
+            </div>
+            <div class="spot-meta-item">
+              <span class="spot-meta-label">门票</span>
+              <span class="spot-meta-value free">免费</span>
+            </div>
+            <div class="spot-meta-item">
+              <span class="spot-meta-label">交通</span>
+              <span class="spot-meta-value">地铁3号线</span>
+            </div>
+            <div class="spot-meta-item">
+              <span class="spot-meta-label">建议时长</span>
+              <span class="spot-meta-value">2 – 4 小时</span>
+            </div>
+          </div>
+          <div class="spot-highlights">
+            <p class="spot-highlights-title">游览亮点</p>
+            <ul class="spot-highlight-list">
+              <li>7月荷花季，万亩荷塘香飘十里，是全城最美摄影机位</li>
+              <li>沿城墙步道骑行，1小时环湖身心舒畅，共享单车随取随用</li>
+              <li>樱洲樱花4月盛放，是南京赏樱头号打卡地</li>
+              <li>黄昏时分湖面倒映明城墙，摄影绝佳黄金一小时</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+    </div>
+
+  </div>
+</section>
+
+<!-- 季节 Banner -->
+<div class="season-banner fade-in">
+  <div class="season-banner-inner">
+    <div class="season-icon">🌸</div>
+    <div>
+      <div class="season-title">最佳游览季节</div>
+      <div class="season-desc">3–5月春季赏梅樱桃花 &nbsp;·&nbsp; 6–7月荷花盛放 &nbsp;·&nbsp; 9–11月金秋漫步最舒适 &nbsp;·&nbsp; 元宵节秦淮灯会震撼全城</div>
+    </div>
+  </div>
+</div>
+
+<div class="divider" style="margin-bottom: 0;">
+  <div class="divider-icon">✦</div>
+</div>
+
+<!-- ==================== 美食 ==================== -->
+<section class="section food-section" id="food">
+  <div class="section-header fade-in">
+    <div class="section-tag">Local Food</div>
+    <h2 class="section-title">金陵味道</h2>
+    <p class="section-desc">南京人的一天，从一碗鸭血粉丝汤开始</p>
+  </div>
+
+  <div class="food-grid">
+    <div class="food-card featured fade-in" data-emoji="🦆">
+      <div class="food-featured-icon">🦆</div>
+      <div>
+        <div class="food-card-no">NO.1 · 南京名片</div>
+        <div class="food-name">盐水鸭</div>
+        <div class="food-desc">皮白肉嫩，咸鲜适口，400年历史老字号。推荐韩复兴、桂花鸭，人均¥40–80。</div>
+        <span class="food-price">¥40 – 80 / 只</span>
+      </div>
+    </div>
+    <div class="food-card fade-in" data-emoji="🍜">
+      <div class="food-card-no">NO.2</div>
+      <div class="food-name">鸭血粉丝汤</div>
+      <div class="food-desc">鸭血鲜嫩粉丝滑爽，街头巷尾均有，性价比极高的南京早餐。</div>
+      <span class="food-price">¥5 – 15 / 碗</span>
+    </div>
+    <div class="food-card fade-in" data-emoji="🥟">
+      <div class="food-card-no">NO.3</div>
+      <div class="food-name">金陵汤包</div>
+      <div class="food-desc">皮薄汤多，推荐殷高巷小李汤包，蟹黄款尤佳，需提前排队。</div>
+      <span class="food-price">¥15 – 35 / 笼</span>
+    </div>
+    <div class="food-card fade-in" data-emoji="🥠">
+      <div class="food-card-no">NO.4</div>
+      <div class="food-name">金春锅贴</div>
+      <div class="food-desc">清末传统"过水煎"工艺，底部焦脆，南艺后街早市06:00起。</div>
+      <span class="food-price">¥8 – 15 / 份</span>
+    </div>
+    <div class="food-card fade-in" data-emoji="🥐">
+      <div class="food-card-no">NO.5</div>
+      <div class="food-name">葱油烧饼</div>
+      <div class="food-desc">20层酥皮，水西门大街每日15:00出炉，1元一个需排队抢购。</div>
+      <span class="food-price">¥1 – 3 / 个</span>
+    </div>
+    <div class="food-card fade-in" data-emoji="🍚">
+      <div class="food-card-no">NO.6</div>
+      <div class="food-name">美龄粥</div>
+      <div class="food-desc">民国宋美龄最爱，夫子庙店搭配评弹，18元享受慢生活一小时。</div>
+      <span class="food-price">¥18 / 碗</span>
+    </div>
+    <div class="food-card fade-in" data-emoji="🍠">
+      <div class="food-card-no">NO.7</div>
+      <div class="food-name">糖芋苗</div>
+      <div class="food-desc">桂花香糯甜而不腻，秋冬季节暖胃首选的南京传统甜品。</div>
+      <span class="food-price">¥8 – 12 / 碗</span>
+    </div>
+    <div class="food-card fade-in" data-emoji="🌿">
+      <div class="food-card-no">NO.8</div>
+      <div class="food-name">素烧鹅</div>
+      <div class="food-desc">百年绿柳居出品，太平南路地标，以豆皮精制，素食者必访。</div>
+      <span class="food-price">¥25 – 40 / 份</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-bottom: 0;">
+  <div class="divider-icon">✦</div>
+</div>
+
+<!-- ==================== 实用攻略 ==================== -->
+<section class="section" id="info" style="background:#0a0a0a;">
+  <div class="section-header fade-in">
+    <div class="section-tag">Travel Tips</div>
+    <h2 class="section-title">实用攻略</h2>
+    <p class="section-desc">出发前必知，让旅途更顺畅</p>
+  </div>
+
+  <div class="info-cards">
+    <div class="info-card fade-in from-left">
+      <div class="info-icon">🚇</div>
+      <div>
+        <div class="info-title">交通出行</div>
+        <ul class="info-list">
+          <li><strong>地铁：</strong>1/2/3/4号线覆盖主要景点，¥2起步</li>
+          <li><strong>骑行：</strong>美团/哈啰共享单车，推荐玄武湖环湖路线</li>
+          <li><strong>南京南站</strong>高铁通达全国，距市区地铁约30分钟</li>
+          <li><strong>机场大巴：</strong>禄口机场¥25，或地铁S1线直达</li>
+        </ul>
+      </div>
+    </div>
+    <div class="info-card fade-in from-right">
+      <div class="info-icon">🏨</div>
+      <div>
+        <div class="info-title">住宿推荐区域</div>
+        <ul class="info-list">
+          <li><strong>新街口：</strong>市中心，购物交通最便利，价格中等</li>
+          <li><strong>夫子庙：</strong>景区内或周边，最地道，注意周边噪音</li>
+          <li><strong>玄武湖周边：</strong>清幽宜人，适合亲子家庭</li>
+          <li>节假日建议提前 1 个月订房</li>
+        </ul>
+      </div>
+    </div>
+    <div class="info-card fade-in from-left">
+      <div class="info-icon">📅</div>
+      <div>
+        <div class="info-title">行程规划</div>
+        <ul class="info-list">
+          <li><strong>2天极简版：</strong>中山陵+玄武湖（上午）→ 夫子庙夜游（晚上）→ 明孝陵</li>
+          <li><strong>3–4天深度游：</strong>加上总统府、南京博物院、1912街区</li>
+          <li><strong>错峰建议：</strong>避开五一、十一，周一至周四人少约50%</li>
+          <li>节假日早8点入园，避免人山人海</li>
+        </ul>
+      </div>
+    </div>
+    <div class="info-card fade-in from-right">
+      <div class="info-icon">💡</div>
+      <div>
+        <div class="info-title">旅行小贴士</div>
+        <ul class="info-list">
+          <li><strong>中山陵台阶：</strong>穿舒适运动鞋，共392级建议量力而行</li>
+          <li><strong>画舫票：</strong>建议网上提前购票，节假日现场极难买到</li>
+          <li><strong>天气：</strong>夏季酷热（38°C+）务必防暑；冬季湿冷注意保暖</li>
+          <li><strong>支付：</strong>微信/支付宝通行，大多景区无需现金</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-bottom: 0;">
+  <div class="divider-icon">✦</div>
+</div>
+
+<!-- ==================== 底部攻略汇总 ==================== -->
+<section class="summary-section" id="summary">
+  <div class="section-header fade-in">
+    <div class="section-tag">Quick Summary</div>
+    <h2 class="section-title">攻略一页通</h2>
+    <p class="section-desc">收藏这一页，出行不迷路</p>
+  </div>
+
+  <div class="summary-grid">
+
+    <!-- 第一行：预算 + 季节 -->
+    <div class="summary-row">
+      <div class="summary-card fade-in scale-in">
+        <div class="summary-card-head">
+          <span class="summary-card-icon">💰</span>
+          <span class="summary-card-title">每日预算</span>
+        </div>
+        <div class="summary-card-body">
+          <strong>¥150</strong> 经济游<br>
+          <strong>¥300</strong> 舒适游<br>
+          <strong>¥500+</strong> 精品游
+        </div>
+        <div class="summary-tag-row">
+          <span class="summary-tag green">门票基本免费</span>
+        </div>
+      </div>
+      <div class="summary-card summary-card-wide fade-in scale-in">
+        <div class="summary-card-head">
+          <span class="summary-card-icon">🗓</span>
+          <span class="summary-card-title">月份推荐指数</span>
+        </div>
+        <div class="summary-card-body">
+          春（3–5月）🌸🌸🌸🌸🌸 最佳<br>
+          秋（9–11月）🍂🍂🍂🍂 次佳<br>
+          冬（12–2月）❄️❄️❄️ 灯会必去<br>
+          夏（6–8月）☀️☀️ 荷花 / 注意高温
+        </div>
+      </div>
+    </div>
+
+    <!-- 第二行：必做 + 避坑 -->
+    <div class="summary-row">
+      <div class="summary-card summary-card-wide fade-in scale-in">
+        <div class="summary-card-head">
+          <span class="summary-card-icon">✅</span>
+          <span class="summary-card-title">南京必做清单</span>
+        </div>
+        <div class="summary-tag-row">
+          <span class="summary-tag">爬中山陵392级</span>
+          <span class="summary-tag">夜坐秦淮画舫</span>
+          <span class="summary-tag">环玄武湖骑行</span>
+          <span class="summary-tag">鸭血粉丝早餐</span>
+          <span class="summary-tag">盐水鸭带回家</span>
+          <span class="summary-tag">明城墙散步</span>
+          <span class="summary-tag">总统府参观</span>
+          <span class="summary-tag">南博镇馆之宝</span>
+        </div>
+      </div>
+      <div class="summary-card fade-in scale-in">
+        <div class="summary-card-head">
+          <span class="summary-card-icon">⚠️</span>
+          <span class="summary-card-title">避坑提示</span>
+        </div>
+        <div class="summary-tag-row">
+          <span class="summary-tag red">画舫别在现场买</span>
+          <span class="summary-tag red">夏季午后不建议爬陵</span>
+          <span class="summary-tag red">节假日早8点入园</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 景点快速索引表 -->
+  <div class="quick-table fade-in" style="margin-top: 28px;">
+    <div class="quick-table-head">
+      <div>景点</div>
+      <div>门票</div>
+      <div>地铁线</div>
+      <div>最佳时段</div>
+    </div>
+    <div class="quick-table-row">
+      <div class="quick-table-cell">中山陵</div>
+      <div class="quick-table-cell chip-free">免费</div>
+      <div class="quick-table-cell">2号线</div>
+      <div class="quick-table-cell">16:00后</div>
+    </div>
+    <div class="quick-table-row">
+      <div class="quick-table-cell">夫子庙·秦淮河</div>
+      <div class="quick-table-cell chip-pay">¥80画舫</div>
+      <div class="quick-table-cell">3号线</div>
+      <div class="quick-table-cell">19:00后</div>
+    </div>
+    <div class="quick-table-row">
+      <div class="quick-table-cell">玄武湖公园</div>
+      <div class="quick-table-cell chip-free">免费</div>
+      <div class="quick-table-cell">3号线</div>
+      <div class="quick-table-cell">傍晚日落</div>
+    </div>
+    <div class="quick-table-row">
+      <div class="quick-table-cell">明孝陵</div>
+      <div class="quick-table-cell chip-pay">¥70</div>
+      <div class="quick-table-cell">2号线</div>
+      <div class="quick-table-cell">上午</div>
+    </div>
+    <div class="quick-table-row">
+      <div class="quick-table-cell">总统府</div>
+      <div class="quick-table-cell chip-pay">¥40</div>
+      <div class="quick-table-cell">3/4号线</div>
+      <div class="quick-table-cell">全天</div>
+    </div>
+    <div class="quick-table-row">
+      <div class="quick-table-cell">南京博物院</div>
+      <div class="quick-table-cell chip-free">免费预约</div>
+      <div class="quick-table-cell">2号线</div>
+      <div class="quick-table-cell">上午开馆</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Footer ==================== -->
+<footer class="footer">
+  <div class="footer-brand">金陵漫游</div>
+  <p class="footer-text">愿每一位到访南京的旅人，都能在这座城市的烟火气中，找到属于自己的那一份宁静与感动。</p>
+  <div class="footer-divider"></div>
+  <p class="footer-copyright">图片来源：Wikimedia Commons / 版权归原作者所有 · 仅供旅行参考</p>
+</footer>
+
+<script>
+  /* ===== 景点 Tab 切换 ===== */
+  function switchTab(idx) {
+    document.querySelectorAll('.spot-tab').forEach((t, i) => {
+      t.classList.toggle('active', i === idx);
+      t.setAttribute('aria-selected', i === idx);
+    });
+    document.querySelectorAll('.spot-panel').forEach((p, i) => {
+      p.classList.toggle('active', i === idx);
+    });
+  }
+
+  /* ===== 滚动淡入动画 ===== */
+  const fadeEls = document.querySelectorAll('.fade-in');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        // 同屏内元素依次延迟进入，产生瀑布感
+        const delay = (i % 6) * 75;
+        setTimeout(() => entry.target.classList.add('visible'), delay);
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -32px 0px' });
+  fadeEls.forEach(el => io.observe(el));
+
+  /* ===== 导航点高亮 ===== */
+  const sections = ['hero', 'spots', 'food', 'info', 'summary'];
+  const dots = document.querySelectorAll('.nav-dot');
+  const sectionEls = sections.map(id => document.getElementById(id)).filter(Boolean);
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const mid = window.scrollY + window.innerHeight * 0.45;
+      let active = 0;
+      sectionEls.forEach((el, i) => { if (el.offsetTop <= mid) active = i; });
+      dots.forEach((d, i) => d.classList.toggle('active', i === active));
+      ticking = false;
+    });
+  }, { passive: true });
+
+  /* ===== 景点图片触摸缩放效果 ===== */
+  document.querySelectorAll('.spot-img-wrap img').forEach(img => {
+    img.addEventListener('touchstart', () => img.style.transform = 'scale(1.04)', { passive: true });
+    img.addEventListener('touchend', () => img.style.transform = '', { passive: true });
+  });
+</script>
+</body>
+</html>

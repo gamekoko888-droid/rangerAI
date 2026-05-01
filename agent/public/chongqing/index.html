@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>重庆旅游指南 · 山城之美</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --red: #e63946;
+      --orange: #f4a261;
+      --dark: #1a1a2e;
+      --dark2: #16213e;
+      --gold: #ffd166;
+      --cream: #fff8f0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--cream);
+      color: #333;
+      overflow-x: hidden;
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      position: relative;
+      height: 100vh;
+      min-height: 580px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.55) 100%),
+        url('https://images.unsplash.com/photo-1570198405718-7f7e7c78d94a?w=1200&auto=format&fit=crop') center/cover no-repeat;
+    }
+
+    .hero-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg,
+        rgba(230,57,70,0.45) 0%,
+        rgba(26,26,46,0.65) 50%,
+        rgba(22,33,62,0.8) 100%);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      padding: 0 24px;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(255,209,102,0.2);
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-size: 12px;
+      letter-spacing: 3px;
+      padding: 5px 16px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+      animation: fadeUp 0.8s ease both;
+    }
+
+    .hero-title {
+      font-size: clamp(42px, 12vw, 72px);
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.1;
+      text-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      animation: fadeUp 0.8s 0.15s ease both;
+    }
+
+    .hero-title span {
+      color: var(--gold);
+    }
+
+    .hero-sub {
+      margin-top: 16px;
+      font-size: 16px;
+      color: rgba(255,255,255,0.85);
+      letter-spacing: 1px;
+      animation: fadeUp 0.8s 0.3s ease both;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      margin-top: 40px;
+      animation: fadeUp 0.8s 0.45s ease both;
+    }
+
+    .hero-stat {
+      text-align: center;
+    }
+
+    .hero-stat-num {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--gold);
+    }
+
+    .hero-stat-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
+      margin-top: 2px;
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+      color: rgba(255,255,255,0.6);
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      animation: bounce 2s infinite;
+    }
+
+    .scroll-arrow {
+      width: 20px;
+      height: 20px;
+      border-right: 2px solid rgba(255,255,255,0.6);
+      border-bottom: 2px solid rgba(255,255,255,0.6);
+      transform: rotate(45deg);
+    }
+
+    /* ===== SECTION ===== */
+    .section {
+      padding: 60px 20px;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .section-tag {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--red), var(--orange));
+      color: #fff;
+      font-size: 11px;
+      letter-spacing: 2px;
+      padding: 4px 14px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--dark);
+    }
+
+    .section-desc {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #888;
+    }
+
+    /* ===== SPOTS ===== */
+    .spots-bg {
+      background: var(--dark);
+    }
+
+    .spots-bg .section-title {
+      color: #fff;
+    }
+
+    .spots-bg .section-desc {
+      color: rgba(255,255,255,0.5);
+    }
+
+    .spots-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .spot-card {
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+      height: 260px;
+      cursor: pointer;
+    }
+
+    .spot-card.featured {
+      height: 320px;
+    }
+
+    .spot-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.4s ease;
+    }
+
+    .spot-card:hover .spot-img {
+      transform: scale(1.05);
+    }
+
+    .spot-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.1) 60%);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 24px;
+    }
+
+    .spot-tag {
+      display: inline-block;
+      background: var(--red);
+      color: #fff;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      width: fit-content;
+    }
+
+    .spot-name {
+      font-size: 24px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .spot-en {
+      font-size: 12px;
+      color: rgba(255,255,255,0.6);
+      margin-top: 2px;
+    }
+
+    .spot-desc {
+      font-size: 13px;
+      color: rgba(255,255,255,0.8);
+      margin-top: 10px;
+      line-height: 1.6;
+    }
+
+    .spot-meta {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+    }
+
+    .spot-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--gold);
+    }
+
+    /* 景点 fallback 渐变 */
+    .spot-grad-1 { background: linear-gradient(135deg, #e63946 0%, #1a1a2e 100%); }
+    .spot-grad-2 { background: linear-gradient(135deg, #f4a261 0%, #6b3a2a 100%); }
+    .spot-grad-3 { background: linear-gradient(135deg, #0d3b66 0%, #1a7a4a 100%); }
+    .spot-grad-4 { background: linear-gradient(135deg, #4a2040 0%, #c77dff 100%); }
+    .spot-grad-5 { background: linear-gradient(135deg, #264653 0%, #2a9d8f 100%); }
+
+    /* ===== FOOD ===== */
+    .food-section {
+      background: linear-gradient(135deg, #fff8f0 0%, #fff0e6 100%);
+    }
+
+    .food-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .food-card {
+      background: #fff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    .food-card.wide {
+      grid-column: 1 / -1;
+    }
+
+    .food-thumb {
+      height: 140px;
+      object-fit: cover;
+      width: 100%;
+      display: block;
+    }
+
+    .food-thumb-wide {
+      height: 180px;
+    }
+
+    .food-info {
+      padding: 14px;
+    }
+
+    .food-emoji {
+      font-size: 28px;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .food-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    .food-desc {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+
+    .food-price {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--red);
+    }
+
+    /* ===== TIPS ===== */
+    .tips-section {
+      background: var(--dark2);
+    }
+
+    .tips-section .section-title {
+      color: #fff;
+    }
+
+    .tips-section .section-desc {
+      color: rgba(255,255,255,0.5);
+    }
+
+    .tips-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .tip-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .tip-icon {
+      font-size: 28px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .tip-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .tip-text {
+      font-size: 13px;
+      color: rgba(255,255,255,0.6);
+      margin-top: 4px;
+      line-height: 1.6;
+    }
+
+    /* ===== ROUTE ===== */
+    .route-section {
+      background: linear-gradient(180deg, var(--cream) 0%, #fff 100%);
+    }
+
+    .route-days {
+      max-width: 480px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .route-day {
+      display: flex;
+      gap: 0;
+    }
+
+    .route-timeline {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 40px;
+      flex-shrink: 0;
+    }
+
+    .route-dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--red), var(--orange));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .route-line {
+      width: 2px;
+      flex: 1;
+      background: linear-gradient(180deg, var(--orange), rgba(244,162,97,0.2));
+      min-height: 40px;
+      margin: 4px 0;
+    }
+
+    .route-content {
+      padding: 4px 0 32px 16px;
+      flex: 1;
+    }
+
+    .route-day-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--red);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .route-day-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--dark);
+      margin-top: 4px;
+    }
+
+    .route-items {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .route-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #555;
+    }
+
+    .route-item::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--orange);
+      flex-shrink: 0;
+    }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      background: var(--dark);
+      padding: 40px 20px;
+      text-align: center;
+    }
+
+    .footer-logo {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--gold);
+      margin-bottom: 8px;
+    }
+
+    .footer-text {
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+      line-height: 1.8;
+    }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(8px); }
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* ===== BANNER ===== */
+    .cta-banner {
+      background: linear-gradient(135deg, var(--red) 0%, #c1121f 100%);
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    .cta-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .cta-sub {
+      font-size: 14px;
+      color: rgba(255,255,255,0.8);
+      margin-top: 6px;
+    }
+
+    .cta-btn {
+      display: inline-block;
+      margin-top: 20px;
+      background: var(--gold);
+      color: var(--dark);
+      font-size: 15px;
+      font-weight: 700;
+      padding: 12px 32px;
+      border-radius: 30px;
+      text-decoration: none;
+      box-shadow: 0 4px 16px rgba(255,209,102,0.4);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-badge">✦ CHONGQING TRAVEL GUIDE ✦</div>
+    <h1 class="hero-title">魔幻<span>重庆</span></h1>
+    <p class="hero-sub">山水之城 · 火锅之都 · 不夜山城</p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-num">3000+</div>
+        <div class="hero-stat-label">年历史</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num">5A</div>
+        <div class="hero-stat-label">级景区</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num">3200万</div>
+        <div class="hero-stat-label">主城人口</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>向下探索</span>
+    <div class="scroll-arrow"></div>
+  </div>
+</section>
+
+<!-- ===== SPOTS ===== -->
+<section class="section spots-bg">
+  <div class="section-header">
+    <div class="section-tag">TOP ATTRACTIONS</div>
+    <h2 class="section-title">必打卡景点</h2>
+    <p class="section-desc">五大核心打卡地，每一处都让你惊叹</p>
+  </div>
+
+  <div class="spots-grid">
+
+    <!-- 洪崖洞 -->
+    <div class="spot-card featured reveal">
+      <div class="spot-grad-1" style="width:100%;height:100%;position:absolute;"></div>
+      <img class="spot-img" src="https://images.unsplash.com/photo-1609163815671-46f10e694f4e?w=800&auto=format&fit=crop" alt="洪崖洞" onerror="this.style.display='none'" />
+      <div class="spot-overlay">
+        <span class="spot-tag">🏮 网红地标</span>
+        <div class="spot-name">洪崖洞</div>
+        <div class="spot-en">Hongyadong · 千与千寻既视感</div>
+        <p class="spot-desc">依山而建的11层吊脚楼群，夜幕降临华灯璀璨，宛如宫崎骏《千与千寻》中的神秘小镇。是重庆最具代表性的网红夜景地标。</p>
+        <div class="spot-meta">
+          <div class="spot-meta-item">📍 渝中区嘉陵江滨江路88号</div>
+          <div class="spot-meta-item">🕐 全天开放</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 磁器口 -->
+    <div class="spot-card reveal">
+      <div class="spot-grad-2" style="width:100%;height:100%;position:absolute;"></div>
+      <img class="spot-img" src="https://images.unsplash.com/photo-1622644821236-0f1f6d1cbfe5?w=800&auto=format&fit=crop" alt="磁器口" onerror="this.style.display='none'" />
+      <div class="spot-overlay">
+        <span class="spot-tag">🏘️ 千年古镇</span>
+        <div class="spot-name">磁器口古镇</div>
+        <div class="spot-en">Ciqikou · 明清风貌</div>
+        <p class="spot-desc">保存完好的明清建筑古镇，麻辣陈麻花、毛血旺、糍粑，每一口都是重庆的味道。</p>
+        <div class="spot-meta">
+          <div class="spot-meta-item">📍 沙坪坝区</div>
+          <div class="spot-meta-item">⭐ 免费开放</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 武隆天生三桥 -->
+    <div class="spot-card featured reveal">
+      <div class="spot-grad-3" style="width:100%;height:100%;position:absolute;"></div>
+      <img class="spot-img" src="https://images.unsplash.com/photo-1605196560547-b2f7281b7355?w=800&auto=format&fit=crop" alt="武隆天坑" onerror="this.style.display='none'" />
+      <div class="spot-overlay">
+        <span class="spot-tag">🌿 世界遗产</span>
+        <div class="spot-name">武隆天生三桥</div>
+        <div class="spot-en">Wulong Karst · 世界自然遗产</div>
+        <p class="spot-desc">被誉为"地球上的伤疤"，《变形金刚4》取景地。三座天然石桥雄峙天地，天坑绝壁气势磅礴，令人震撼。</p>
+        <div class="spot-meta">
+          <div class="spot-meta-item">📍 武隆区仙女山街道</div>
+          <div class="spot-meta-item">🎟️ 约135元/人</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 李子坝轻轨 -->
+    <div class="spot-card reveal">
+      <div class="spot-grad-4" style="width:100%;height:100%;position:absolute;"></div>
+      <img class="spot-img" src="https://images.unsplash.com/photo-1571997478779-2adcbbe9ab2f?w=800&auto=format&fit=crop" alt="李子坝轻轨" onerror="this.style.display='none'" />
+      <div class="spot-overlay">
+        <span class="spot-tag">🚋 魔幻交通</span>
+        <div class="spot-name">李子坝轻轨穿楼</div>
+        <div class="spot-en">Liziba Light Rail</div>
+        <p class="spot-desc">2号线轻轨从居民楼6-8层穿楼而过，现实版"穿楼列车"，全球唯一！每天吸引无数游客专程打卡。</p>
+        <div class="spot-meta">
+          <div class="spot-meta-item">📍 渝中区李子坝正街</div>
+          <div class="spot-meta-item">⭐ 免费观看</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 解放碑 -->
+    <div class="spot-card reveal">
+      <div class="spot-grad-5" style="width:100%;height:100%;position:absolute;"></div>
+      <img class="spot-img" src="https://images.unsplash.com/photo-1536599018102-9f803c140fc1?w=800&auto=format&fit=crop" alt="解放碑" onerror="this.style.display='none'" />
+      <div class="spot-overlay">
+        <span class="spot-tag">🏙️ 城市中心</span>
+        <div class="spot-name">解放碑步行街</div>
+        <div class="spot-en">Liberation Monument</div>
+        <p class="spot-desc">重庆的精神地标与商业核心。周边汇聚了八一好吃街、花市豌杂面等正宗美食，是感受山城烟火气的绝佳场所。</p>
+        <div class="spot-meta">
+          <div class="spot-meta-item">📍 渝中区解放碑商圈</div>
+          <div class="spot-meta-item">🕐 全天</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== FOOD ===== -->
+<section class="section food-section">
+  <div class="section-header">
+    <div class="section-tag">MUST EAT</div>
+    <h2 class="section-title">重庆必吃美食</h2>
+    <p class="section-desc">麻辣鲜香，无辣不欢</p>
+  </div>
+
+  <div class="food-grid">
+
+    <div class="food-card wide reveal">
+      <div style="height:180px;background:linear-gradient(135deg,#c1121f,#e63946);display:flex;align-items:center;justify-content:center;font-size:60px;">🫕</div>
+      <div class="food-info">
+        <div class="food-name">🔥 重庆火锅</div>
+        <p class="food-desc">毛肚、鸭肠、黄喉是经典三件套。牛油浓汤底、红汤翻滚，一口下去麻辣鲜香。推荐：老四川火锅、大龙火锅、刘一手。</p>
+        <span class="food-price">人均 ¥80-150</span>
+      </div>
+    </div>
+
+    <div class="food-card reveal">
+      <div style="height:140px;background:linear-gradient(135deg,#f4a261,#e76f51);display:flex;align-items:center;justify-content:center;font-size:48px;">🍜</div>
+      <div class="food-info">
+        <div class="food-name">重庆小面</div>
+        <p class="food-desc">劲道面条配麻辣汤底，豌杂面、红烧牛肉面是经典款。</p>
+        <span class="food-price">人均 ¥10-20</span>
+      </div>
+    </div>
+
+    <div class="food-card reveal">
+      <div style="height:140px;background:linear-gradient(135deg,#6b3a2a,#8b5e3c);display:flex;align-items:center;justify-content:center;font-size:48px;">🥐</div>
+      <div class="food-info">
+        <div class="food-name">陈麻花</div>
+        <p class="food-desc">磁器口招牌，酥脆香辣，送礼伴手礼首选。</p>
+        <span class="food-price">¥20-50/袋</span>
+      </div>
+    </div>
+
+    <div class="food-card reveal">
+      <div style="height:140px;background:linear-gradient(135deg,#2a9d8f,#264653);display:flex;align-items:center;justify-content:center;font-size:48px;">🐟</div>
+      <div class="food-info">
+        <div class="food-name">酸菜鱼</div>
+        <p class="food-desc">鱼片嫩滑，酸辣开胃，是重庆家常菜代表。</p>
+        <span class="food-price">人均 ¥40-80</span>
+      </div>
+    </div>
+
+    <div class="food-card reveal">
+      <div style="height:140px;background:linear-gradient(135deg,#e63946,#c1121f);display:flex;align-items:center;justify-content:center;font-size:48px;">🥘</div>
+      <div class="food-info">
+        <div class="food-name">毛血旺</div>
+        <p class="food-desc">鸭血、毛肚、豆皮同锅，麻辣鲜香，下饭神菜。</p>
+        <span class="food-price">人均 ¥30-60</span>
+      </div>
+    </div>
+
+    <div class="food-card reveal">
+      <div style="height:140px;background:linear-gradient(135deg,#ffd166,#f4a261);display:flex;align-items:center;justify-content:center;font-size:48px;">🍚</div>
+      <div class="food-info">
+        <div class="food-name">豆花饭</div>
+        <p class="food-desc">嫩滑豆花蘸麻辣蘸水，配白饭，朴实无华但回味无穷。</p>
+        <span class="food-price">人均 ¥15-25</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== ROUTE ===== -->
+<section class="section route-section">
+  <div class="section-header">
+    <div class="section-tag">ITINERARY</div>
+    <h2 class="section-title">3日精华路线</h2>
+    <p class="section-desc">最优打卡顺序，省时省力不踩坑</p>
+  </div>
+
+  <div class="route-days">
+
+    <div class="route-day reveal">
+      <div class="route-timeline">
+        <div class="route-dot">D1</div>
+        <div class="route-line"></div>
+      </div>
+      <div class="route-content">
+        <div class="route-day-label">DAY 1</div>
+        <div class="route-day-title">渝中核心 · 解放碑 & 洪崖洞</div>
+        <div class="route-items">
+          <div class="route-item">上午：解放碑步行街逛街感受城市氛围</div>
+          <div class="route-item">中午：八一好吃街觅食，必吃小面和毛血旺</div>
+          <div class="route-item">下午：千厮门大桥观景 + 长江索道体验</div>
+          <div class="route-item">傍晚：等待日落后游览洪崖洞夜景（必打卡！）</div>
+          <div class="route-item">晚上：附近老火锅店撸串收尾</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="route-day reveal">
+      <div class="route-timeline">
+        <div class="route-dot">D2</div>
+        <div class="route-line"></div>
+      </div>
+      <div class="route-content">
+        <div class="route-day-label">DAY 2</div>
+        <div class="route-day-title">古镇魔幻 · 磁器口 & 轻轨穿楼</div>
+        <div class="route-items">
+          <div class="route-item">上午：磁器口古镇，吃陈麻花、毛血旺、豆花</div>
+          <div class="route-item">中午：沙坪坝觅食，感受重庆人间烟火</div>
+          <div class="route-item">下午：李子坝站守候轻轨穿楼（约每10分钟一班）</div>
+          <div class="route-item">傍晚：鹅岭公园二厂文创园 Ins 风打卡</div>
+          <div class="route-item">晚上：南滨路夜景 + 夜宵烤鱼</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="route-day reveal">
+      <div class="route-timeline">
+        <div class="route-dot">D3</div>
+        <div style="height:0"></div>
+      </div>
+      <div class="route-content">
+        <div class="route-day-label">DAY 3</div>
+        <div class="route-day-title">武隆大自然 · 天生三桥 & 天坑</div>
+        <div class="route-items">
+          <div class="route-item">早上7:00从重庆出发（高铁约1.5小时）</div>
+          <div class="route-item">上午：武隆天生三桥徒步游览（约3小时）</div>
+          <div class="route-item">中午：景区内特色农家饭</div>
+          <div class="route-item">下午：龙水峡地缝探险（可选芙蓉洞）</div>
+          <div class="route-item">傍晚返回重庆，豆花饭收官</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== TIPS ===== -->
+<section class="section tips-section">
+  <div class="section-header">
+    <div class="section-tag">TRAVEL TIPS</div>
+    <h2 class="section-title">出行必知</h2>
+    <p class="section-desc">避坑指南，让旅行更顺畅</p>
+  </div>
+
+  <div class="tips-grid">
+    <div class="tip-card reveal">
+      <div class="tip-icon">🌡️</div>
+      <div>
+        <div class="tip-title">最佳出行时间</div>
+        <p class="tip-text">春季（3-5月）和秋季（9-11月）最佳，避开夏季高温（40℃+）和冬季雾霾。重庆别称"雾都"，秋冬多雾。</p>
+      </div>
+    </div>
+    <div class="tip-card reveal">
+      <div class="tip-icon">🚇</div>
+      <div>
+        <div class="tip-title">交通攻略</div>
+        <p class="tip-text">市内以地铁为主，重庆地铁可跨江、穿楼、爬山，本身就是景点。打车用滴滴，注意起步价约10元。</p>
+      </div>
+    </div>
+    <div class="tip-card reveal">
+      <div class="tip-icon">📍</div>
+      <div>
+        <div class="tip-title">住宿推荐</div>
+        <p class="tip-text">首选渝中区（洪崖洞周边）或解放碑附近，出行极便利。民宿可选鹅岭、南山区域，视野绝佳。</p>
+      </div>
+    </div>
+    <div class="tip-card reveal">
+      <div class="tip-icon">🌶️</div>
+      <div>
+        <div class="tip-title">辣度提示</div>
+        <p class="tip-text">重庆美食普遍偏辣！点餐时"微辣"也会较辣，肠胃敏感者请提前说明或选择不辣菜品。备好肠胃药。</p>
+      </div>
+    </div>
+    <div class="tip-card reveal">
+      <div class="tip-icon">📸</div>
+      <div>
+        <div class="tip-title">拍照时机</div>
+        <p class="tip-text">洪崖洞最佳拍摄时间：日落后1小时（约20:00-21:00）。李子坝轻轨穿楼：白天光线好，每10分钟一班。</p>
+      </div>
+    </div>
+    <div class="tip-card reveal">
+      <div class="tip-icon">💰</div>
+      <div>
+        <div class="tip-title">人均预算</div>
+        <p class="tip-text">3日游人均预算约1200-2000元（含交通、住宿、餐饮）。武隆景区门票约135元，其余核心景点大多免费。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA ===== -->
+<div class="cta-banner">
+  <div class="cta-title">🔥 准备好来重庆了吗？</div>
+  <p class="cta-sub">山城等你 · 麻辣相遇 · 不虚此行</p>
+  <a class="cta-btn" href="#">开始规划行程 ✈️</a>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+  <div class="footer-logo">🏮 魔幻重庆</div>
+  <p class="footer-text">
+    本页面信息仅供参考，景点营业时间及票价请以官方为准<br>
+    图片来源：Unsplash / 公开图库 · 内容整理自各旅游平台
+  </p>
+</footer>
+
+<script>
+  // Intersection Observer for reveal animations
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => {
+          entry.target.classList.add('visible');
+        }, i * 80);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  reveals.forEach(el => observer.observe(el));
+
+  // Hero parallax (subtle)
+  const heroBg = document.querySelector('.hero-bg');
+  window.addEventListener('scroll', () => {
+    const y = window.scrollY;
+    if (heroBg && y < window.innerHeight) {
+      heroBg.style.transform = `translateY(${y * 0.3}px)`;
+    }
+  });
+</script>
+
+</body>
+</html>

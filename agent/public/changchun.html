@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>遇见长春 - 北国春城的浪漫之旅</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            scroll-behavior: smooth;
+        }
+        .hero-bg {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1598285514652-32a246ec86be?q=80&w=2000&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Navbar -->
+    <nav class="fixed w-full z-50 bg-white/90 backdrop-blur-md shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="text-2xl font-bold text-blue-600 tracking-wider">CHANGCHUN</div>
+                <div class="hidden md:flex space-x-8">
+                    <a href="#about" class="text-gray-600 hover:text-blue-600 transition">城市简介</a>
+                    <a href="#attractions" class="text-gray-600 hover:text-blue-600 transition">热门景点</a>
+                    <a href="#food" class="text-gray-600 hover:text-blue-600 transition">特色美食</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="hero-bg h-screen flex items-center justify-center text-center text-white pt-16">
+        <div class="max-w-3xl px-4">
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 tracking-tight">遇见 长春</h1>
+            <p class="text-xl md:text-2xl mb-10 font-light tracking-wide">汽车城 · 电影城 · 森林城 · 雕塑城</p>
+            <a href="#about" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition duration-300 text-lg shadow-lg">开启探索</a>
+        </div>
+    </div>
+
+    <!-- About Section -->
+    <section id="about" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">北国春城，魅力无限</h2>
+                <div class="w-24 h-1 bg-blue-600 mx-auto"></div>
+            </div>
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <img src="https://images.unsplash.com/photo-1543085023-e2ccbf6ff7ea?q=80&w=800&auto=format&fit=crop" alt="长春风光" class="rounded-2xl shadow-xl w-full object-cover h-[400px]">
+                </div>
+                <div>
+                    <h3 class="text-2xl font-bold mb-4">中国四大园林城市之一</h3>
+                    <p class="text-gray-600 text-lg leading-relaxed mb-6">
+                        长春，吉林省省会，被誉为“北国春城”。这里有着深厚的近代城市底蕴，是新中国汽车工业、光电子技术、生物技术、应用化学的摇篮，也是新中国电影的摇篮。
+                    </p>
+                    <p class="text-gray-600 text-lg leading-relaxed">
+                        绿化率居于亚洲大城市前列，夏季气候凉爽，是避暑胜地；冬季银装素裹，是滑雪和赏雪的绝佳去处。在这里，你可以感受到历史与现代的交融，自然与人文的和谐。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Attractions Section -->
+    <section id="attractions" class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">必打卡景点</h2>
+                <div class="w-24 h-1 bg-blue-600 mx-auto"></div>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Card 1 -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:-translate-y-2 transition duration-300">
+                    <img src="https://images.unsplash.com/photo-1616781297597-4bd9807fa56d?q=80&w=600&auto=format&fit=crop" alt="伪满皇宫博物院" class="w-full h-56 object-cover">
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold mb-2">伪满皇宫博物院</h3>
+                        <p class="text-gray-600 text-sm mb-4">中国现存的三大宫廷遗址之一，末代皇帝溥仪充当伪满洲国傀儡皇帝时的宫廷遗址。中西合璧的建筑风格，见证了那段沉重的历史。</p>
+                        <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">历史人文</span>
+                    </div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:-translate-y-2 transition duration-300">
+                    <img src="https://images.unsplash.com/photo-1444491741275-3747c53c99b4?q=80&w=600&auto=format&fit=crop" alt="净月潭" class="w-full h-56 object-cover">
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold mb-2">净月潭国家森林公园</h3>
+                        <p class="text-gray-600 text-sm mb-4">享有“台湾日月潭姊妹潭”之美誉，亚洲最大的人工林海。春夏泛舟，秋踏落叶，冬日更是亚洲最大的冰雪乐园。</p>
+                        <span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">自然风光</span>
+                    </div>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:-translate-y-2 transition duration-300">
+                    <div class="w-full h-56 bg-gray-200 flex items-center justify-center relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-600 opacity-80"></div>
+                        <span class="relative text-white font-bold text-2xl tracking-widest">这有山</span>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold mb-2">这有山 thehill</h3>
+                        <p class="text-gray-600 text-sm mb-4">建在商场里的“山”！长春年轻人的潮流地标。将山坡小镇搬进室内，集文化、旅游、商业为一体的沉浸式体验街区。</p>
+                        <span class="inline-block bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">潮流打卡</span>
+                    </div>
+                </div>
+                
+                <!-- Card 4 -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:-translate-y-2 transition duration-300">
+                    <img src="https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=600&auto=format&fit=crop" alt="长影世纪城" class="w-full h-56 object-cover">
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold mb-2">长影世纪城</h3>
+                        <p class="text-gray-600 text-sm mb-4">被誉为“东方好莱坞”，中国首家电影制片工业与旅游业结合的电影主题公园。特效电影和奇妙的电影互动体验绝对不容错过。</p>
+                        <span class="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded">主题乐园</span>
+                    </div>
+                </div>
+                
+                <!-- Card 5 -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:-translate-y-2 transition duration-300">
+                    <img src="https://images.unsplash.com/photo-1549880338-65ddcdfd017b?q=80&w=600&auto=format&fit=crop" alt="世界雕塑公园" class="w-full h-56 object-cover">
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold mb-2">长春世界雕塑园</h3>
+                        <p class="text-gray-600 text-sm mb-4">汇集了来自世界200多个国家和地区的近万件雕塑作品，是名副其实的“世界雕塑艺术的殿堂”，展现了全球文化的多元交融。</p>
+                        <span class="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">艺术殿堂</span>
+                    </div>
+                </div>
+
+                <!-- Card 6 -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:-translate-y-2 transition duration-300">
+                    <img src="https://images.unsplash.com/photo-1498307833015-e7b400441eb8?q=80&w=600&auto=format&fit=crop" alt="南湖公园" class="w-full h-56 object-cover">
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold mb-2">长春南湖公园</h3>
+                        <p class="text-gray-600 text-sm mb-4">长春市区内最大的公园。四季风景各异，特别是秋季的白桦林和冬季的冰雪大世界，是长春市民最喜爱的休闲地。</p>
+                        <span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">休闲放松</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Food Section -->
+    <section id="food" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">舌尖上的长春</h2>
+                <div class="w-24 h-1 bg-blue-600 mx-auto"></div>
+                <p class="mt-4 text-gray-600">融合了东北菜的豪放与朝鲜族美食的精致</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="relative rounded-xl overflow-hidden group">
+                    <img src="https://images.unsplash.com/photo-1562967914-01efa7e87832?q=80&w=400&auto=format&fit=crop" alt="锅包肉" class="w-full h-64 object-cover group-hover:scale-110 transition duration-500">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-6">
+                        <h4 class="text-xl font-bold text-white">锅包肉</h4>
+                        <p class="text-gray-300 text-sm">东北菜的灵魂，外酥里嫩，酸甜可口</p>
+                    </div>
+                </div>
+                <div class="relative rounded-xl overflow-hidden group">
+                    <img src="https://images.unsplash.com/photo-1555126634-ae231a4a4c11?q=80&w=400&auto=format&fit=crop" alt="铁锅炖" class="w-full h-64 object-cover group-hover:scale-110 transition duration-500">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-6">
+                        <h4 class="text-xl font-bold text-white">东北铁锅炖</h4>
+                        <p class="text-gray-300 text-sm">炖大鹅、炖排骨豆角，贴上玉米饼子，嘎嘎香</p>
+                    </div>
+                </div>
+                <div class="relative rounded-xl overflow-hidden group">
+                    <img src="https://images.unsplash.com/photo-1569058242253-92a9c755a0ec?q=80&w=400&auto=format&fit=crop" alt="冷面" class="w-full h-64 object-cover group-hover:scale-110 transition duration-500">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-6">
+                        <h4 class="text-xl font-bold text-white">延吉冷面</h4>
+                        <p class="text-gray-300 text-sm">酸甜冰爽，搭配锅包肉更是绝配</p>
+                    </div>
+                </div>
+                <div class="relative rounded-xl overflow-hidden group">
+                    <div class="w-full h-64 bg-amber-100 flex items-center justify-center">
+                        <span class="text-4xl text-amber-800 font-bold">烤冷面</span>
+                    </div>
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-6">
+                        <h4 class="text-xl font-bold text-white">街头烤冷面</h4>
+                        <p class="text-gray-300 text-sm">长春街头最受欢迎的夜市小吃</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-2xl font-bold mb-4 tracking-wider">遇见长春</h2>
+            <p class="text-gray-400 mb-8">带你探索北国春城的独特魅力</p>
+            <div class="flex justify-center space-x-6">
+                <span class="text-gray-500 text-sm">© 2026 RangerAI 生成示例</span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>北京旅游攻略 · 2025</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --red: #C0392B;
+      --gold: #D4A017;
+      --dark: #1a1a2e;
+      --text: #2c2c2c;
+      --sub: #666;
+    }
+
+    body {
+      font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f5f0eb;
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      position: relative;
+      height: 100vh;
+      min-height: 600px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background: url('https://images.unsplash.com/photo-1508804185872-d7badad00f7d?w=1200&q=80') center/cover no-repeat;
+    }
+
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(10,10,40,0.80) 100%);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 0 24px;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: var(--gold);
+      color: #000;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      padding: 4px 16px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      font-size: clamp(56px, 14vw, 100px);
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 16px;
+      line-height: 1.0;
+      text-shadow: 0 4px 30px rgba(0,0,0,0.6);
+    }
+
+    .hero h1 span { color: var(--gold); }
+
+    .hero-subtitle {
+      margin-top: 16px;
+      font-size: 14px;
+      color: rgba(255,255,255,0.7);
+      letter-spacing: 4px;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 36px;
+      margin-top: 40px;
+      justify-content: center;
+    }
+
+    .stat-num { font-size: 30px; font-weight: 800; color: var(--gold); }
+    .stat-label { font-size: 11px; color: rgba(255,255,255,0.55); letter-spacing: 1px; margin-top: 2px; }
+
+    .scroll-hint {
+      position: absolute; bottom: 32px; left: 50%;
+      transform: translateX(-50%); z-index: 2; text-align: center;
+    }
+    .scroll-hint span { display: block; font-size: 11px; color: rgba(255,255,255,0.45); letter-spacing: 2px; margin-bottom: 8px; }
+    .arrow { width: 22px; height: 22px; border-right: 2px solid rgba(255,255,255,0.45); border-bottom: 2px solid rgba(255,255,255,0.45); transform: rotate(45deg); margin: 0 auto; animation: bounce 1.5s infinite; }
+    @keyframes bounce { 0%,100%{transform:rotate(45deg) translateY(0)} 50%{transform:rotate(45deg) translateY(6px)} }
+
+    /* ===== INTRO ===== */
+    .intro { background: var(--dark); color: #fff; text-align: center; padding: 60px 24px; }
+    .intro p { max-width: 600px; margin: 0 auto; font-size: 15px; line-height: 2; color: rgba(255,255,255,0.72); }
+    .intro p strong { color: var(--gold); }
+
+    /* ===== SECTION HEADER ===== */
+    .sec-hd { text-align: center; padding: 56px 24px 28px; }
+    .sec-hd .tag { font-size: 11px; letter-spacing: 3px; color: var(--red); font-weight: 700; margin-bottom: 6px; }
+    .sec-hd h2 { font-size: clamp(22px, 6vw, 34px); font-weight: 800; color: var(--dark); letter-spacing: 2px; }
+    .sec-hd p { margin-top: 8px; font-size: 13px; color: var(--sub); letter-spacing: 1px; }
+
+    /* ===== SPOT CARDS ===== */
+    .spots { padding: 0 14px 48px; display: flex; flex-direction: column; gap: 18px; max-width: 780px; margin: 0 auto; }
+
+    .spot-card { background: #fff; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.09); }
+    .spot-img { position: relative; height: 210px; overflow: hidden; }
+    .spot-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
+    .spot-card:hover .spot-img img { transform: scale(1.04); }
+    .rank { position: absolute; top: 12px; left: 12px; background: var(--red); color: #fff; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 20px; }
+    .badge2 { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.5); color: #fff; font-size: 11px; padding: 3px 10px; border-radius: 20px; backdrop-filter: blur(4px); }
+
+    .spot-body { padding: 18px 18px 20px; }
+    .spot-body h3 { font-size: 19px; font-weight: 800; color: var(--dark); letter-spacing: 1px; }
+    .meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 7px; }
+    .meta span { font-size: 12px; color: var(--sub); }
+    .spot-body p { margin-top: 10px; font-size: 13.5px; line-height: 1.85; color: #555; }
+    .tip-box { margin-top: 12px; background: #fff8e7; border-left: 3px solid var(--gold); border-radius: 0 8px 8px 0; padding: 9px 13px; font-size: 12.5px; color: #7a5e00; line-height: 1.65; }
+
+    /* ===== ITINERARY ===== */
+    .itin { background: var(--dark); padding: 56px 14px 60px; }
+    .itin .sec-hd { padding-top: 0; }
+    .itin .sec-hd h2 { color: #fff; }
+    .itin .sec-hd p { color: rgba(255,255,255,0.5); }
+    .days { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+    .day { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 18px; display: flex; gap: 14px; }
+    .dn { min-width: 46px; height: 46px; background: var(--red); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; color: #fff; flex-shrink: 0; }
+    .di h4 { font-size: 15px; font-weight: 700; color: var(--gold); letter-spacing: 1px; }
+    .di p { margin-top: 5px; font-size: 13px; color: rgba(255,255,255,0.62); line-height: 1.8; }
+
+    /* ===== FOOD ===== */
+    .food-wrap { padding: 0 14px 54px; max-width: 780px; margin: 0 auto; }
+    .food-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
+    .fc { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .fc-img { height: 110px; overflow: hidden; }
+    .fc-img img { width: 100%; height: 100%; object-fit: cover; }
+    .fc-body { padding: 11px 12px 14px; }
+    .fc-body h4 { font-size: 13.5px; font-weight: 700; color: var(--dark); }
+    .fc-body p { font-size: 11.5px; color: var(--sub); margin-top: 3px; line-height: 1.5; }
+
+    /* ===== TIPS ===== */
+    .tips-sec { background: linear-gradient(135deg, #C0392B 0%, #7B1111 100%); padding: 56px 14px 60px; }
+    .tips-sec .sec-hd h2 { color: #fff; }
+    .tips-sec .sec-hd .tag { color: var(--gold); }
+    .tips-sec .sec-hd p { color: rgba(255,255,255,0.55); }
+    .tips-grid { max-width: 780px; margin: 0 auto; display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
+    .tip { background: rgba(255,255,255,0.1); border-radius: 14px; padding: 16px; border: 1px solid rgba(255,255,255,0.15); }
+    .tip-icon { font-size: 22px; margin-bottom: 7px; }
+    .tip h4 { font-size: 13.5px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .tip p { font-size: 12px; color: rgba(255,255,255,0.68); line-height: 1.6; }
+
+    /* ===== FOOTER ===== */
+    footer { background: #0d1b2a; text-align: center; padding: 32px 24px; font-size: 12px; color: rgba(255,255,255,0.3); letter-spacing: 1px; }
+    footer strong { color: var(--gold); }
+  </style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-badge">2025 旅游攻略</div>
+    <h1>北<span>京</span></h1>
+    <p class="hero-subtitle">千年帝都 · 文化之心 · 皇家气韵</p>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-num">3000+</div><div class="stat-label">年历史</div></div>
+      <div class="stat"><div class="stat-num">7</div><div class="stat-label">世界遗产</div></div>
+      <div class="stat"><div class="stat-num">200+</div><div class="stat-label">必游景点</div></div>
+    </div>
+  </div>
+  <div class="scroll-hint"><span>向下探索</span><div class="arrow"></div></div>
+</section>
+
+<!-- INTRO -->
+<section class="intro">
+  <p>北京，拥有 <strong>3000余年建城史</strong>、<strong>860余年建都史</strong>。<br>
+  汇聚<strong>故宫、长城、天坛、颐和园</strong>等 7 处世界文化遗产，<br>
+  是中华文明最深厚、最完整的缩影。</p>
+</section>
+
+<!-- SPOTS -->
+<div class="sec-hd">
+  <div class="tag">MUST VISIT</div>
+  <h2>🏯 六大必游景点</h2>
+  <p>精选最具代表性的皇家遗迹与文化地标</p>
+</div>
+
+<div class="spots">
+
+  <div class="spot-card">
+    <div class="spot-img">
+      <img src="https://images.unsplash.com/photo-1584467735867-4297ae2ebcee?w=800&q=80" alt="故宫博物院">
+      <span class="rank">🏆 No.1</span><span class="badge2">世界文化遗产</span>
+    </div>
+    <div class="spot-body">
+      <h3>故宫博物院</h3>
+      <div class="meta"><span>📍 东城区景山前街4号</span><span>🎟 旺季¥60</span><span>⏱ 建议半天</span></div>
+      <p>世界最大宫殿建筑群，明清两代皇宫，拥有大小宫殿七十余座、房屋九千余间。1987年被列为世界文化遗产，现存文物186万件/套，红墙金瓦，震撼人心。</p>
+      <div class="tip-box">💡 提前1-2周官网预约门票，必看珍宝馆和钟表馆，建议上午开馆入场避人潮。</div>
+    </div>
+  </div>
+
+  <div class="spot-card">
+    <div class="spot-img">
+      <img src="https://images.unsplash.com/photo-1508804185872-d7badad00f7d?w=800&q=80" alt="八达岭长城">
+      <span class="rank">🏆 No.2</span><span class="badge2">世界七大奇迹</span>
+    </div>
+    <div class="spot-body">
+      <h3>八达岭长城</h3>
+      <div class="meta"><span>📍 延庆区八达岭镇</span><span>🎟 ¥40</span><span>⏱ 建议3-4小时</span></div>
+      <p>长城精华所在，蜿蜒于群山之间，如巨龙腾飞。历经千年风雨，依然巍峨屹立。登顶远眺群山，气势磅礴，"不到长城非好汉"绝非虚言。</p>
+      <div class="tip-box">💡 建议乘索道上山，南城楼人少风景好。早上9点前到达最佳，避开周末旺季。</div>
+    </div>
+  </div>
+
+  <div class="spot-card">
+    <div class="spot-img">
+      <img src="https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?w=800&q=80" alt="天安门广场">
+      <span class="rank">🏆 No.3</span><span class="badge2">中华第一广场</span>
+    </div>
+    <div class="spot-body">
+      <h3>天安门广场</h3>
+      <div class="meta"><span>📍 东城区天安门广场</span><span>🎟 免费</span><span>⏱ 建议1-2小时</span></div>
+      <p>世界最大城市广场，面积44万平方米。天安门城楼是明清两代皇宫正门，庄严雄伟。每日升旗仪式吸引无数游客早起朝圣，身临其境感受国家气象。</p>
+      <div class="tip-box">💡 观看升旗须提前1小时到达，携带身份证安检入场。广场免费，城楼单独购票。</div>
+    </div>
+  </div>
+
+  <div class="spot-card">
+    <div class="spot-img">
+      <img src="https://images.unsplash.com/photo-1610969636543-3cc9d38b3ca4?w=800&q=80" alt="颐和园">
+      <span class="rank">🏆 No.4</span><span class="badge2">世界文化遗产</span>
+    </div>
+    <div class="spot-body">
+      <h3>颐和园</h3>
+      <div class="meta"><span>📍 海淀区新建宫门路19号</span><span>🎟 联票¥60</span><span>⏱ 建议3-4小时</span></div>
+      <p>中国规模最大、保存最完整的皇家园林，慈禧颐养之地。昆明湖碧波荡漾，十七孔桥日落美景令人陶醉，佛香阁高耸云端，长廊彩绘藏着《西游记》故事。</p>
+      <div class="tip-box">💡 从新建宫门进入，直奔十七孔桥和铜牛。买联票可进佛香阁，昆明湖划船体验极佳。</div>
+    </div>
+  </div>
+
+  <div class="spot-card">
+    <div class="spot-img">
+      <img src="https://images.unsplash.com/photo-1600101101297-e0ae0d9c3f84?w=800&q=80" alt="天坛">
+      <span class="rank">🏆 No.5</span><span class="badge2">世界文化遗产</span>
+    </div>
+    <div class="spot-body">
+      <h3>天坛公园</h3>
+      <div class="meta"><span>📍 东城区天坛东路甲1号</span><span>🎟 联票¥34</span><span>⏱ 建议2小时</span></div>
+      <p>明清两代皇帝祭天之地，始建于明永乐十八年（1420年）。祈年殿蓝瓦鎏金顶绝美，回音壁声学奇迹令人惊叹，古柏林里还有不怕人的小松鼠相伴。</p>
+      <div class="tip-box">💡 买联票才能进祈年殿！东门进南门出，顺路打卡古柏林，体验回音壁两人贴墙说悄悄话的乐趣。</div>
+    </div>
+  </div>
+
+  <div class="spot-card">
+    <div class="spot-img">
+      <img src="https://images.unsplash.com/photo-1598435253544-a4d1ad20f3e4?w=800&q=80" alt="景山公园">
+      <span class="rank">✨ No.6</span><span class="badge2">俯瞰故宫最佳处</span>
+    </div>
+    <div class="spot-body">
+      <h3>景山公园</h3>
+      <div class="meta"><span>📍 西城区景山西街44号</span><span>🎟 ¥2</span><span>⏱ 建议1小时</span></div>
+      <p>故宫正北方，登顶万春亭可俯瞰故宫全景，是欣赏紫禁城整体格局的绝佳视角。春季桃花烂漫，秋季红叶如火，票价仅2元，性价比极高的隐藏宝藏。</p>
+      <div class="tip-box">💡 游完故宫步行即达，万春亭是拍摄故宫全貌最佳机位。建议黄昏时分前往，光线最美。</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ITINERARY -->
+<section class="itin">
+  <div class="sec-hd">
+    <div class="tag" style="color:var(--gold)">ITINERARY</div>
+    <h2>🗓 5天精华行程</h2>
+    <p>合理规划，玩转帝都精华</p>
+  </div>
+  <div class="days">
+    <div class="day"><div class="dn">D1</div><div class="di"><h4>皇城印象</h4><p>天安门广场（升旗仪式）→ 故宫博物院（半天）→ 景山公园俯瞰全景 → 前门大街夜游，品尝老北京小吃</p></div></div>
+    <div class="day"><div class="dn">D2</div><div class="di"><h4>长城 · 奥运</h4><p>早出发 → 八达岭长城（索道上山，3-4小时）→ 返回市区 → 奥林匹克公园（鸟巢、水立方），夜间亮灯后拍照更出片</p></div></div>
+    <div class="day"><div class="dn">D3</div><div class="di"><h4>皇家园林</h4><p>颐和园（新建宫门进，十七孔桥+昆明湖划船）→ 圆明园遗址感受历史沧桑 → 北大/清华外景打卡</p></div></div>
+    <div class="day"><div class="dn">D4</div><div class="di"><h4>礼天 · 胡同</h4><p>天坛公园（联票，祈年殿+回音壁）→ 什刹海胡同漫步体验老北京生活 → 南锣鼓巷文艺探店觅食</p></div></div>
+    <div class="day"><div class="dn">D5</div><div class="di"><h4>文化 · 收尾</h4><p>国家博物馆（了解五千年文明）→ 798艺术区（当代艺术打卡）→ 三里屯购物 → 全聚德烤鸭告别晚宴</p></div></div>
+  </div>
+</section>
+
+<!-- FOOD -->
+<div class="sec-hd"><div class="tag">FOOD</div><h2>🍽 北京必吃美食</h2><p>来北京，这些绝对不能错过</p></div>
+<div class="food-wrap">
+  <div class="food-grid">
+    <div class="fc"><div class="fc-img"><img src="https://images.unsplash.com/photo-1625938145312-a64a3bef8556?w=400&q=80" alt="北京烤鸭"></div><div class="fc-body"><h4>🦆 北京烤鸭</h4><p>全聚德/大董，外酥里嫩，配薄饼甜面酱</p></div></div>
+    <div class="fc"><div class="fc-img"><img src="https://images.unsplash.com/photo-1563245372-f21724e3856d?w=400&q=80" alt="炸酱面"></div><div class="fc-body"><h4>🍜 老北京炸酱面</h4><p>黄酱肉末配八种菜码，老北京灵魂主食</p></div></div>
+    <div class="fc"><div class="fc-img"><img src="https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=400&q=80" alt="冰糖葫芦"></div><div class="fc-body"><h4>🍡 冰糖葫芦</h4><p>前门大街必买，酸甜脆爽的街头经典</p></div></div>
+    <div class="fc"><div class="fc-img"><img src="https://images.unsplash.com/photo-1569050467447-ce54b3bbc37d?w=400&q=80" alt="涮羊肉"></div><div class="fc-body"><h4>🍲 老北京涮羊肉</h4><p>铜锅涮肉，芝麻酱蘸料，冬季暖身必选</p></div></div>
+  </div>
+</div>
+
+<!-- TIPS -->
+<section class="tips-sec">
+  <div class="sec-hd"><div class="tag">TIPS</div><h2>📌 出行实用贴士</h2><p>避坑指南，让旅途更顺畅</p></div>
+  <div class="tips-grid">
+    <div class="tip"><div class="tip-icon">🎟</div><h4>提前预约</h4><p>故宫、长城等热门景点需提前1-2周网上预约，旺季尤其重要</p></div>
+    <div class="tip"><div class="tip-icon">🌤</div><h4>最佳时节</h4><p>4-5月春花、9-10月秋叶最美，冬季雪后故宫如诗如画</p></div>
+    <div class="tip"><div class="tip-icon">🚇</div><h4>交通出行</h4><p>地铁覆盖主要景点，办理北京一卡通更便捷，避开早晚高峰</p></div>
+    <div class="tip"><div class="tip-icon">🆔</div><h4>证件必备</h4><p>进天安门广场、故宫须携带身份证，外国人需护照</p></div>
+    <div class="tip"><div class="tip-icon">👟</div><h4>穿着建议</h4><p>景点多步行，推荐运动鞋。夏季防晒，秋冬注意保暖</p></div>
+    <div class="tip"><div class="tip-icon">💰</div><h4>预算参考</h4><p>5天：门票约¥300，餐饮约¥500，地铁约¥100，住宿按需</p></div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>🏯 北京旅游攻略 · 2025年版</p>
+  <p style="margin-top:8px">内容整合自官方旅游信息 · 图片来源 Unsplash</p>
+  <p style="margin-top:8px">Powered by <strong>RangerAI</strong> ⚡</p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "round": "R99",
+  "timestamp": "2026-04-30T09:22:06Z",
+  "version": "iter-verify-v2",
+  "total_pass": 8,
+  "total_fail": 0,
+  "verdict": "PASS",
+  "checks": [{"round":"R99","id":"V1","desc":"dist/assets 大小(MB)","expected":"<=5","actual":"2","status":"PASS"},{"round":"R99","id":"V2","desc":"最大JS文件(KB)","expected":"<=300","actual":"289","status":"PASS"},{"round":"R99","id":"V3","desc":"Mermaid不在主bundle","expected":"0","actual":"0","status":"PASS"},{"round":"R99","id":"V4","desc":"前端正常加载","expected":"200","actual":"200","status":"PASS"},{"round":"HEALTH","id":"TESTS","desc":"测试失败数","expected":"0","actual":"0","status":"PASS"},{"round":"HEALTH","id":"SYNTAX","desc":"语法错误数","expected":"0","actual":"0","status":"PASS"},{"round":"HEALTH","id":"SERVICE","desc":"rangerai-ws 状态","expected":"active","actual":"active","status":"PASS"},{"round":"HEALTH","id":"HTTP","desc":"ranger.voyage HTTP","expected":"200","actual":"200","status":"PASS"}]
+}

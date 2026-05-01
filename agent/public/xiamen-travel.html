@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>厦门旅游攻略 · 海上花园</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --sea: #1a6b8a;
+    --sky: #2db1e0;
+    --sand: #f5e6c8;
+    --coral: #e8654a;
+    --green: #3a8c5c;
+    --dark: #1a2e3b;
+    --gold: #e8a825;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #fff; color: var(--dark); overflow-x: hidden; }
+
+  /* HERO */
+  .hero {
+    position: relative;
+    height: 100vh;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    overflow: hidden;
+    background: linear-gradient(160deg, #0a3d62 0%, #1a6b8a 40%, #2db1e0 70%, #87d8f5 100%);
+  }
+  .hero-waves {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 120px;
+    overflow: hidden;
+  }
+  .hero-waves svg { width: 200%; animation: wave 8s linear infinite; }
+  @keyframes wave {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .hero-content { position: relative; z-index: 2; padding: 0 24px; }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    font-size: 13px;
+    padding: 6px 18px;
+    border-radius: 20px;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+    animation: fadeDown 0.8s ease both;
+  }
+  .hero-title {
+    font-size: 52px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.1;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    animation: fadeDown 0.8s 0.2s ease both;
+  }
+  .hero-title span { color: var(--gold); }
+  .hero-sub {
+    margin-top: 16px;
+    font-size: 17px;
+    color: rgba(255,255,255,0.85);
+    animation: fadeDown 0.8s 0.4s ease both;
+    letter-spacing: 1px;
+  }
+  .hero-tags {
+    margin-top: 28px;
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    animation: fadeDown 0.8s 0.6s ease both;
+  }
+  .hero-tag {
+    background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: #fff;
+    padding: 8px 20px;
+    border-radius: 30px;
+    font-size: 14px;
+  }
+  .scroll-hint {
+    position: absolute;
+    bottom: 140px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.6);
+    font-size: 12px;
+    animation: bounce 2s infinite;
+    z-index: 2;
+  }
+  .scroll-hint::after {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 40px;
+    background: rgba(255,255,255,0.4);
+    margin: 8px auto 0;
+  }
+  @keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-8px)} }
+  @keyframes fadeDown { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+
+  /* NAV */
+  .sticky-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid #e8f0f5;
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .sticky-nav::-webkit-scrollbar { display: none; }
+  .nav-item {
+    flex-shrink: 0;
+    padding: 14px 20px;
+    font-size: 14px;
+    color: #666;
+    cursor: pointer;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .nav-item:hover, .nav-item.active { color: var(--sea); border-bottom-color: var(--sea); }
+
+  /* SECTIONS */
+  section { padding: 60px 20px; max-width: 480px; margin: 0 auto; }
+  .section-header { text-align: center; margin-bottom: 36px; }
+  .section-badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: var(--sky);
+    background: #e8f6fd;
+    padding: 4px 14px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+  .section-title { font-size: 28px; font-weight: 800; color: var(--dark); }
+  .section-title em { color: var(--sky); font-style: normal; }
+
+  /* SPOTS */
+  .spot-card {
+    background: #fff;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 28px;
+    box-shadow: 0 8px 40px rgba(26,107,138,0.12);
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .spot-card:hover { transform: translateY(-4px); box-shadow: 0 16px 50px rgba(26,107,138,0.18); }
+  .spot-img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    display: block;
+  }
+  .spot-img-placeholder {
+    width: 100%;
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 60px;
+  }
+  .spot-body { padding: 22px; }
+  .spot-tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 8px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+  }
+  .tag-blue { background: #e0f3fc; color: var(--sea); }
+  .tag-green { background: #e4f5eb; color: var(--green); }
+  .tag-coral { background: #fdf0ee; color: var(--coral); }
+  .spot-name { font-size: 22px; font-weight: 800; margin-bottom: 10px; }
+  .spot-desc { font-size: 14px; color: #666; line-height: 1.8; margin-bottom: 16px; }
+  .spot-tips {
+    background: #f7fbfe;
+    border-radius: 12px;
+    padding: 14px 16px;
+    border-left: 3px solid var(--sky);
+  }
+  .spot-tips-title { font-size: 12px; color: var(--sky); font-weight: 700; margin-bottom: 8px; letter-spacing: 1px; }
+  .spot-tips-list { list-style: none; }
+  .spot-tips-list li {
+    font-size: 13px;
+    color: #555;
+    padding: 3px 0;
+    padding-left: 16px;
+    position: relative;
+  }
+  .spot-tips-list li::before { content: '✦'; position: absolute; left: 0; color: var(--sky); font-size: 10px; top: 5px; }
+
+  /* FOOD */
+  .food-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .food-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+    text-align: center;
+    transition: transform 0.2s;
+  }
+  .food-card:hover { transform: scale(1.03); }
+  .food-card.wide { grid-column: span 2; display: flex; align-items: center; gap: 16px; text-align: left; }
+  .food-emoji { font-size: 44px; margin-bottom: 10px; display: block; }
+  .food-card.wide .food-emoji { font-size: 50px; margin: 0; flex-shrink: 0; }
+  .food-name { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .food-desc { font-size: 12px; color: #888; line-height: 1.6; }
+  .food-where { font-size: 11px; color: var(--coral); margin-top: 6px; font-weight: 600; }
+
+  /* TRANSPORT */
+  .transport-section { background: linear-gradient(135deg, #f0f9ff 0%, #e8f5e9 100%); border-radius: 24px; padding: 30px 24px; margin-bottom: 20px; }
+  .transport-title { font-size: 16px; font-weight: 800; color: var(--dark); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .transport-item {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 14px;
+    align-items: flex-start;
+  }
+  .transport-icon {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .ic-blue { background: #dbeeff; }
+  .ic-green { background: #d8f5e4; }
+  .ic-orange { background: #ffeedd; }
+  .ic-purple { background: #ede8ff; }
+  .transport-text { flex: 1; }
+  .transport-label { font-size: 14px; font-weight: 700; color: var(--dark); margin-bottom: 2px; }
+  .transport-detail { font-size: 12px; color: #666; line-height: 1.7; }
+
+  /* TIMELINE */
+  .timeline { position: relative; padding-left: 30px; }
+  .timeline::before { content:''; position:absolute; left:10px; top:6px; bottom:0; width:2px; background: linear-gradient(180deg, var(--sky) 0%, #87d8f5 100%); }
+  .timeline-item { position: relative; margin-bottom: 24px; }
+  .timeline-dot { position:absolute; left:-24px; top:4px; width:12px; height:12px; background:var(--sky); border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 3px #c9ecf9; }
+  .timeline-day { font-size:11px; color:var(--sky); font-weight:700; letter-spacing:1px; margin-bottom:4px; }
+  .timeline-content { font-size:13px; color:#555; line-height:1.7; }
+
+  /* FOOTER */
+  footer {
+    background: var(--dark);
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    padding: 40px 20px;
+    font-size: 13px;
+  }
+  footer strong { color: #fff; display: block; font-size: 18px; margin-bottom: 8px; }
+
+  /* DIVIDER */
+  .wave-divider { display: block; width: 100%; line-height: 0; }
+
+  /* BG ALTS */
+  .bg-sand { background: #fdf8f0; }
+  .bg-ocean { background: linear-gradient(180deg, #f0f9ff 0%, #fff 100%); }
+  .bg-coral { background: linear-gradient(180deg, #fff5f3 0%, #fff 100%); }
+
+  @media (max-width: 360px) {
+    .hero-title { font-size: 40px; }
+    .food-grid { grid-template-columns: 1fr; }
+    .food-card.wide { grid-column: span 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">🌊 XIAMEN TRAVEL GUIDE</div>
+    <div class="hero-title">发现<span>厦门</span><br>海上花园</div>
+    <div class="hero-sub">鼓浪屿 · 南普陀寺 · 曾厝垵</div>
+    <div class="hero-tags">
+      <span class="hero-tag">🏝 海岛风情</span>
+      <span class="hero-tag">🍜 闽南美食</span>
+      <span class="hero-tag">🛕 古刹禅韵</span>
+      <span class="hero-tag">🌅 渔村文艺</span>
+    </div>
+  </div>
+  <div class="scroll-hint">向下探索</div>
+  <div class="hero-waves">
+    <svg viewBox="0 0 1200 120" preserveAspectRatio="none" fill="white">
+      <path d="M0,40 C150,80 350,0 600,40 C850,80 1050,0 1200,40 L1200,120 L0,120 Z"/>
+    </svg>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="sticky-nav">
+  <a class="nav-item" href="#spots">🏛 景点</a>
+  <a class="nav-item" href="#food">🍜 美食</a>
+  <a class="nav-item" href="#transport">🚌 交通</a>
+  <a class="nav-item" href="#itinerary">📅 行程</a>
+</nav>
+
+<!-- SPOTS -->
+<div id="spots" class="bg-ocean">
+<section>
+  <div class="section-header">
+    <div class="section-badge">ATTRACTIONS</div>
+    <div class="section-title">三大<em>必游</em>景点</div>
+  </div>
+
+  <!-- 鼓浪屿 -->
+  <div class="spot-card">
+    <div class="spot-img-placeholder" style="background:linear-gradient(135deg,#1a6b8a 0%,#2db1e0 50%,#87d8f5 100%)">🏝</div>
+    <div class="spot-body">
+      <span class="spot-tag tag-blue">世界文化遗产</span>
+      <div class="spot-name">🏝 鼓浪屿</div>
+      <div class="spot-desc">
+        被誉为"海上花园"与"钢琴之岛"，联合国教科文组织世界文化遗产。岛上遍布各式殖民风格别墅与小洋楼，街巷狭窄悠然，随处可见三角梅绽放。无机动车，步行漫游是最佳方式。岛上还藏着众多钢琴博物馆和风琴博物馆。
+      </div>
+      <div class="spot-tips">
+        <div class="spot-tips-title">📌 实用贴士</div>
+        <ul class="spot-tips-list">
+          <li>轮渡票价：单程 35 元（含景区门票）</li>
+          <li>从厦门轮渡码头乘船约 10 分钟</li>
+          <li>建议上午 8 点前出发，避开人潮</li>
+          <li>岛上无汽车，建议穿平底鞋步行探索</li>
+          <li>必打卡：日光岩、菽庄花园、音乐厅</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 南普陀寺 -->
+  <div class="spot-card">
+    <div class="spot-img-placeholder" style="background:linear-gradient(135deg,#2d6a4f 0%,#52b788 50%,#95d5b2 100%)">🛕</div>
+    <div class="spot-body">
+      <span class="spot-tag tag-green">千年古刹</span>
+      <div class="spot-name">🛕 南普陀寺</div>
+      <div class="spot-desc">
+        始建于唐代，距今逾千年，闽南佛教四大名刹之一。寺院依五老峰而建，背山面海，气势恢宏。殿宇雕梁画栋，香火鼎盛。寺内还有一座素食馆，供应精致的闽南素斋，口碑极佳。紧邻厦门大学，可串联游览。
+      </div>
+      <div class="spot-tips">
+        <div class="spot-tips-title">📌 实用贴士</div>
+        <ul class="spot-tips-list">
+          <li>门票：免费开放，寺内赠香不可浪费</li>
+          <li>开放时间：06:00–20:00</li>
+          <li>可步行进入厦门大学（需自行排队入校）</li>
+          <li>推荐顺序：天王殿→大雄宝殿→大悲殿→藏经楼</li>
+          <li>寺内素食馆午餐需提前排队</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 曾厝垵 -->
+  <div class="spot-card">
+    <div class="spot-img-placeholder" style="background:linear-gradient(135deg,#e8654a 0%,#f4a261 50%,#ffd166 100%)">🎨</div>
+    <div class="spot-body">
+      <span class="spot-tag tag-coral">文艺渔村</span>
+      <div class="spot-name">🎨 曾厝垵</div>
+      <div class="spot-desc">
+        厦门最具文艺气息的渔村，被评为"中国最文艺渔村"。狭窄的巷弄里遍布独立咖啡馆、手工艺品店、民宿和小吃摊。既保留了闽南渔村的原生建筑风貌，又融入了现代文艺气息。傍晚在此吃海鲜、看海景，极为惬意。
+      </div>
+      <div class="spot-tips">
+        <div class="spot-tips-title">📌 实用贴士</div>
+        <ul class="spot-tips-list">
+          <li>门票：免费，全天开放</li>
+          <li>傍晚 18:00 后最热闹，美食摊全开</li>
+          <li>推荐：五街十八巷漫步、沙滩看日落</li>
+          <li>附近环岛路是骑行圣地，可租单车</li>
+          <li>民宿选择多，适合住一晚体验渔村夜生活</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- FOOD -->
+<div id="food" class="bg-sand">
+<section>
+  <div class="section-header">
+    <div class="section-badge">FOOD GUIDE</div>
+    <div class="section-title">闽南<em>必吃</em>美食</div>
+  </div>
+
+  <div class="food-grid">
+    <div class="food-card wide">
+      <span class="food-emoji">🍜</span>
+      <div>
+        <div class="food-name">沙茶面</div>
+        <div class="food-desc">厦门最具代表性的小吃，汤底以花生、椰浆、多种香料熬制，浓郁醇厚，可自选猪肠、大肠、腰花、鱿鱼等配料。</div>
+        <div class="food-where">📍 中山路步行街 · 曾厝垵食街</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <span class="food-emoji">🦪</span>
+      <div class="food-name">海蛎煎</div>
+      <div class="food-desc">鲜肥海蛎裹地瓜粉煎制，加蛋、韭菜，外脆内嫩，蘸甜辣酱食用。</div>
+      <div class="food-where">📍 八市海鲜市场</div>
+    </div>
+
+    <div class="food-card">
+      <span class="food-emoji">🍮</span>
+      <div class="food-name">土笋冻</div>
+      <div class="food-desc">闽南独有，以海沙虫熬制冻结，口感Q弹鲜嫩，配芥末酱油，是挑战味蕾的必试小吃。</div>
+      <div class="food-where">📍 中山路 · 本地摊位</div>
+    </div>
+
+    <div class="food-card wide">
+      <span class="food-emoji">🍲</span>
+      <div>
+        <div class="food-name">面线糊</div>
+        <div class="food-desc">细如发丝的面线与地瓜粉熬成糊状，口感顺滑，可加大肠、虾仁、卤蛋等，是厦门人的早餐首选。</div>
+        <div class="food-where">📍 开元路老店 · 鼓浪屿街边摊</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <span class="food-emoji">🥢</span>
+      <div class="food-name">炸醋肉</div>
+      <div class="food-desc">猪肉裹地瓜粉油炸，佐以独家醋酱，外酥里嫩，是下酒绝配。</div>
+      <div class="food-where">📍 曾厝垵夜市</div>
+    </div>
+
+    <div class="food-card">
+      <span class="food-emoji">🦆</span>
+      <div class="food-name">姜母鸭</div>
+      <div class="food-desc">以红面番鸭和老姜、米酒炖煮，暖胃驱寒，是厦门秋冬季最滋补的家常料理。</div>
+      <div class="food-where">📍 各大餐馆均有</div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- TRANSPORT -->
+<div id="transport">
+<section>
+  <div class="section-header">
+    <div class="section-badge">TRANSPORTATION</div>
+    <div class="section-title">厦门<em>交通</em>指南</div>
+  </div>
+
+  <div class="transport-section">
+    <div class="transport-title">✈️ 抵达厦门</div>
+    <div class="transport-item">
+      <div class="transport-icon ic-blue">✈️</div>
+      <div class="transport-text">
+        <div class="transport-label">高崎国际机场</div>
+        <div class="transport-detail">地铁 1 号线直达市区，约 30 分钟；打车到市中心约 25–40 元；BRT 快速公交直达轮渡码头约 25 分钟</div>
+      </div>
+    </div>
+    <div class="transport-item">
+      <div class="transport-icon ic-green">🚄</div>
+      <div class="transport-text">
+        <div class="transport-label">厦门北站 / 厦门站</div>
+        <div class="transport-detail">高铁优先选厦门北站（岛外），地铁 1/4 号线接驳市区约 30 分钟；厦门站（岛内）更近，步行或打车均可</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="transport-section">
+    <div class="transport-title">🗺 岛内出行</div>
+    <div class="transport-item">
+      <div class="transport-icon ic-blue">🚇</div>
+      <div class="transport-text">
+        <div class="transport-label">地铁</div>
+        <div class="transport-detail">目前开通 1、2、3、6 号线，覆盖主要景区，票价 2–6 元。推荐用厦门通 APP 扫码乘车</div>
+      </div>
+    </div>
+    <div class="transport-item">
+      <div class="transport-icon ic-orange">⚡</div>
+      <div class="transport-text">
+        <div class="transport-label">BRT 快速公交</div>
+        <div class="transport-detail">连接机场—轮渡—环岛路的快速通道，单程 1–3 元，全程专用道不堵车，极为便利</div>
+      </div>
+    </div>
+    <div class="transport-item">
+      <div class="transport-icon ic-green">🚕</div>
+      <div class="transport-text">
+        <div class="transport-label">出租车 / 网约车</div>
+        <div class="transport-detail">岛内起步价 8 元/3km，岛内短途 10–20 元，性价比高。推荐滴滴/高德打车</div>
+      </div>
+    </div>
+    <div class="transport-item">
+      <div class="transport-icon ic-purple">🚢</div>
+      <div class="transport-text">
+        <div class="transport-label">鼓浪屿轮渡</div>
+        <div class="transport-detail">从轮渡码头或嵩屿码头乘船，首班 5:30，末班 00:30；单程含景区费约 35 元；航程 10 分钟，建议提前在美团/微信小程序购票</div>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- ITINERARY -->
+<div id="itinerary" class="bg-coral">
+<section>
+  <div class="section-header">
+    <div class="section-badge">ITINERARY</div>
+    <div class="section-title">推荐<em>3日</em>行程</div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-day">DAY 1 · 海岛探秘</div>
+      <div class="timeline-content">
+        清晨 7:30 从轮渡码头乘船前往<strong>鼓浪屿</strong>，游览日光岩、菽庄花园、风琴博物馆。在岛上享用午餐（推荐1980西餐厅）。下午漫步小巷，打卡网红拍摄点。傍晚返回厦门，前往<strong>中山路步行街</strong>觅食，必吃沙茶面。
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-day">DAY 2 · 古寺渔村</div>
+      <div class="timeline-content">
+        上午 9:00 参观<strong>南普陀寺</strong>，感受千年古刹的禅意，顺便漫步厦门大学校园欣赏民国建筑。午后前往<strong>曾厝垵</strong>，逛五街十八巷，品尝各色小吃。傍晚在沙滩看日落，夜晚留在曾厝垵夜市大快朵颐。
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-day">DAY 3 · 环岛慢游</div>
+      <div class="timeline-content">
+        骑共享单车沿<strong>环岛路</strong>骑行，欣赏厦门最美海岸线。经过<strong>黄厝沙滩</strong>和<strong>观音山沙滩</strong>。下午前往<strong>八市海鲜市场</strong>购买新鲜海鲜，选一家附近海鲜餐厅加工。告别前在国贸购买南靖土楼伴手礼。
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <strong>🌊 厦门旅游攻略</strong>
+  海上花园 · 温情之城<br>
+  <span style="margin-top:8px;display:block">祝旅途愉快，满载而归 ✨</span>
+  <div style="margin-top:20px;opacity:0.4;font-size:11px">本页面仅供参考，景区信息以官方公告为准</div>
+</footer>
+
+<script>
+// Sticky nav active state
+const sections = document.querySelectorAll('[id]');
+const navItems = document.querySelectorAll('.nav-item');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navItems.forEach(n => n.classList.remove('active'));
+      const active = document.querySelector(`.nav-item[href="#${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { threshold: 0.4 });
+sections.forEach(s => observer.observe(s));
+
+// Scroll reveal
+const cards = document.querySelectorAll('.spot-card, .food-card, .transport-section');
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.opacity = '1';
+      e.target.style.transform = 'translateY(0)';
+    }
+  });
+}, { threshold: 0.1 });
+cards.forEach(c => {
+  c.style.opacity = '0';
+  c.style.transform = 'translateY(20px)';
+  c.style.transition = 'opacity 0.5s ease, transform 0.5s ease, box-shadow 0.3s';
+  revealObserver.observe(c);
+});
+</script>
+</body>
+</html>

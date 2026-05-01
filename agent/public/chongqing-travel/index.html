@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>重庆旅游攻略 · 洪崖洞 · 解放碑 · 磁器口</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --red: #c0392b;
+      --deep-red: #8e1a0e;
+      --gold: #f39c12;
+      --dark: #1a1a1a;
+      --text: #333;
+      --light-bg: #faf8f5;
+    }
+
+    body {
+      font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--dark);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      position: relative;
+      height: 100vh;
+      min-height: 600px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #0a0a0a;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(160deg, rgba(192,57,43,0.15) 0%, transparent 50%),
+        linear-gradient(0deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.5) 100%),
+        url('https://images.unsplash.com/photo-1591474200742-8e512e6f98f8?w=1600&q=80') center/cover no-repeat;
+      transform: scale(1.05);
+      animation: bgZoom 20s ease-in-out infinite alternate;
+    }
+
+    @keyframes bgZoom {
+      from { transform: scale(1.05); }
+      to   { transform: scale(1.12); }
+    }
+
+    .hero-content {
+      position: relative;
+      text-align: center;
+      color: #fff;
+      padding: 0 20px;
+      animation: heroFadeIn 1.2s ease forwards;
+    }
+
+    @keyframes heroFadeIn {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-tag {
+      display: inline-block;
+      background: var(--red);
+      color: #fff;
+      font-size: 12px;
+      letter-spacing: 3px;
+      padding: 5px 16px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.6rem, 8vw, 5rem);
+      font-weight: 900;
+      line-height: 1.1;
+      text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      letter-spacing: -1px;
+    }
+
+    .hero h1 span {
+      color: var(--gold);
+    }
+
+    .hero-sub {
+      margin-top: 18px;
+      font-size: clamp(0.95rem, 2.5vw, 1.2rem);
+      color: rgba(255,255,255,0.8);
+      letter-spacing: 1px;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 40px;
+      justify-content: center;
+      margin-top: 40px;
+      flex-wrap: wrap;
+    }
+
+    .hero-stat {
+      text-align: center;
+    }
+
+    .hero-stat .num {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--gold);
+    }
+
+    .hero-stat .label {
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.6);
+      margin-top: 4px;
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.5);
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .scroll-arrow {
+      width: 20px;
+      height: 20px;
+      border-right: 2px solid rgba(255,255,255,0.4);
+      border-bottom: 2px solid rgba(255,255,255,0.4);
+      transform: rotate(45deg);
+      animation: scrollBounce 1.5s ease-in-out infinite;
+    }
+
+    @keyframes scrollBounce {
+      0%, 100% { transform: rotate(45deg) translateY(0); }
+      50%       { transform: rotate(45deg) translateY(6px); }
+    }
+
+    /* ===== NAV ===== */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10,10,10,0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .nav-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+      gap: 0;
+    }
+
+    .nav a {
+      color: rgba(255,255,255,0.6);
+      text-decoration: none;
+      font-size: 0.9rem;
+      padding: 16px 22px;
+      transition: color 0.2s, border-bottom 0.2s;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+    }
+
+    .nav a:hover, .nav a.active {
+      color: var(--gold);
+      border-bottom-color: var(--gold);
+    }
+
+    /* ===== SECTIONS ===== */
+    section {
+      background: var(--light-bg);
+    }
+
+    section:nth-child(even) {
+      background: #fff;
+    }
+
+    .section-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 70px 20px;
+    }
+
+    /* ===== SPOT CARD ===== */
+    .spot-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: center;
+      margin-bottom: 50px;
+    }
+
+    .spot-header.reverse {
+      direction: rtl;
+    }
+
+    .spot-header.reverse > * {
+      direction: ltr;
+    }
+
+    .spot-img-wrap {
+      border-radius: 16px;
+      overflow: hidden;
+      aspect-ratio: 4/3;
+      position: relative;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+
+    .spot-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.6s ease;
+    }
+
+    .spot-img-wrap:hover img {
+      transform: scale(1.06);
+    }
+
+    .spot-badge {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      background: var(--red);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 20px;
+      letter-spacing: 1px;
+    }
+
+    .spot-info h2 {
+      font-size: clamp(1.8rem, 4vw, 2.4rem);
+      font-weight: 900;
+      color: var(--dark);
+      line-height: 1.2;
+      margin-bottom: 6px;
+    }
+
+    .spot-info h2 .en {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 400;
+      color: #999;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .spot-desc {
+      margin-top: 16px;
+      font-size: 0.95rem;
+      line-height: 1.9;
+      color: #555;
+    }
+
+    .spot-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .tag {
+      background: #f0ebe3;
+      color: #7a5c3a;
+      font-size: 0.78rem;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    .tag.red {
+      background: #fdecea;
+      color: var(--red);
+    }
+
+    /* ===== INFO GRID ===== */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 30px;
+    }
+
+    .info-card {
+      background: #fff;
+      border: 1px solid #e8e0d5;
+      border-radius: 12px;
+      padding: 18px;
+      transition: box-shadow 0.2s;
+    }
+
+    .info-card:hover {
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+
+    section:nth-child(even) .info-card {
+      background: var(--light-bg);
+    }
+
+    .info-card .icon {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    .info-card .label {
+      font-size: 0.75rem;
+      color: #999;
+      margin-bottom: 4px;
+    }
+
+    .info-card .value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--dark);
+      line-height: 1.4;
+    }
+
+    /* ===== FOOD SECTION ===== */
+    .food-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--dark);
+      margin: 30px 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .food-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e0d8ce;
+    }
+
+    .food-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px;
+    }
+
+    .food-item {
+      background: linear-gradient(135deg, var(--red), #e74c3c);
+      color: #fff;
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+      font-size: 0.9rem;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(192,57,43,0.3);
+    }
+
+    .food-item .food-emoji {
+      font-size: 1.6rem;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    /* ===== TIPS SECTION ===== */
+    .tips-section {
+      background: var(--dark) !important;
+    }
+
+    .tips-section .section-inner {
+      padding: 70px 20px;
+    }
+
+    .tips-header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .tips-header h2 {
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+      font-weight: 900;
+      color: #fff;
+    }
+
+    .tips-header p {
+      color: rgba(255,255,255,0.5);
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+
+    .tips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 20px;
+    }
+
+    .tip-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 24px 20px;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .tip-card:hover {
+      background: rgba(255,255,255,0.08);
+      transform: translateY(-3px);
+    }
+
+    .tip-icon {
+      font-size: 2rem;
+      margin-bottom: 12px;
+    }
+
+    .tip-card h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 8px;
+    }
+
+    .tip-card p {
+      font-size: 0.83rem;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.7;
+    }
+
+    /* ===== ROUTE ===== */
+    .route-section {
+      background: linear-gradient(135deg, #faf0e6 0%, #fff5e6 100%) !important;
+    }
+
+    .route-title {
+      text-align: center;
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+      font-weight: 900;
+      color: var(--dark);
+      margin-bottom: 8px;
+    }
+
+    .route-sub {
+      text-align: center;
+      color: #888;
+      font-size: 0.9rem;
+      margin-bottom: 48px;
+    }
+
+    .route-line {
+      position: relative;
+      padding-left: 20px;
+    }
+
+    .route-line::before {
+      content: '';
+      position: absolute;
+      left: 20px;
+      top: 24px;
+      bottom: 24px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--red), var(--gold));
+    }
+
+    .route-item {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 32px;
+      position: relative;
+    }
+
+    .route-dot {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--red);
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 4px 12px rgba(192,57,43,0.4);
+    }
+
+    .route-content {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px 20px;
+      flex: 1;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .route-content h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    .route-content p {
+      font-size: 0.85rem;
+      color: #777;
+      margin-top: 6px;
+      line-height: 1.6;
+    }
+
+    .route-time {
+      font-size: 0.75rem;
+      color: var(--red);
+      font-weight: 600;
+      margin-top: 6px;
+    }
+
+    /* ===== FOOTER ===== */
+    footer {
+      background: #0a0a0a;
+      text-align: center;
+      padding: 40px 20px;
+      color: rgba(255,255,255,0.3);
+      font-size: 0.8rem;
+      line-height: 2;
+    }
+
+    footer span {
+      color: var(--gold);
+    }
+
+    /* ===== SECTION DIVIDER ===== */
+    .spot-number {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .spot-number .num {
+      width: 36px;
+      height: 36px;
+      background: var(--red);
+      color: #fff;
+      border-radius: 50%;
+      font-size: 0.9rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .spot-number .label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--red);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    /* ===== MOBILE ===== */
+    @media (max-width: 680px) {
+      .spot-header {
+        grid-template-columns: 1fr;
+      }
+      .spot-header.reverse {
+        direction: ltr;
+      }
+      .info-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .hero-stats {
+        gap: 24px;
+      }
+      .nav a {
+        padding: 14px 14px;
+        font-size: 0.82rem;
+      }
+      .route-line::before {
+        display: none;
+      }
+    }
+
+    /* ===== ANIMATIONS ===== */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <div class="hero-tag">🔥 重庆必游</div>
+    <h1>魔幻<span>山城</span><br>重庆旅游攻略</h1>
+    <p class="hero-sub">洪崖洞 · 解放碑 · 磁器口 · 三大地标一网打尽</p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="num">3</div>
+        <div class="label">核心景点</div>
+      </div>
+      <div class="hero-stat">
+        <div class="num">1天</div>
+        <div class="label">轻松游完</div>
+      </div>
+      <div class="hero-stat">
+        <div class="num">免费</div>
+        <div class="label">门票费用</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>向下滑动</span>
+    <div class="scroll-arrow"></div>
+  </div>
+</section>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#hongyadong">🏮 洪崖洞</a>
+    <a href="#jiefangbei">🗼 解放碑</a>
+    <a href="#ciqikou">⛩️ 磁器口</a>
+    <a href="#route">🗺️ 行程</a>
+    <a href="#tips">💡 贴士</a>
+  </div>
+</nav>
+
+<!-- ===== 洪崖洞 ===== -->
+<section id="hongyadong">
+  <div class="section-inner">
+    <div class="spot-header fade-up">
+      <div class="spot-img-wrap">
+        <img
+          src="https://images.unsplash.com/photo-1569770218135-bea267ed7e84?w=800&q=80"
+          alt="洪崖洞夜景"
+          loading="lazy"
+          onerror="this.src='https://picsum.photos/800/600?random=1'"
+        />
+        <div class="spot-badge">4A景区</div>
+      </div>
+      <div class="spot-info">
+        <div class="spot-number">
+          <div class="num">01</div>
+          <div class="label">必游地标</div>
+        </div>
+        <h2>洪崖洞
+          <span class="en">Hongya Cave</span>
+        </h2>
+        <p class="spot-desc">
+          重庆最具代表性的地标建筑，位于嘉陵江畔，以独特的<strong>吊脚楼</strong>群落著称。共11层楼高，依山就势顺崖而建，入夜后万灯齐放，流光溢彩，宛如宫崎骏动漫《千与千寻》的场景再现。
+          <br><br>
+          这里汇聚了巴渝传统建筑精华，融合民俗风情、特色餐饮与休闲娱乐，是感受老重庆山城文化的绝佳之地。
+        </p>
+        <div class="spot-tags">
+          <span class="tag red">🔥 网红打卡</span>
+          <span class="tag">吊脚楼</span>
+          <span class="tag">两江交汇</span>
+          <span class="tag">夜景绝美</span>
+          <span class="tag">巴渝文化</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-grid fade-up">
+      <div class="info-card">
+        <div class="icon">🎫</div>
+        <div class="label">门票</div>
+        <div class="value">免费开放</div>
+      </div>
+      <div class="info-card">
+        <div class="icon">🕐</div>
+        <div class="label">营业时间</div>
+        <div class="value">10:00 - 23:00<br><small style="color:#999;font-size:0.75rem">灯光 18:00 亮起</small></div>
+      </div>
+      <div class="info-card">
+        <div class="icon">📍</div>
+        <div class="label">地址</div>
+        <div class="value">渝中区嘉滨路88号</div>
+      </div>
+      <div class="info-card">
+        <div class="icon">🚇</div>
+        <div class="label">交通</div>
+        <div class="value">轻轨1/6号线<br>小什字站</div>
+      </div>
+      <div class="info-card">
+        <div class="icon">⏱️</div>
+        <div class="label">建议游览</div>
+        <div class="value">1.5 - 2 小时</div>
+      </div>
+      <div class="info-card">
+        <div class="icon">📸</div>
+        <div class="label">最佳拍摄</div>
+        <div class="value">傍晚 18:00-20:00</div>
+      </div>
+    </div>
+
+    <div class="food-title fade-up">🍜 洪崖洞特色美食</div>
+    <div class="food-list fade-up">
+      <div class="food-item"><span class="food-emoji">🌶️</span>重庆火锅</div>
+      <div class="food-item"><span class="food-emoji">🍢</span>串串香</div>
+      <div class="food-item"><span class="food-emoji">🫙</span>酸辣粉</div>
+      <div class="food-item"><span class="food-emoji">🍡</span>糍粑</div>
+      <div class="food-item"><span class="food-emoji">🍺</span>江边夜啤</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 解放碑 ===== -->
+<section id="jiefangbei">
+  <div class="section-inner">
+    <div class="spot-header reverse fade-up">
+      <div class="spot-img-wrap">
+        <img
+          src="https://images.unsplash.com/photo-1598888789003-2d2c5bcbddb0?w=800&q=80"
+          alt="解放碑步行街"
+          loading="lazy"
+          onerror="this.src='https://picsum.photos/800/600?random=2'"
+        />
+        <div class="spot-badge">城市地标</div>
+      </div>
+      <div class="spot-info">
+        <div class="spot-number">
+          <div class="num">02</div>
+          <div class="label">商业中心</div>
+        </div>
+        <h2>解放碑
+          <span class="en">Liberation Monument</span>
+        </h2>
+        <p class="spot-desc">
+          重庆的"时代广场"，中国内陆最繁华的商业中心之一。解放碑本身是一座抗战胜利纪念碑，始建于1947年，是重庆的精神象征。
+          <br><br>
+          碑周围围绕着步行街、购物中心、美食街，国泰艺术中心等现代建筑与古朴纪念碑交相辉映，展现出重庆独特的城市魅力。这里也是重庆最适合逛街购物的地方。
+        </p>
+        <div class="spot-tags">
+          <span class="tag red">🏙️ 城市地标</span>
+          <span class="tag">购物天堂</span>
+          <span class="tag">历史人文</span>
+          <span class="tag">夜生活</span>
+          <span class="tag">美食聚集</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-grid fade-up">
+      <div class="info-card">
+        <div class="icon">🎫</div>
+        <div class="label">门票</div>
+        <div class="value">免费参观<br><small style="color:#999;font-size:0.75rem">全天开放</small></div>
+      </div>
+      <div class="info-card">
+        <div class="icon">🕐</div>
+        <div class="label">步行街时间</div>
+        <div class="value">全天开放<br><small style="color:#999;font-size:0.75rem">店铺 10:00-22:00</small></div>
+      </div>
+      <div class="info-card">
+        <div class="icon">📍</div>
+        <div class="label">地址</div>
+        <div class="value">渝中区邹容路<br>民族路交界处</div>
+      </div>
+      <div class="info-card">
+        <div class="icon">🚇</div>
+        <div class="label">交通</div>
+        <div class="value">轻轨1/6号线<br>解放碑站</div>
+      </div>
+      <div class="info-card">
+        <div class="icon">⏱️</div>
+        <div class="label">建议游览</div>
+        <div class="value">2 - 3 小时</div>
+      </div>
+      <div class="info-card">
+        <div class="icon">🛍️</div>
+        <div class="label">购物推荐</div>
+        <div class="value">八一路好吃街<br>国泰艺术中心</div>
+      </div>
+    </div>
+
+    <div class="food-title fade-up">🍜 解放碑周边美食</div>
+    <div class="food-list fade-up">
+      <div class="food-item"><span class="food-emoji">🥩</span>烤肉</div>
+      <div class="food-item"><span class="food-emoji">🍜</span>小面</div>
+      <div class="food-item"><span class="food-emoji">🧆</span>江湖菜</div>
+      <div class="food-item"><span class="food-emoji">🍡</span>汤圆</div>
+      <div class="food-item"><span class="food-emoji">🥤</span>网红饮品</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 磁器口 ===== -->
+<section id="ciqikou">
+  <div class="section-inner">
+    <div class="spot-header fade-up">
+      <div class="spot-img-wrap">
+        <img
+          src="https://images.unsplash.com/photo-1583422409516-2895a77efded?w=800&q=80"
+          alt="磁器口古镇"
+          loading="lazy"
+          onerror="this.src='https://picsum.photos/800/600?random=3'"
+        />
+        <div class="spot-badge">千年古镇</div>
+      </div>
+      <div class="spot-info">
+        <div class="spot-number">
+          <div class="num">03</div>
+          <div class="label">历史古镇</div>
+        </div>
+        <h2>磁器口
+          <span class="en">Ciqikou Old Town</span>
+        </h2>
+        <p class="spot-desc">
+          "一条石板路，千年磁器口"——这句话道尽了这座古镇的历史厚重感。磁器口始建于宋代，距今已有<strong>1700余年历史</strong>，是重庆保存最完好的古镇之一。
+          <br><br>
+          青石板铺就的街道、雕梁画栋的吊脚楼、袅袅升起的香火烟……走进磁器口，仿佛穿越回了老重庆。宝轮寺、钟家大院是必游之处；陈麻花、椒盐花生是必买手信。
+        </p>
+        <div class="spot-tags">
+          <span class="tag red">🏛️ 千年古镇</span>
+          <span class="tag">青石板路</span>
+          <span class="tag">宝轮寺</span>
+          <span class="tag">陈麻花</span>
+          <span class="tag">民俗文化</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-grid fade-up">
+      <div class="info-card">
+        <div class="icon">🎫</div>
+        <div class="label">门票</div>
+        <div class="value">免费进入<br><small style="color:#999;font-size:0.75rem">宝轮寺单独收费</small></div>
+      </div>
+      <div class="info-card">
+        <div class="icon">🕐</div>
+        <div class="label">开放时间</div>
+        <div class="value">08:30 - 22:00</div>
+      </div>
+      <div class="info-card">
+        <div class="icon">📍</div>
+        <div class="label">地址</div>
+        <div class="value">沙坪坝区<br>磁器口古镇</div>
+      </div>
+      <div class="info-card">
+        <div class="icon">🚇</div>
+        <div class="label">交通</div>
+        <div class="value">轻轨1号线<br>磁器口站</div>
+      </div>
+      <div class="info-card">
+        <div class="icon">⏱️</div>
+        <div class="label">建议游览</div>
+        <div class="value">2 - 3 小时</div>
+      </div>
+      <div class="info-card">
+        <div class="icon">🛒</div>
+        <div class="label">必买手信</div>
+        <div class="value">陈麻花<br>椒盐花生</div>
+      </div>
+    </div>
+
+    <div class="food-title fade-up">🍜 磁器口必吃美食</div>
+    <div class="food-list fade-up">
+      <div class="food-item"><span class="food-emoji">🌀</span>陈麻花</div>
+      <div class="food-item"><span class="food-emoji">🥜</span>椒盐花生</div>
+      <div class="food-item"><span class="food-emoji">🍤</span>豌豆糕</div>
+      <div class="food-item"><span class="food-emoji">🫕</span>毛血旺</div>
+      <div class="food-item"><span class="food-emoji">🧁</span>软糖</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 推荐行程 ===== -->
+<section id="route" class="route-section">
+  <div class="section-inner">
+    <h2 class="route-title fade-up">📅 一日游推荐行程</h2>
+    <p class="route-sub fade-up">合理安排，轻松打卡三大景点</p>
+
+    <div class="route-line fade-up">
+      <div class="route-item">
+        <div class="route-dot">AM</div>
+        <div class="route-content">
+          <h4>🌅 09:00 — 抵达磁器口</h4>
+          <p>上午人少，正是逛古镇好时机。漫步青石板路，参观宝轮寺，品尝现炸陈麻花，感受千年古镇晨光。</p>
+          <div class="route-time">⏱ 建议停留：2.5小时</div>
+        </div>
+      </div>
+
+      <div class="route-item">
+        <div class="route-dot">午</div>
+        <div class="route-content">
+          <h4>🍜 11:30 — 磁器口午餐</h4>
+          <p>在古镇内品尝毛血旺或重庆小面，价格实惠，是正宗本地口味。</p>
+          <div class="route-time">⏱ 建议停留：1小时</div>
+        </div>
+      </div>
+
+      <div class="route-item">
+        <div class="route-dot">下</div>
+        <div class="route-content">
+          <h4>🗼 13:30 — 前往解放碑</h4>
+          <p>乘坐轻轨1号线直达解放碑站，逛步行街购物，参观解放碑纪念碑，感受重庆现代商业繁华。</p>
+          <div class="route-time">⏱ 建议停留：2-3小时</div>
+        </div>
+      </div>
+
+      <div class="route-item">
+        <div class="route-dot">晚</div>
+        <div class="route-content">
+          <h4>🌆 16:30 — 步行前往洪崖洞</h4>
+          <p>解放碑步行约15分钟即可抵达洪崖洞。先游览白天的吊脚楼建筑，在附近找家地道火锅店吃晚餐。</p>
+          <div class="route-time">⏱ 晚餐：1.5小时</div>
+        </div>
+      </div>
+
+      <div class="route-item">
+        <div class="route-dot">夜</div>
+        <div class="route-content">
+          <h4>🏮 19:00 — 洪崖洞夜景</h4>
+          <p>华灯初上，洪崖洞灯火通明，吊脚楼倒映在江面上，是一天中最美的时刻。建议在对岸千厮门大桥拍摄全景。</p>
+          <div class="route-time">⏱ 建议停留：1.5-2小时</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 旅游贴士 ===== -->
+<section id="tips" class="tips-section">
+  <div class="section-inner">
+    <div class="tips-header fade-up">
+      <h2>💡 旅游实用贴士</h2>
+      <p>出行前必看，让你的重庆之旅更顺畅</p>
+    </div>
+
+    <div class="tips-grid fade-up">
+      <div class="tip-card">
+        <div class="tip-icon">🌡️</div>
+        <h3>最佳季节</h3>
+        <p>春季（3-5月）和秋季（9-11月）气候宜人，是最佳游览时段。夏季湿热，冬季多雾，但也别有风情。</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🏮</div>
+        <h3>洪崖洞拍照</h3>
+        <p>对岸千厮门大桥是拍摄洪崖洞全景最佳机位。傍晚18:00灯光亮起后，黄金拍摄窗口约2小时。</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">👟</div>
+        <h3>穿着建议</h3>
+        <p>重庆是"山城"，地形起伏大，爬坡上坎是常态。建议穿舒适的运动鞋，避免高跟鞋。</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🚇</div>
+        <h3>交通出行</h3>
+        <p>三大景点均有轻轨直达，推荐使用重庆轨道交通。出行前下载"渝畅行"APP，充值乘车更便捷。</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🌶️</div>
+        <h3>饮食温馨提示</h3>
+        <p>重庆菜偏辣，如不能吃辣可提前告知"不要辣"。建议尝试：小面、重庆火锅、酸辣粉、豌杂面。</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">💰</div>
+        <h3>旅行预算</h3>
+        <p>三大景点均免费进入。每日饮食预算 100-200元，住宿推荐解放碑或观音桥商圈，交通成本极低。</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">⛔</div>
+        <h3>避坑提醒</h3>
+        <p>磁器口麻花店众多，认准"陈昌银"或"陈建平"老字号；洪崖洞内餐厅价格偏高，建议在周边用餐。</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">📱</div>
+        <h3>必备App</h3>
+        <p>高德/百度地图导航、渝畅行（公交地铁）、美团/大众点评（订餐）、携程/飞猪（预订酒店）。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>🏙️ 重庆旅游攻略</p>
+  <p style="margin-top:8px">洪崖洞 · 解放碑 · 磁器口</p>
+  <p style="margin-top:16px">祝你旅途愉快 ✈️ <span>重庆见！</span></p>
+</footer>
+
+<script>
+  // Intersection Observer for fade-up animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(el => {
+      if (el.isIntersecting) {
+        el.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+  // Sticky nav active state
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav a');
+
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      const top = s.offsetTop - 80;
+      if (window.scrollY >= top) current = s.id;
+    });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>北京旅游攻略 · 故宫 天安门 颐和园</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --red: #C0282A;
+      --gold: #D4A44C;
+      --dark: #1A1208;
+      --ink: #2C1810;
+      --cream: #FDF6E3;
+      --light: #FFF9F0;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: var(--light);
+      color: var(--ink);
+      overflow-x: hidden;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      position: relative;
+      height: 100vh;
+      min-height: 600px;
+      background: linear-gradient(160deg, #1A0A00 0%, #3D1A00 40%, #6B2E0A 70%, #C0282A 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 80%, rgba(192,40,42,0.3) 0%, transparent 70%),
+        url('https://images.unsplash.com/photo-1508804185872-d7badad00f7d?w=1400&q=80&fit=crop') center/cover no-repeat;
+      opacity: 0.35;
+    }
+
+    .hero-pattern {
+      position: absolute;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(212,164,76,0.08) 39px, rgba(212,164,76,0.08) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(212,164,76,0.08) 39px, rgba(212,164,76,0.08) 40px);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      font-size: 13px;
+      letter-spacing: 4px;
+      color: var(--gold);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      opacity: 0.9;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.8rem, 10vw, 5.5rem);
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      text-shadow: 0 4px 30px rgba(0,0,0,0.5);
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero h1 span { color: var(--gold); }
+
+    .hero-sub {
+      margin-top: 18px;
+      font-size: 1.05rem;
+      color: rgba(255,255,255,0.75);
+      letter-spacing: 2px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-tags {
+      margin-top: 32px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-tag {
+      padding: 7px 18px;
+      border: 1px solid rgba(212,164,76,0.5);
+      border-radius: 30px;
+      color: var(--gold);
+      font-size: 0.85rem;
+      letter-spacing: 1px;
+      backdrop-filter: blur(8px);
+      background: rgba(0,0,0,0.2);
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.5);
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      animation: bounce 2s infinite;
+      z-index: 1;
+    }
+    .scroll-hint::after { content: ' ↓'; }
+
+    @keyframes bounce {
+      0%,100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(6px); }
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(26,8,0,0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(212,164,76,0.2);
+    }
+
+    .nav-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      gap: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .nav-inner::-webkit-scrollbar { display: none; }
+
+    nav a {
+      flex-shrink: 0;
+      padding: 14px 18px;
+      color: rgba(255,255,255,0.6);
+      text-decoration: none;
+      font-size: 0.85rem;
+      letter-spacing: 1px;
+      transition: color 0.2s;
+      border-bottom: 2px solid transparent;
+    }
+    nav a:hover { color: var(--gold); border-bottom-color: var(--gold); }
+
+    /* ── Sections ── */
+    section {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 60px 20px;
+    }
+
+    .section-title {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+
+    .section-title .num {
+      color: var(--red);
+      margin-right: 8px;
+      font-size: 1.1rem;
+    }
+
+    .section-line {
+      width: 48px;
+      height: 3px;
+      background: var(--gold);
+      border-radius: 2px;
+      margin-bottom: 32px;
+    }
+
+    /* ── Spot Card ── */
+    .spot-card {
+      background: #fff;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 4px 30px rgba(0,0,0,0.08);
+      margin-bottom: 32px;
+      border: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .spot-img {
+      width: 100%;
+      height: 240px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .spot-body { padding: 24px 28px 28px; }
+
+    .spot-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .spot-name {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+
+    .spot-tag {
+      flex-shrink: 0;
+      padding: 4px 12px;
+      background: rgba(192,40,42,0.08);
+      color: var(--red);
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    .spot-desc {
+      font-size: 0.95rem;
+      line-height: 1.8;
+      color: #555;
+      margin-bottom: 20px;
+    }
+
+    .spot-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+    }
+
+    .info-item {
+      background: var(--cream);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .info-label {
+      font-size: 0.72rem;
+      color: #999;
+      letter-spacing: 1px;
+    }
+
+    .info-value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    /* ── Tips ── */
+    .spot-tips {
+      margin-top: 18px;
+      padding: 14px 16px;
+      background: linear-gradient(135deg, rgba(212,164,76,0.08), rgba(212,164,76,0.03));
+      border-left: 3px solid var(--gold);
+      border-radius: 0 10px 10px 0;
+    }
+    .spot-tips p { font-size: 0.88rem; color: #666; line-height: 1.7; }
+    .spot-tips strong { color: var(--ink); }
+
+    /* ── Divider ── */
+    .divider {
+      background: linear-gradient(90deg, var(--red), var(--gold), var(--red));
+      height: 2px;
+      opacity: 0.15;
+    }
+
+    /* ── Food ── */
+    .food-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .food-card {
+      background: #fff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+      border: 1px solid rgba(0,0,0,0.05);
+      transition: transform 0.2s;
+    }
+    .food-card:hover { transform: translateY(-4px); }
+
+    .food-emoji {
+      font-size: 2.4rem;
+      text-align: center;
+      padding: 22px 0 10px;
+      background: linear-gradient(135deg, #FFF3E0, #FFF8F0);
+    }
+
+    .food-content { padding: 12px 16px 18px; }
+
+    .food-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 5px;
+    }
+
+    .food-desc {
+      font-size: 0.82rem;
+      color: #777;
+      line-height: 1.5;
+    }
+
+    .food-where {
+      margin-top: 8px;
+      font-size: 0.78rem;
+      color: var(--red);
+      font-weight: 500;
+    }
+
+    /* ── Transport ── */
+    .transport-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .transport-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+      border: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .transport-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .transport-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+    }
+
+    .transport-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .transport-lines {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .transport-lines li {
+      font-size: 0.85rem;
+      color: #666;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      line-height: 1.5;
+    }
+
+    .transport-lines li::before {
+      content: '•';
+      color: var(--gold);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* ── Route Timeline ── */
+    .route-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+    }
+
+    .route-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .tl-item {
+      display: flex;
+      gap: 14px;
+      position: relative;
+    }
+
+    .tl-left {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    .tl-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--red);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .tl-line {
+      width: 2px;
+      flex: 1;
+      min-height: 28px;
+      background: linear-gradient(to bottom, var(--red), var(--gold));
+      opacity: 0.3;
+      margin: 0 auto;
+    }
+
+    .tl-content {
+      padding: 3px 0 24px;
+    }
+
+    .tl-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .tl-detail {
+      font-size: 0.82rem;
+      color: #888;
+      margin-top: 3px;
+      line-height: 1.5;
+    }
+
+    /* ── Footer ── */
+    footer {
+      background: var(--dark);
+      color: rgba(255,255,255,0.5);
+      text-align: center;
+      padding: 36px 20px;
+      font-size: 0.83rem;
+      line-height: 2;
+    }
+    footer strong { color: var(--gold); }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .spot-img { height: 190px; }
+      .spot-body { padding: 18px; }
+      .spot-info { grid-template-columns: 1fr 1fr; }
+      .food-grid { grid-template-columns: 1fr 1fr; }
+      section { padding: 44px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-pattern"></div>
+  <p class="hero-badge">Beijing · Travel Guide · 2025</p>
+  <h1>北京<br><span>深度旅游</span>攻略</h1>
+  <p class="hero-sub">故宫 · 天安门 · 颐和园 · 美食 · 交通</p>
+  <div class="hero-tags">
+    <span class="hero-tag">🏯 故宫博物院</span>
+    <span class="hero-tag">🚩 天安门广场</span>
+    <span class="hero-tag">🌿 颐和园</span>
+    <span class="hero-tag">🍜 老字号美食</span>
+  </div>
+  <p class="scroll-hint">向下滚动</p>
+</div>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <a href="#spots">🏯 景点</a>
+    <a href="#gugong">故宫</a>
+    <a href="#tiananmen">天安门</a>
+    <a href="#yiheyuan">颐和园</a>
+    <a href="#food">🍜 美食</a>
+    <a href="#transport">🚇 交通</a>
+  </div>
+</nav>
+
+<!-- 景点 -->
+<section id="spots">
+  <h2 class="section-title"><span class="num">01</span>三大必游景点</h2>
+  <div class="section-line"></div>
+
+  <!-- 故宫 -->
+  <div class="spot-card" id="gugong">
+    <img class="spot-img"
+      src="https://images.unsplash.com/photo-1508804185872-d7badad00f7d?w=900&q=80&fit=crop&crop=center"
+      alt="故宫博物院"
+      loading="lazy"
+      onerror="this.style.background='linear-gradient(135deg,#8B0000,#C0282A)';this.removeAttribute('src')">
+    <div class="spot-body">
+      <div class="spot-header">
+        <div class="spot-name">故宫博物院</div>
+        <span class="spot-tag">世界文化遗产</span>
+      </div>
+      <p class="spot-desc">
+        又名紫禁城，建于明永乐年间（1406年），是中国明清两代的皇家宫殿，世界上现存规模最大、保存最完整的木质结构古建筑群。占地面积约72万平方米，拥有宫殿建筑70余座、房屋9000余间。收藏文物超180万件，是中国最丰富的古代文明宝库。
+      </p>
+      <div class="spot-info">
+        <div class="info-item">
+          <span class="info-label">门票价格</span>
+          <span class="info-value">旺季 60元 / 淡季 40元</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">开放时间</span>
+          <span class="info-value">08:30 — 17:00</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">闭馆日</span>
+          <span class="info-value">每周一（法定节假日除外）</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">建议游览</span>
+          <span class="info-value">4 — 6 小时</span>
+        </div>
+      </div>
+      <div class="spot-tips">
+        <p>
+          <strong>💡 攻略提示：</strong>
+          故宫 <strong>不售当日票</strong>，需提前7天在故宫官网/小程序预约。
+          强烈推荐从 <strong>午门（南门）</strong> 入园沿中轴线游览至神武门，
+          顺路参观珍宝馆（需另购票30元）和钟表馆（10元）。
+          周一闭馆，请务必避开。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 天安门 -->
+  <div class="spot-card" id="tiananmen">
+    <img class="spot-img"
+      src="https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?w=900&q=80&fit=crop&crop=center"
+      alt="天安门广场"
+      loading="lazy"
+      onerror="this.style.background='linear-gradient(135deg,#B71C1C,#8B0000)';this.removeAttribute('src')">
+    <div class="spot-body">
+      <div class="spot-header">
+        <div class="spot-name">天安门广场</div>
+        <span class="spot-tag">国家地标</span>
+      </div>
+      <p class="spot-desc">
+        世界上最大的城市中心广场之一，南北长880米，东西宽500米，面积达44万平方米。广场中心矗立着人民英雄纪念碑，南端为毛主席纪念堂，东西两侧分别是中国国家博物馆和人民大会堂。每天清晨的升旗仪式是必看的庄严仪式。
+      </p>
+      <div class="spot-info">
+        <div class="info-item">
+          <span class="info-label">广场参观</span>
+          <span class="info-value">免费（需预约实名）</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">天安门城楼</span>
+          <span class="info-value">门票 15元</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">升旗时间</span>
+          <span class="info-value">日出时刻（随季节变化）</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">建议游览</span>
+          <span class="info-value">1 — 2 小时</span>
+        </div>
+      </div>
+      <div class="spot-tips">
+        <p>
+          <strong>💡 攻略提示：</strong>
+          看升旗仪式需提前 <strong>1-2小时</strong> 到场排队，夏日日出约4:49，冬日约7:17。
+          参观广场需携带身份证安检，建议 <strong>工作日前往</strong> 避开人流。
+          国家博物馆免费参观，提前在官网预约，展品丰富值得半天时间。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 颐和园 -->
+  <div class="spot-card" id="yiheyuan">
+    <img class="spot-img"
+      src="https://images.unsplash.com/photo-1570197571499-166b36435e9f?w=900&q=80&fit=crop&crop=center"
+      alt="颐和园"
+      loading="lazy"
+      onerror="this.style.background='linear-gradient(135deg,#1A3A2A,#2D6A4F)';this.removeAttribute('src')">
+    <div class="spot-body">
+      <div class="spot-header">
+        <div class="spot-name">颐和园</div>
+        <span class="spot-tag">皇家园林</span>
+      </div>
+      <p class="spot-desc">
+        中国现存规模最大、保存最完整的皇家园林，UNESCO世界文化遗产。以昆明湖、万寿山为基址，汲取江南园林设计手法。核心景观包括：长廊（全长728米，彩绘14000余幅）、佛香阁（海拔58米，俯瞰昆明湖）、苏州街、十七孔桥等。
+      </p>
+      <div class="spot-info">
+        <div class="info-item">
+          <span class="info-label">门票价格</span>
+          <span class="info-value">旺季 30元（联票50元）</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">开放时间</span>
+          <span class="info-value">旺季 06:30 — 20:00</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">地铁直达</span>
+          <span class="info-value">4号线 北宫门站</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">建议游览</span>
+          <span class="info-value">3 — 5 小时</span>
+        </div>
+      </div>
+      <div class="spot-tips">
+        <p>
+          <strong>💡 攻略提示：</strong>
+          推荐 <strong>购买联票</strong>（含佛香阁、苏州街、德和园、文昌院等内部景点）更划算。
+          建议从 <strong>北宫门</strong> 入园，经长廊—排云殿—佛香阁—十七孔桥—东堤，顺时针游览。
+          游船项目（3月中旬至11月中旬开放）体验昆明湖美景，强烈推荐。
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- 美食 -->
+<section id="food">
+  <h2 class="section-title"><span class="num">02</span>北京必吃美食</h2>
+  <div class="section-line"></div>
+
+  <div class="food-grid">
+    <div class="food-card">
+      <div class="food-emoji">🦆</div>
+      <div class="food-content">
+        <div class="food-name">北京烤鸭</div>
+        <div class="food-desc">皮酥肉嫩，配薄饼、葱丝、甜面酱，是北京最具代表性的美食。</div>
+        <div class="food-where">📍 全聚德 / 便宜坊 / 大董</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-emoji">🍲</div>
+      <div class="food-content">
+        <div class="food-name">老北京涮羊肉</div>
+        <div class="food-desc">铜锅清汤，手切鲜羊肉，配芝麻酱，百年传承的冬日暖食。</div>
+        <div class="food-where">📍 东来顺 / 聚宝源</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-emoji">🥮</div>
+      <div class="food-content">
+        <div class="food-name">炸酱面</div>
+        <div class="food-desc">老北京魂，猪肉丁炸酱配菜码，一口下去满满京味儿。</div>
+        <div class="food-where">📍 海碗居 / 老北京炸酱面</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-emoji">🫙</div>
+      <div class="food-content">
+        <div class="food-name">豆汁儿&焦圈</div>
+        <div class="food-desc">地道老北京早点，豆汁独特酸香，搭配酥脆焦圈，敢吃就是老北京。</div>
+        <div class="food-where">📍 护国寺小吃 / 锦馨豆汁店</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-emoji">🫔</div>
+      <div class="food-content">
+        <div class="food-name">卤煮火烧</div>
+        <div class="food-desc">猪下水慢炖入味，浇汤配火烧，浓郁厚重的市井滋味。</div>
+        <div class="food-where">📍 小肠陈 / 北新桥卤煮</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-emoji">🥟</div>
+      <div class="food-content">
+        <div class="food-name">炒肝&包子</div>
+        <div class="food-desc">猪肝猪肠勾芡熬制，配上热腾腾的包子，天兴居160年传承。</div>
+        <div class="food-where">📍 天兴居（前门店）</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- 交通 -->
+<section id="transport">
+  <h2 class="section-title"><span class="num">03</span>交通指南</h2>
+  <div class="section-line"></div>
+
+  <div class="transport-grid">
+    <div class="transport-card">
+      <div class="transport-header">
+        <div class="transport-icon" style="background:#E3F2FD">🚇</div>
+        <div class="transport-title">地铁到景点</div>
+      </div>
+      <ul class="transport-lines">
+        <li><strong>故宫：</strong>地铁1号线「天安门东站」A口出，步行约10分钟</li>
+        <li><strong>天安门：</strong>地铁1号线「天安门东/西站」直达，步行即到</li>
+        <li><strong>颐和园：</strong>地铁4号线「北宫门站」A口出，步行约5分钟</li>
+      </ul>
+    </div>
+
+    <div class="transport-card">
+      <div class="transport-header">
+        <div class="transport-icon" style="background:#E8F5E9">🚌</div>
+        <div class="transport-title">景点间路线</div>
+      </div>
+      <ul class="transport-lines">
+        <li><strong>天安门→故宫：</strong>步行5分钟（天安门城楼向北即是午门）</li>
+        <li><strong>故宫→颐和园：</strong>地铁1号线换乘4号线，约50分钟</li>
+        <li><strong>天安门→颐和园：</strong>地铁4号线直达，约45分钟</li>
+      </ul>
+    </div>
+
+    <div class="transport-card">
+      <div class="transport-header">
+        <div class="transport-icon" style="background:#FFF3E0">📱</div>
+        <div class="transport-title">出行必备 App</div>
+      </div>
+      <ul class="transport-lines">
+        <li><strong>亿通行：</strong>北京地铁刷码乘车，免排队购票</li>
+        <li><strong>北京公交：</strong>实时公交+乘车码一站搞定</li>
+        <li><strong>高德地图：</strong>景点导航+公交路线规划首选</li>
+        <li><strong>支付宝出行：</strong>支持地铁/公交扫码乘车</li>
+      </ul>
+    </div>
+
+    <div class="transport-card">
+      <div class="transport-header">
+        <div class="transport-icon" style="background:#FCE4EC">💡</div>
+        <div class="transport-title">出行小贴士</div>
+      </div>
+      <ul class="transport-lines">
+        <li>所有景点均需 <strong>实名预约</strong>，提前7天预订</li>
+        <li>避开 <strong>早高峰（8-9点）</strong> 乘地铁，旅游景点附近全天堵</li>
+        <li>景点建议步行+地铁，<strong>不推荐打车</strong>（堵车严重）</li>
+        <li>旺季（5月/10月）人流极大，建议 <strong>工作日</strong> 前往</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 推荐行程 -->
+  <div class="route-card">
+    <div class="route-title">🗓️ 推荐3日游行程安排</div>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-left">
+          <div class="tl-dot">1</div>
+          <div class="tl-line"></div>
+        </div>
+        <div class="tl-content">
+          <div class="tl-name">第一天 · 皇城核心</div>
+          <div class="tl-detail">清晨观天安门升旗 → 天安门广场参观 → 午餐前门老字号 → 下午游览故宫（建议4-5小时） → 景山公园俯瞰故宫全景 → 后海/南锣鼓巷夜游</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-left">
+          <div class="tl-dot">2</div>
+          <div class="tl-line"></div>
+        </div>
+        <div class="tl-content">
+          <div class="tl-name">第二天 · 皇家园林</div>
+          <div class="tl-detail">上午9点前到颐和园（避开人流高峰） → 长廊—佛香阁—苏州街—十七孔桥全游 → 北大/清华散步感受书香 → 晚餐海淀区老字号</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-left">
+          <div class="tl-dot">3</div>
+        </div>
+        <div class="tl-content">
+          <div class="tl-name">第三天 · 文化探索</div>
+          <div class="tl-detail">国家博物馆（免费，建议3小时） → 王府井大街购物+小吃 → 国贸CBD打卡 → 簋街美食一条街晚餐（麻辣小龙虾/爆肚）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <strong>北京旅游攻略</strong> · 2025年版本<br>
+  信息仅供参考，门票价格和开放时间请以官方最新公告为准<br>
+  故宫预约：<strong>ticket.dpm.org.cn</strong> · 颐和园预约：<strong>summerpalace-china.com</strong>
+</footer>
+
+</body>
+</html>

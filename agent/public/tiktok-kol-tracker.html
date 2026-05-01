@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TikTok KOL 数据统计 · RangerAI</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  html, body { height: 100%; margin: 0; }
+  body { background: #0b0d14; color: #cbd5e1; overflow: hidden; }
+
+  /* Gradient orbs background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 0%, rgba(99,102,241,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 100%, rgba(139,92,246,0.08) 0%, transparent 60%);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+
+  /* Glass */
+  .glass { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
+  .glass-card { background: rgba(15,17,28,0.8); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(12px); }
+
+  /* Sidebar */
+  .sidebar { width: 220px; flex-shrink: 0; background: rgba(10,12,20,0.9); border-right: 1px solid rgba(255,255,255,0.06); }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; color: #64748b; transition: all 0.15s; margin: 1px 8px; }
+  .nav-item:hover { background: rgba(255,255,255,0.05); color: #94a3b8; }
+  .nav-item.active { background: rgba(99,102,241,0.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25); }
+  .nav-item svg { flex-shrink: 0; }
+
+  /* Gradient text */
+  .gradient-text { background: linear-gradient(135deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .accent { color: #818cf8; }
+
+  /* Logo icon */
+  .logo-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #4f46e5, #7c3aed); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  /* Stat cards */
+  .stat-card { border-radius: 12px; padding: 16px 20px; transition: transform 0.2s, border-color 0.2s; }
+  .stat-card:hover { transform: translateY(-2px); border-color: rgba(99,102,241,0.3); }
+  .stat-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+
+  /* Table */
+  table { border-collapse: separate; border-spacing: 0; width: 100%; }
+  thead th { position: sticky; top: 0; z-index: 10; background: #0e1018; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #475569; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); white-space: nowrap; }
+  tbody td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+  tbody tr:hover td { background: rgba(99,102,241,0.04); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* Sort */
+  .sort-btn { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap-4px; }
+  .sort-btn:hover .sort-icon { color: #818cf8; }
+  .sort-active .sort-icon { color: #818cf8; }
+
+  /* Tags */
+  .tag { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+  .tag-game { background: rgba(99,102,241,0.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25); }
+  .tag-active { background: rgba(16,185,129,0.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.25); }
+  .tag-inactive { background: rgba(71,85,105,0.2); color: #64748b; border: 1px solid rgba(71,85,105,0.3); }
+
+  /* Social icons */
+  .soc { width: 22px; height: 22px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; text-decoration: none; transition: transform 0.15s, filter 0.15s; flex-shrink: 0; }
+  .soc:hover { transform: scale(1.2); filter: brightness(1.2); }
+  .soc-yt { background: rgba(255,0,0,0.2); color: #ff4444; }
+  .soc-ig { background: rgba(225,48,108,0.2); color: #e1306c; }
+  .soc-tw { background: rgba(29,161,242,0.2); color: #1da1f2; }
+  .soc-dc { background: rgba(114,137,218,0.2); color: #7289da; }
+  .soc-fb { background: rgba(66,103,178,0.2); color: #4267b2; }
+  .soc-tt { background: rgba(255,255,255,0.1); color: #ffffff; }
+
+  /* Input / Select */
+  .inp { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #e2e8f0; border-radius: 8px; padding: 7px 12px; font-size: 13px; outline: none; transition: border-color 0.15s; }
+  .inp:focus { border-color: rgba(99,102,241,0.5); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+  .inp::placeholder { color: #334155; }
+  select.inp option { background: #0e1018; }
+
+  /* Button */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: none; outline: none; }
+  .btn-primary { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-ghost { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: #94a3b8; }
+  .btn-ghost:hover { background: rgba(255,255,255,0.08); color: #cbd5e1; }
+  .btn-danger { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.25); color: #f87171; }
+  .btn-danger:hover { background: rgba(239,68,68,0.25); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+
+  /* Modal */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; backdrop-filter: blur(6px); align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #0e1018; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px; max-height: 90vh; overflow-y: auto; }
+
+  /* Checkbox */
+  input[type=checkbox] { accent-color: #6366f1; width: 14px; height: 14px; cursor: pointer; }
+
+  /* Avatar */
+  .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+
+  /* Progress */
+  .pbar { height: 3px; border-radius: 2px; background: rgba(255,255,255,0.06); overflow: hidden; }
+  .pbar-fill { height: 100%; background: linear-gradient(90deg, #4f46e5, #c084fc); border-radius: 2px; transition: width 0.4s; }
+
+  /* Notification */
+  .notif { position: fixed; bottom: 24px; right: 24px; z-index: 300; }
+  .notif-item { background: #0e1018; border: 1px solid rgba(99,102,241,0.3); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #cbd5e1; box-shadow: 0 8px 24px rgba(0,0,0,0.4); min-width: 240px; animation: slideIn 0.3s ease; }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+  /* Import zone */
+  .drop-zone { border: 2px dashed rgba(99,102,241,0.2); border-radius: 10px; padding: 32px; text-align: center; transition: all 0.2s; }
+  .drop-zone:hover, .drop-zone.drag { border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.05); }
+
+  /* Tooltip */
+  .tip { position: relative; }
+  .tip:hover .tip-box { display: block; }
+  .tip-box { display: none; position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid rgba(255,255,255,0.08); color: #e2e8f0; font-size: 11px; padding: 4px 8px; border-radius: 5px; white-space: nowrap; z-index: 50; pointer-events: none; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin 1s linear infinite; }
+</style>
+</head>
+<body class="flex h-screen relative z-[1]">
+
+<!-- Sidebar -->
+<aside class="sidebar flex flex-col py-4 relative z-10">
+  <!-- Logo -->
+  <div class="flex items-center gap-3 px-4 pb-5 border-b border-white/5">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-white"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.27 8.27 0 004.83 1.54V6.78a4.85 4.85 0 01-1.06-.09z"/></svg>
+    </div>
+    <div>
+      <div class="text-sm font-semibold text-white leading-tight">TikTok KOL</div>
+      <div class="text-xs text-slate-600">数据统计平台</div>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="mt-4 flex-1 overflow-y-auto">
+    <div class="px-3 mb-1 text-[10px] font-semibold text-slate-600 uppercase tracking-widest">主菜单</div>
+    <div class="nav-item active" onclick="setNav('list',this)">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      KOL 列表
+    </div>
+    <div class="nav-item" onclick="setNav('stats',this)">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      数据概览
+    </div>
+    <div class="mt-4 px-3 mb-1 text-[10px] font-semibold text-slate-600 uppercase tracking-widest">操作</div>
+    <div class="nav-item" onclick="openAddModal()">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      添加 KOL
+    </div>
+    <div class="nav-item" onclick="openImportModal()">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+      导入 CSV
+    </div>
+    <div class="nav-item" onclick="exportCSV()">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+      导出 CSV
+    </div>
+  </nav>
+
+  <!-- Footer -->
+  <div class="px-4 pt-3 border-t border-white/5">
+    <div class="text-xs text-slate-600">Powered by RangerAI</div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="flex-1 flex flex-col overflow-hidden relative z-10">
+
+  <!-- Top bar -->
+  <header class="glass border-b border-white/5 px-6 py-3 flex items-center justify-between flex-shrink-0">
+    <div>
+      <h2 class="text-sm font-semibold text-white" id="page-title">KOL 列表</h2>
+      <p class="text-xs text-slate-600" id="page-sub">管理游戏直播 KOL 数据</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <div id="bulk-actions" class="hidden items-center gap-2">
+        <span class="text-xs text-slate-500" id="sel-count"></span>
+        <button class="btn btn-ghost btn-sm" onclick="exportSelected()">导出所选</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSelected()">删除所选</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearSelection()">取消</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="openImportModal()">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+        导入
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        添加 KOL
+      </button>
+    </div>
+  </header>
+
+  <!-- Page: KOL List -->
+  <div id="page-list" class="flex-1 overflow-hidden flex flex-col">
+    <!-- Stat cards -->
+    <div class="px-6 py-4 grid grid-cols-4 gap-4 flex-shrink-0">
+      <div class="stat-card glass-card">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs text-slate-500">KOL 总数</span>
+          <div class="stat-icon" style="background:rgba(99,102,241,0.15)">
+            <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+        </div>
+        <div class="text-2xl font-bold text-white" id="sc-total">0</div>
+        <div class="text-xs text-slate-600 mt-1">已录入主播</div>
+      </div>
+      <div class="stat-card glass-card">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs text-slate-500">总粉丝数</span>
+          <div class="stat-icon" style="background:rgba(139,92,246,0.15)">
+            <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          </div>
+        </div>
+        <div class="text-2xl font-bold text-white" id="sc-fans">0</div>
+        <div class="text-xs text-slate-600 mt-1">汇总粉丝量</div>
+      </div>
+      <div class="stat-card glass-card">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs text-slate-500">平均在线人数</span>
+          <div class="stat-icon" style="background:rgba(16,185,129,0.12)">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          </div>
+        </div>
+        <div class="text-2xl font-bold text-white" id="sc-online">0</div>
+        <div class="text-xs text-slate-600 mt-1">直播间在线均值</div>
+      </div>
+      <div class="stat-card glass-card">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs text-slate-500">游戏标签数</span>
+          <div class="stat-icon" style="background:rgba(245,158,11,0.12)">
+            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+          </div>
+        </div>
+        <div class="text-2xl font-bold text-white" id="sc-tags">0</div>
+        <div class="text-xs text-slate-600 mt-1">覆盖游戏品类</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="px-6 pb-3 flex items-center gap-3 flex-shrink-0 flex-wrap">
+      <div class="relative flex-1 min-w-[180px]">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input type="text" id="f-search" class="inp w-full pl-8 pr-3" placeholder="搜索用户名 / 账号名…" oninput="applyFilters()">
+      </div>
+      <select id="f-game" class="inp" onchange="applyFilters()">
+        <option value="">所有游戏</option>
+      </select>
+      <select id="f-fans" class="inp" onchange="applyFilters()">
+        <option value="">粉丝量</option>
+        <option value="1m">100万+</option>
+        <option value="500k">50万–100万</option>
+        <option value="100k">10万–50万</option>
+        <option value="small">10万以下</option>
+      </select>
+      <select id="f-sort" class="inp" onchange="applyFilters()">
+        <option value="fans_desc">粉丝 ↓</option>
+        <option value="fans_asc">粉丝 ↑</option>
+        <option value="online_desc">在线 ↓</option>
+        <option value="hours_desc">开播时长 ↓</option>
+        <option value="name_asc">名称 A→Z</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="clearFilters()">清除筛选</button>
+      <div class="ml-auto flex items-center gap-1 text-xs text-slate-500" id="result-count"></div>
+    </div>
+
+    <!-- Game tag pills -->
+    <div class="px-6 pb-3 flex-shrink-0 flex items-center gap-2 flex-wrap" id="game-pills"></div>
+
+    <!-- Table wrapper -->
+    <div class="flex-1 overflow-auto mx-6 mb-4 rounded-xl glass-card">
+      <table>
+        <thead>
+          <tr>
+            <th class="w-10"><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
+            <th class="text-left">主播信息</th>
+            <th class="text-right cursor-pointer sort-btn" onclick="sortBy('fans')">
+              粉丝数 <span class="sort-icon text-slate-600">↕</span>
+            </th>
+            <th class="text-right cursor-pointer sort-btn" onclick="sortBy('online')">
+              平均在线 <span class="sort-icon text-slate-600">↕</span>
+            </th>
+            <th class="text-right cursor-pointer sort-btn" onclick="sortBy('hours')">
+              月开播(h) <span class="sort-icon text-slate-600">↕</span>
+            </th>
+            <th class="text-center">开播次数</th>
+            <th>游戏标签</th>
+            <th>社交链接</th>
+            <th class="text-center">操作</th>
+          </tr>
+        </thead>
+        <tbody id="kol-tbody"></tbody>
+      </table>
+      <div id="empty-state" class="hidden py-16 text-center text-slate-600">
+        <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <p class="text-sm">暂无 KOL 数据</p>
+        <button class="btn btn-primary mt-4" onclick="openAddModal()">+ 添加第一个 KOL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Stats (hidden) -->
+  <div id="page-stats" class="hidden flex-1 overflow-auto p-6">
+    <div class="grid grid-cols-2 gap-6">
+      <div class="glass-card rounded-xl p-5">
+        <h3 class="text-sm font-semibold text-white mb-4">游戏标签分布</h3>
+        <div id="stats-game-bars"></div>
+      </div>
+      <div class="glass-card rounded-xl p-5">
+        <h3 class="text-sm font-semibold text-white mb-4">粉丝量区间分布</h3>
+        <div id="stats-fans-bars"></div>
+      </div>
+      <div class="glass-card rounded-xl p-5 col-span-2">
+        <h3 class="text-sm font-semibold text-white mb-4">Top 10 在线人数排行</h3>
+        <div id="stats-top-online"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ===== MODAL: Add/Edit KOL ===== -->
+<div class="modal-bg" id="m-kol">
+  <div class="modal w-[700px] max-w-[95vw]">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-base font-semibold text-white" id="m-kol-title">添加 KOL</h3>
+      <button onclick="closeModal('m-kol')" class="text-slate-500 hover:text-white transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="kol-form" onsubmit="submitKOL(event)">
+      <input type="hidden" id="f-id">
+      <div class="grid grid-cols-2 gap-4">
+        <!-- Row 1 -->
+        <div>
+          <label class="text-xs text-slate-500 mb-1 block">用户名 <span class="text-red-400">*</span></label>
+          <input id="f-username" class="inp w-full" placeholder="@username" required>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500 mb-1 block">账号名 (昵称) <span class="text-red-400">*</span></label>
+          <input id="f-display" class="inp w-full" placeholder="显示名称" required>
+        </div>
+        <!-- Row 2 -->
+        <div class="col-span-2">
+          <label class="text-xs text-slate-500 mb-1 block">TikTok 主页链接</label>
+          <input id="f-tiktok" class="inp w-full" placeholder="https://www.tiktok.com/@username">
+        </div>
+        <!-- Row 3 -->
+        <div>
+          <label class="text-xs text-slate-500 mb-1 block">粉丝数</label>
+          <input id="f-fans" type="number" class="inp w-full" placeholder="1000000" min="0">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500 mb-1 block">直播间平均在线人数</label>
+          <input id="f-online" type="number" class="inp w-full" placeholder="5000" min="0">
+        </div>
+        <!-- Row 4 -->
+        <div>
+          <label class="text-xs text-slate-500 mb-1 block">月开播时长（小时）</label>
+          <input id="f-hours" type="number" class="inp w-full" placeholder="120" min="0">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500 mb-1 block">月开播次数</label>
+          <input id="f-sessions" type="number" class="inp w-full" placeholder="30" min="0">
+        </div>
+        <!-- Row 5 -->
+        <div class="col-span-2">
+          <label class="text-xs text-slate-500 mb-1 block">游戏标签（逗号分隔）</label>
+          <input id="f-tags" class="inp w-full" placeholder="PUBG Mobile, Free Fire, Valorant">
+        </div>
+        <!-- Social links -->
+        <div class="col-span-2">
+          <div class="text-xs text-slate-500 mb-2">社交链接</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="flex items-center gap-2"><span class="text-xs text-red-400 w-10">YT</span><input id="f-yt" class="inp flex-1" placeholder="YouTube URL"></div>
+            <div class="flex items-center gap-2"><span class="text-xs text-pink-400 w-10">IG</span><input id="f-ig" class="inp flex-1" placeholder="Instagram URL"></div>
+            <div class="flex items-center gap-2"><span class="text-xs text-sky-400 w-10">TW</span><input id="f-tw" class="inp flex-1" placeholder="Twitter/X URL"></div>
+            <div class="flex items-center gap-2"><span class="text-xs text-indigo-400 w-10">DC</span><input id="f-dc" class="inp flex-1" placeholder="Discord URL"></div>
+            <div class="flex items-center gap-2"><span class="text-xs text-blue-400 w-10">FB</span><input id="f-fb" class="inp flex-1" placeholder="Facebook URL"></div>
+            <div class="flex items-center gap-2"><span class="text-xs text-slate-400 w-10">Twitch</span><input id="f-twitch" class="inp flex-1" placeholder="Twitch URL"></div>
+          </div>
+        </div>
+        <!-- Email -->
+        <div class="col-span-2">
+          <label class="text-xs text-slate-500 mb-1 block">联系邮箱</label>
+          <input id="f-email" type="email" class="inp w-full" placeholder="kol@example.com">
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-white/5">
+        <button type="button" onclick="closeModal('m-kol')" class="btn btn-ghost">取消</button>
+        <button type="submit" class="btn btn-primary" id="m-kol-submit">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== MODAL: Detail ===== -->
+<div class="modal-bg" id="m-detail">
+  <div class="modal w-[600px] max-w-[95vw]" id="m-detail-content"></div>
+</div>
+
+<!-- ===== MODAL: Import ===== -->
+<div class="modal-bg" id="m-import">
+  <div class="modal w-[520px] max-w-[95vw]">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-base font-semibold text-white">导入 CSV</h3>
+      <button onclick="closeModal('m-import')" class="text-slate-500 hover:text-white"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="drop-zone mb-4" id="drop-zone" ondragover="e=>{e.preventDefault();document.getElementById('drop-zone').classList.add('drag')}" ondragleave="document.getElementById('drop-zone').classList.remove('drag')" ondrop="handleDrop(event)">
+      <svg class="w-8 h-8 mx-auto mb-2 text-indigo-400 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+      <p class="text-sm text-slate-400">拖放 CSV 文件到此，或</p>
+      <label class="btn btn-ghost btn-sm mt-2 cursor-pointer">
+        选择文件
+        <input type="file" accept=".csv" class="hidden" onchange="handleFileInput(event)">
+      </label>
+    </div>
+    <div class="text-xs text-slate-600 mb-4">CSV 字段顺序：username, display_name, tiktok_url, fans, avg_online, monthly_hours, monthly_sessions, game_tags, yt_url, ig_url, tw_url, dc_url, fb_url, twitch_url, email</div>
+    <div class="flex justify-between">
+      <button class="btn btn-ghost btn-sm" onclick="downloadTemplate()">下载模板</button>
+      <button onclick="closeModal('m-import')" class="btn btn-ghost">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notification container -->
+<div class="notif" id="notif-container"></div>
+
+<script>
+// ========================
+// Data
+// ========================
+let kols = [];
+let selectedIds = new Set();
+let activeGameFilter = '';
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem('kol_data');
+    if (raw) kols = JSON.parse(raw);
+    else seedDemo();
+  } catch { seedDemo(); }
+}
+
+function saveData() {
+  localStorage.setItem('kol_data', JSON.stringify(kols));
+}
+
+function seedDemo() {
+  kols = [
+    {id:'1',username:'@GamingKingID',display:'GamingKingID',tiktok:'https://tiktok.com/@GamingKingID',fans:2800000,online:18500,hours:180,sessions:45,tags:['PUBG Mobile','Free Fire'],yt:'https://youtube.com',ig:'https://instagram.com',tw:'',dc:'',fb:'',twitch:'',email:'contact@gamingkingid.com'},
+    {id:'2',username:'@FreeFire_TH',display:'FreeFire Thailand',tiktok:'https://tiktok.com/@freefire_th',fans:1500000,online:9200,hours:160,sessions:38,tags:['Free Fire'],yt:'https://youtube.com',ig:'',tw:'https://twitter.com',dc:'https://discord.gg/ff',fb:'',twitch:'',email:'th@freefire.gg'},
+    {id:'3',username:'@MLBBmasters',display:'MLBB Masters VN',tiktok:'https://tiktok.com/@mlbbmasters',fans:890000,online:5400,hours:140,sessions:30,tags:['Mobile Legends'],yt:'',ig:'https://instagram.com',tw:'',dc:'',fb:'https://facebook.com',twitch:'',email:''},
+    {id:'4',username:'@ValoPH_pro',display:'Valo PH Pro',tiktok:'https://tiktok.com/@valopro_ph',fans:620000,online:4100,hours:100,sessions:25,tags:['Valorant','CS2'],yt:'https://youtube.com',ig:'https://instagram.com',tw:'https://twitter.com',dc:'https://discord.gg/valo',fb:'',twitch:'https://twitch.tv/valopro',email:'valo@ph.esports'},
+    {id:'5',username:'@HonorGaming_AE',display:'Honor Gaming AE',tiktok:'https://tiktok.com/@honorgaming_ae',fans:450000,online:3200,hours:90,sessions:22,tags:['Honor of Kings','PUBG Mobile'],yt:'',ig:'',tw:'',dc:'',fb:'https://facebook.com',twitch:'',email:'honor@ae-gaming.net'},
+    {id:'6',username:'@EFootball_EG',display:'eFootball Egypt',tiktok:'https://tiktok.com/@efootball_eg',fans:380000,online:2800,hours:80,sessions:20,tags:['eFootball','FIFA Mobile'],yt:'https://youtube.com',ig:'https://instagram.com',tw:'https://twitter.com',dc:'',fb:'https://facebook.com',twitch:'',email:''},
+    {id:'7',username:'@GenshinAR_SA',display:'Genshin KSA',tiktok:'https://tiktok.com/@genshin_sa',fans:260000,online:2100,hours:70,sessions:18,tags:['Genshin Impact'],yt:'https://youtube.com',ig:'',tw:'',dc:'https://discord.gg/genshin',fb:'',twitch:'',email:'genshin@ksa.gaming'},
+    {id:'8',username:'@CoClash_BR',display:'Clash BR Gaming',tiktok:'https://tiktok.com/@coclash_br',fans:190000,online:1400,hours:60,sessions:15,tags:['Clash of Clans','Clash Royale'],yt:'',ig:'https://instagram.com',tw:'https://twitter.com',dc:'',fb:'',twitch:'https://twitch.tv/clashbr',email:''}
+  ];
+  saveData();
+}
+
+// ========================
+// Navigation
+// ========================
+function setNav(page, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('page-list').classList.toggle('hidden', page !== 'list');
+  document.getElementById('page-list').classList.toggle('flex-1', page === 'list');
+  document.getElementById('page-stats').classList.toggle('hidden', page !== 'stats');
+  const titles = {list:'KOL 列表', stats:'数据概览'};
+  const subs = {list:'管理游戏直播 KOL 数据', stats:'汇总统计与趋势分析'};
+  document.getElementById('page-title').textContent = titles[page];
+  document.getElementById('page-sub').textContent = subs[page];
+  if (page === 'stats') renderStats();
+}
+
+// ========================
+// Render
+// ========================
+function formatFans(n) {
+  if (!n) return '—';
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n/1000).toFixed(0) + 'K';
+  return n.toString();
+}
+
+function fmtNum(n) {
+  if (!n) return '—';
+  return n.toLocaleString();
+}
+
+function avatarColor(name) {
+  const colors = ['#4f46e5','#7c3aed','#db2777','#0891b2','#059669','#d97706'];
+  let h = 0;
+  for (let c of name) h = (h*31 + c.charCodeAt(0)) % colors.length;
+  return colors[h];
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('kol-tbody');
+  const empty = document.getElementById('empty-state');
+  if (!data.length) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  tbody.innerHTML = data.map(k => {
+    const initial = (k.display||k.username).slice(0,1).toUpperCase();
+    const bg = avatarColor(k.username);
+    const checked = selectedIds.has(k.id) ? 'checked' : '';
+    const socials = [
+      k.yt ? `<a href="${k.yt}" target="_blank" class="soc soc-yt tip" title="YouTube">▶<span class="tip-box">YouTube</span></a>` : '',
+      k.ig ? `<a href="${k.ig}" target="_blank" class="soc soc-ig tip">📷<span class="tip-box">Instagram</span></a>` : '',
+      k.tw ? `<a href="${k.tw}" target="_blank" class="soc soc-tw tip">𝕏<span class="tip-box">Twitter/X</span></a>` : '',
+      k.dc ? `<a href="${k.dc}" target="_blank" class="soc soc-dc tip">DC<span class="tip-box">Discord</span></a>` : '',
+      k.fb ? `<a href="${k.fb}" target="_blank" class="soc soc-fb tip">f<span class="tip-box">Facebook</span></a>` : '',
+      k.twitch ? `<a href="${k.twitch}" target="_blank" class="soc" style="background:rgba(145,71,255,0.2);color:#9147ff" title="Twitch">TW</a>` : '',
+    ].filter(Boolean).join('');
+    const tags = (k.tags||[]).slice(0,2).map(t=>`<span class="tag tag-game">${t}</span>`).join(' ') +
+      (k.tags?.length > 2 ? ` <span class="text-xs text-slate-600">+${k.tags.length-2}</span>` : '');
+    return `
+      <tr>
+        <td class="text-center"><input type="checkbox" ${checked} onchange="toggleSelect('${k.id}',this)"></td>
+        <td>
+          <div class="flex items-center gap-3">
+            <div class="avatar" style="background:${bg}">${initial}</div>
+            <div>
+              <div class="font-medium text-white text-sm leading-tight cursor-pointer hover:text-indigo-300 transition-colors" onclick="openDetail('${k.id}')">${k.display||k.username}</div>
+              <a href="${k.tiktok||'#'}" target="_blank" class="text-xs text-slate-600 hover:text-slate-400 transition-colors">${k.username}</a>
+            </div>
+          </div>
+        </td>
+        <td class="text-right font-semibold text-white">${formatFans(k.fans)}</td>
+        <td class="text-right"><span class="text-emerald-400 font-medium">${fmtNum(k.online)}</span></td>
+        <td class="text-right text-slate-300">${k.hours||'—'}</td>
+        <td class="text-center text-slate-400">${k.sessions||'—'}</td>
+        <td><div class="flex flex-wrap gap-1">${tags||'<span class="text-xs text-slate-600">—</span>'}</div></td>
+        <td><div class="flex items-center gap-1">${socials||'<span class="text-xs text-slate-600">—</span>'}</div></td>
+        <td class="text-center">
+          <div class="flex items-center justify-center gap-1">
+            <button onclick="openDetail('${k.id}')" class="btn btn-ghost btn-sm py-1 px-2 text-xs">详情</button>
+            <button onclick="openEditModal('${k.id}')" class="btn btn-ghost btn-sm py-1 px-2 text-xs">编辑</button>
+            <button onclick="deleteKOL('${k.id}')" class="btn btn-danger btn-sm py-1 px-2 text-xs">删除</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function applyFilters() {
+  const q = document.getElementById('f-search').value.toLowerCase();
+  const game = document.getElementById('f-game').value;
+  const fans = document.getElementById('f-fans').value;
+  const sortVal = document.getElementById('f-sort').value;
+  const activeGame = activeGameFilter;
+
+  let res = kols.filter(k => {
+    if (q && !k.username.toLowerCase().includes(q) && !k.display?.toLowerCase().includes(q)) return false;
+    const g = game || activeGame;
+    if (g && !k.tags?.includes(g)) return false;
+    if (fans === '1m' && k.fans < 1000000) return false;
+    if (fans === '500k' && (k.fans < 500000 || k.fans >= 1000000)) return false;
+    if (fans === '100k' && (k.fans < 100000 || k.fans >= 500000)) return false;
+    if (fans === 'small' && k.fans >= 100000) return false;
+    return true;
+  });
+
+  const sorts = {
+    fans_desc: (a,b) => (b.fans||0)-(a.fans||0),
+    fans_asc:  (a,b) => (a.fans||0)-(b.fans||0),
+    online_desc:(a,b)=> (b.online||0)-(a.online||0),
+    hours_desc: (a,b)=> (b.hours||0)-(a.hours||0),
+    name_asc:   (a,b)=> (a.display||a.username).localeCompare(b.display||b.username),
+  };
+  res.sort(sorts[sortVal] || sorts.fans_desc);
+
+  document.getElementById('result-count').textContent = `共 ${res.length} 条`;
+  renderTable(res);
+}
+
+function clearFilters() {
+  document.getElementById('f-search').value = '';
+  document.getElementById('f-game').value = '';
+  document.getElementById('f-fans').value = '';
+  document.getElementById('f-sort').value = 'fans_desc';
+  activeGameFilter = '';
+  document.querySelectorAll('.game-pill').forEach(p => p.classList.remove('active'));
+  applyFilters();
+}
+
+function updateStatCards() {
+  document.getElementById('sc-total').textContent = kols.length;
+  const totalFans = kols.reduce((s,k)=>s+(k.fans||0),0);
+  document.getElementById('sc-fans').textContent = formatFans(totalFans);
+  const avgOnline = kols.length ? Math.round(kols.reduce((s,k)=>s+(k.online||0),0)/kols.length) : 0;
+  document.getElementById('sc-online').textContent = fmtNum(avgOnline);
+  const allTags = new Set(kols.flatMap(k=>k.tags||[]));
+  document.getElementById('sc-tags').textContent = allTags.size;
+}
+
+function updateGameFilter() {
+  const all = [...new Set(kols.flatMap(k=>k.tags||[]))].sort();
+  const sel = document.getElementById('f-game');
+  sel.innerHTML = '<option value="">所有游戏</option>' + all.map(g=>`<option value="${g}">${g}</option>`).join('');
+  // Pills
+  const pills = document.getElementById('game-pills');
+  pills.innerHTML = all.slice(0,10).map(g =>
+    `<button class="game-pill tag tag-game cursor-pointer hover:bg-indigo-500/30 transition-colors" onclick="filterByGame('${g}',this)">${g}</button>`
+  ).join('');
+}
+
+function filterByGame(game, el) {
+  if (activeGameFilter === game) {
+    activeGameFilter = '';
+    el.style.background = '';
+    el.style.color = '';
+  } else {
+    activeGameFilter = game;
+    document.querySelectorAll('.game-pill').forEach(p => { p.style.background=''; p.style.color=''; });
+    el.style.background = 'rgba(99,102,241,0.4)';
+    el.style.color = '#e0e7ff';
+  }
+  applyFilters();
+}
+
+function sortBy(field) {
+  const m = { fans:'fans_desc', online:'online_desc', hours:'hours_desc' };
+  document.getElementById('f-sort').value = m[field];
+  applyFilters();
+}
+
+// ========================
+// Selection
+// ========================
+function toggleSelect(id, el) {
+  if (el.checked) selectedIds.add(id);
+  else selectedIds.delete(id);
+  updateBulkBar();
+}
+
+function toggleAll(el) {
+  document.querySelectorAll('#kol-tbody input[type=checkbox]').forEach(c => {
+    c.checked = el.checked;
+    const tr = c.closest('tr');
+    if (tr) {
+      const id = tr.querySelector('button[onclick^="openDetail"]')?.getAttribute('onclick')?.match(/'(.+?)'/)?.[1];
+      if (id) { if (el.checked) selectedIds.add(id); else selectedIds.delete(id); }
+    }
+  });
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulk-actions');
+  if (selectedIds.size > 0) {
+    bar.classList.remove('hidden'); bar.classList.add('flex');
+    document.getElementById('sel-count').textContent = `已选 ${selectedIds.size} 条`;
+  } else {
+    bar.classList.add('hidden'); bar.classList.remove('flex');
+  }
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  document.querySelectorAll('#kol-tbody input[type=checkbox]').forEach(c => c.checked = false);
+  document.getElementById('chk-all').checked = false;
+  updateBulkBar();
+}
+
+function exportSelected() {
+  const sel = kols.filter(k => selectedIds.has(k.id));
+  downloadCSVData(sel);
+  notify(`已导出 ${sel.length} 条数据`);
+}
+
+function deleteSelected() {
+  if (!confirm(`确认删除选中的 ${selectedIds.size} 条数据？`)) return;
+  kols = kols.filter(k => !selectedIds.has(k.id));
+  selectedIds.clear(); saveData(); refresh();
+  notify(`已删除所选数据`);
+}
+
+// ========================
+// CRUD
+// ========================
+function openAddModal() {
+  document.getElementById('m-kol-title').textContent = '添加 KOL';
+  document.getElementById('m-kol-submit').textContent = '添加';
+  clearForm();
+  openModal('m-kol');
+}
+
+function openEditModal(id) {
+  const k = kols.find(x=>x.id===id);
+  if (!k) return;
+  document.getElementById('m-kol-title').textContent = '编辑 KOL';
+  document.getElementById('m-kol-submit').textContent = '保存修改';
+  fillForm(k);
+  openModal('m-kol');
+}
+
+function clearForm() {
+  ['id','username','display','tiktok','fans','online','hours','sessions','tags','yt','ig','tw','dc','fb','twitch','email']
+    .forEach(f => { const el = document.getElementById('f-'+f); if(el) el.value=''; });
+}
+
+function fillForm(k) {
+  document.getElementById('f-id').value = k.id||'';
+  document.getElementById('f-username').value = k.username||'';
+  document.getElementById('f-display').value = k.display||'';
+  document.getElementById('f-tiktok').value = k.tiktok||'';
+  document.getElementById('f-fans').value = k.fans||'';
+  document.getElementById('f-online').value = k.online||'';
+  document.getElementById('f-hours').value = k.hours||'';
+  document.getElementById('f-sessions').value = k.sessions||'';
+  document.getElementById('f-tags').value = (k.tags||[]).join(', ');
+  document.getElementById('f-yt').value = k.yt||'';
+  document.getElementById('f-ig').value = k.ig||'';
+  document.getElementById('f-tw').value = k.tw||'';
+  document.getElementById('f-dc').value = k.dc||'';
+  document.getElementById('f-fb').value = k.fb||'';
+  document.getElementById('f-twitch').value = k.twitch||'';
+  document.getElementById('f-email').value = k.email||'';
+}
+
+function submitKOL(e) {
+  e.preventDefault();
+  const id = document.getElementById('f-id').value || Date.now().toString();
+  const tagsRaw = document.getElementById('f-tags').value;
+  const tags = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
+  const k = {
+    id, username:document.getElementById('f-username').value.trim(),
+    display:document.getElementById('f-display').value.trim(),
+    tiktok:document.getElementById('f-tiktok').value.trim(),
+    fans:parseInt(document.getElementById('f-fans').value)||0,
+    online:parseInt(document.getElementById('f-online').value)||0,
+    hours:parseInt(document.getElementById('f-hours').value)||0,
+    sessions:parseInt(document.getElementById('f-sessions').value)||0,
+    tags,
+    yt:document.getElementById('f-yt').value.trim(),
+    ig:document.getElementById('f-ig').value.trim(),
+    tw:document.getElementById('f-tw').value.trim(),
+    dc:document.getElementById('f-dc').value.trim(),
+    fb:document.getElementById('f-fb').value.trim(),
+    twitch:document.getElementById('f-twitch').value.trim(),
+    email:document.getElementById('f-email').value.trim()
+  };
+  const idx = kols.findIndex(x=>x.id===id);
+  if (idx >= 0) kols[idx] = k;
+  else kols.push(k);
+  saveData(); closeModal('m-kol'); refresh();
+  notify(idx >= 0 ? '✓ 已更新 KOL 信息' : '✓ 已添加新 KOL');
+}
+
+function deleteKOL(id) {
+  const k = kols.find(x=>x.id===id);
+  if (!confirm(`确认删除 "${k?.display||k?.username}"？`)) return;
+  kols = kols.filter(x=>x.id!==id);
+  saveData(); refresh();
+  notify('已删除 KOL');
+}
+
+// ========================
+// Detail Modal
+// ========================
+function openDetail(id) {
+  const k = kols.find(x=>x.id===id);
+  if (!k) return;
+  const bg = avatarColor(k.username);
+  const initial = (k.display||k.username).slice(0,1).toUpperCase();
+  const socLinks = [
+    ['YouTube', k.yt, 'soc-yt','▶'],
+    ['Instagram', k.ig, 'soc-ig','📷'],
+    ['Twitter/X', k.tw, 'soc-tw','𝕏'],
+    ['Discord', k.dc, 'soc-dc','DC'],
+    ['Facebook', k.fb, 'soc-fb','f'],
+    ['Twitch', k.twitch, '', 'TW'],
+  ].filter(x=>x[1]);
+
+  document.getElementById('m-detail-content').innerHTML = `
+    <div class="flex items-start justify-between mb-5">
+      <div class="flex items-center gap-4">
+        <div class="avatar w-12 h-12 text-xl" style="background:${bg}">${initial}</div>
+        <div>
+          <h3 class="text-lg font-semibold text-white">${k.display||k.username}</h3>
+          <a href="${k.tiktok||'#'}" target="_blank" class="text-sm text-indigo-400 hover:text-indigo-300">${k.username}</a>
+        </div>
+      </div>
+      <button onclick="closeModal('m-detail')" class="text-slate-500 hover:text-white"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mb-5">
+      ${[['粉丝数',formatFans(k.fans)],['平均在线',fmtNum(k.online)],['月开播时长',k.hours ? k.hours+'h' : '—'],['月开播次数',k.sessions||'—']].map(([l,v])=>`
+        <div class="glass rounded-lg p-3">
+          <div class="text-xs text-slate-500 mb-1">${l}</div>
+          <div class="text-lg font-semibold text-white">${v}</div>
+        </div>`).join('')}
+    </div>
+    <div class="mb-4">
+      <div class="text-xs text-slate-500 mb-2">游戏标签</div>
+      <div class="flex flex-wrap gap-1">${(k.tags||[]).map(t=>`<span class="tag tag-game">${t}</span>`).join('')||'—'}</div>
+    </div>
+    ${socLinks.length ? `<div class="mb-4">
+      <div class="text-xs text-slate-500 mb-2">社交链接</div>
+      <div class="flex flex-wrap gap-2">${socLinks.map(([n,u,cls,ic])=>`<a href="${u}" target="_blank" class="btn btn-ghost btn-sm gap-1.5"><span>${ic}</span>${n}</a>`).join('')}</div>
+    </div>` : ''}
+    ${k.email ? `<div class="mb-4"><div class="text-xs text-slate-500 mb-1">邮箱</div><a href="mailto:${k.email}" class="text-sm text-indigo-400 hover:text-indigo-300">${k.email}</a></div>` : ''}
+    <div class="flex gap-2 pt-4 border-t border-white/5">
+      <button onclick="closeModal('m-detail');openEditModal('${k.id}')" class="btn btn-primary btn-sm">编辑</button>
+      <button onclick="closeModal('m-detail')" class="btn btn-ghost btn-sm">关闭</button>
+    </div>`;
+  openModal('m-detail');
+}
+
+// ========================
+// Stats Page
+// ========================
+function renderStats() {
+  // Game bars
+  const gameCounts = {};
+  kols.forEach(k => (k.tags||[]).forEach(t => { gameCounts[t] = (gameCounts[t]||0)+1; }));
+  const gEntries = Object.entries(gameCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const maxG = Math.max(...gEntries.map(e=>e[1]), 1);
+  document.getElementById('stats-game-bars').innerHTML = gEntries.map(([g,c])=>`
+    <div class="flex items-center gap-3 mb-2">
+      <div class="text-xs text-slate-400 w-28 truncate">${g}</div>
+      <div class="flex-1 pbar"><div class="pbar-fill" style="width:${(c/maxG*100).toFixed(1)}%"></div></div>
+      <div class="text-xs text-slate-500 w-6 text-right">${c}</div>
+    </div>`).join('') || '<p class="text-xs text-slate-600">暂无数据</p>';
+
+  // Fans bars
+  const brackets = [['100万+',kols.filter(k=>k.fans>=1000000).length],['50-100万',kols.filter(k=>k.fans>=500000&&k.fans<1000000).length],['10-50万',kols.filter(k=>k.fans>=100000&&k.fans<500000).length],['10万以下',kols.filter(k=>k.fans<100000).length]];
+  const maxF = Math.max(...brackets.map(b=>b[1]),1);
+  document.getElementById('stats-fans-bars').innerHTML = brackets.map(([l,c])=>`
+    <div class="flex items-center gap-3 mb-2">
+      <div class="text-xs text-slate-400 w-20">${l}</div>
+      <div class="flex-1 pbar"><div class="pbar-fill" style="width:${(c/maxF*100).toFixed(1)}%"></div></div>
+      <div class="text-xs text-slate-500 w-6 text-right">${c}</div>
+    </div>`).join('');
+
+  // Top online
+  const top10 = [...kols].sort((a,b)=>(b.online||0)-(a.online||0)).slice(0,10);
+  const maxO = Math.max(...top10.map(k=>k.online||0),1);
+  document.getElementById('stats-top-online').innerHTML = top10.map(k=>`
+    <div class="flex items-center gap-3 mb-2">
+      <div class="avatar w-6 h-6 text-xs" style="background:${avatarColor(k.username)}">${(k.display||k.username).slice(0,1)}</div>
+      <div class="text-xs text-slate-400 w-32 truncate">${k.display||k.username}</div>
+      <div class="flex-1 pbar"><div class="pbar-fill" style="width:${((k.online||0)/maxO*100).toFixed(1)}%"></div></div>
+      <div class="text-xs text-emerald-400 w-16 text-right">${fmtNum(k.online)}</div>
+    </div>`).join('') || '<p class="text-xs text-slate-600">暂无数据</p>';
+}
+
+// ========================
+// CSV
+// ========================
+const CSV_HEADERS = ['username','display_name','tiktok_url','fans','avg_online','monthly_hours','monthly_sessions','game_tags','yt_url','ig_url','tw_url','dc_url','fb_url','twitch_url','email'];
+
+function exportCSV() {
+  downloadCSVData(kols);
+  notify(`已导出全部 ${kols.length} 条数据`);
+}
+
+function downloadCSVData(data) {
+  const rows = [CSV_HEADERS, ...data.map(k => [
+    k.username, k.display, k.tiktok, k.fans, k.online, k.hours, k.sessions,
+    (k.tags||[]).join('|'), k.yt, k.ig, k.tw, k.dc, k.fb, k.twitch, k.email
+  ])];
+  const csv = rows.map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  dl('kol_data_' + new Date().toISOString().slice(0,10) + '.csv', 'text/csv;charset=utf-8', '\ufeff'+csv);
+}
+
+function downloadTemplate() {
+  const demo = [CSV_HEADERS, ['@example_user','Example Name','https://tiktok.com/@example_user','1000000','5000','120','30','PUBG Mobile|Free Fire','https://youtube.com','','https://twitter.com','','','','contact@example.com']];
+  const csv = demo.map(r => r.map(v=>`"${v}"`).join(',')).join('\n');
+  dl('kol_template.csv', 'text/csv;charset=utf-8', '\ufeff'+csv);
+}
+
+function dl(filename, mime, content) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type:mime}));
+  a.download = filename; a.click();
+}
+
+function handleFileInput(e) {
+  const file = e.target.files[0];
+  if (file) parseCSV(file);
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) parseCSV(file);
+}
+
+function parseCSV(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const lines = ev.target.result.replace(/^\ufeff/,'').split('\n').map(l=>l.trim()).filter(Boolean);
+    let added = 0, skip = 0;
+    lines.slice(1).forEach(line => {
+      const cols = line.split(',').map(c => c.replace(/^"|"$/g,'').replace(/""/g,'"').trim());
+      if (cols.length < 2) { skip++; return; }
+      const [username,display,tiktok,fans,online,hours,sessions,tagsRaw,yt,ig,tw,dc,fb,twitch,email] = cols;
+      if (!username) { skip++; return; }
+      const tags = tagsRaw ? tagsRaw.split('|').map(t=>t.trim()).filter(Boolean) : [];
+      kols.push({id:Date.now().toString()+Math.random(),username,display,tiktok,fans:parseInt(fans)||0,online:parseInt(online)||0,hours:parseInt(hours)||0,sessions:parseInt(sessions)||0,tags,yt:yt||'',ig:ig||'',tw:tw||'',dc:dc||'',fb:fb||'',twitch:twitch||'',email:email||''});
+      added++;
+    });
+    saveData(); closeModal('m-import'); refresh();
+    notify(`✓ 导入完成：${added} 条成功，${skip} 条跳过`);
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ========================
+// Modal helpers
+// ========================
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openImportModal() { openModal('m-import'); }
+document.querySelectorAll('.modal-bg').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.modal-bg.open').forEach(m=>m.classList.remove('open')); });
+
+// ========================
+// Notification
+// ========================
+function notify(msg, duration=3000) {
+  const c = document.getElementById('notif-container');
+  const d = document.createElement('div');
+  d.className = 'notif-item mb-2';
+  d.textContent = msg;
+  c.appendChild(d);
+  setTimeout(() => { d.style.opacity='0'; d.style.transform='translateX(20px)'; d.style.transition='all 0.3s'; setTimeout(()=>d.remove(),300); }, duration);
+}
+
+// ========================
+// Boot
+// ========================
+function refresh() {
+  updateStatCards();
+  updateGameFilter();
+  applyFilters();
+}
+
+loadData();
+refresh();
+</script>
+</body>
+</html>

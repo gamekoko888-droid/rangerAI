@@ -1,0 +1,38 @@
+#!/bin/bash
+# R72: MODEL-GOVERNANCE pre-commit hook (post-R70 — no redline files)
+set -e
+
+echo "[pre-commit] R72 governance hook"
+
+STAGED=$(git diff --cached --name-only 2>/dev/null || true)
+if [ -z "$STAGED" ]; then
+  echo "[pre-commit] No staged files, skipping."
+  exit 0
+fi
+
+ERRORS=0
+
+while IFS= read -r file; do
+  [ -z "$file" ] && continue
+
+  # MJS syntax check (skip deleted files)
+  case "$file" in
+    *.mjs)
+      if [ ! -f "$file" ]; then
+        continue  # file already deleted, skip syntax check
+      fi
+      if ! node --check "$file" 2>/dev/null; then
+        echo "[pre-commit] SYNTAX ERROR: $file"
+        ERRORS=$((ERRORS + 1))
+      fi
+      ;;
+  esac
+done <<< "$STAGED"
+
+if [ $ERRORS -gt 0 ]; then
+  echo "[pre-commit] BLOCKED: $ERRORS violation(s)"
+  exit 1
+fi
+
+echo "[pre-commit] PASSED"
+exit 0

@@ -1,0 +1,9 @@
+{
+  "round": "R94",
+  "timestamp": "2026-04-30T02:50:40Z",
+  "version": "iter-verify-v2",
+  "total_pass": 12,
+  "total_fail": 0,
+  "verdict": "PASS",
+  "checks": [{"round":"R94","id":"V1","desc":".env 文件权限=600","expected":"600","actual":"600","status":"PASS"},{"round":"R94","id":"V2","desc":"systemd 无明文 API Key","expected":"0","actual":"0","status":"PASS"},{"round":"R94","id":"V3","desc":".env 在 .gitignore","expected":">=1","actual":"3","status":"PASS"},{"round":"R94","id":"V4","desc":"SQL 白名单定义","expected":">=3","actual":"6","status":"PASS"},{"round":"R94","id":"V5","desc":"白名单过滤逻辑","expected":">=3","actual":"3","status":"PASS"},{"round":"R94","id":"V6","desc":"4个服务全部 User=admin","expected":"true","actual":"true","status":"PASS"},{"round":"R94","id":"V7","desc":"4个服务全部 active","expected":"true","actual":"true","status":"PASS"},{"round":"R94","id":"V8","desc":"HTTP 状态码","expected":"200","actual":"200","status":"PASS"},{"round":"HEALTH","id":"TESTS","desc":"测试失败数","expected":"0","actual":"0","status":"PASS"},{"round":"HEALTH","id":"SYNTAX","desc":"语法错误数","expected":"0","actual":"0","status":"PASS"},{"round":"HEALTH","id":"SERVICE","desc":"rangerai-ws 状态","expected":"active","actual":"active","status":"PASS"},{"round":"HEALTH","id":"HTTP","desc":"ranger.voyage HTTP","expected":"200","actual":"200","status":"PASS"}]
+}

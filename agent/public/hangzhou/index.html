@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>杭州旅游攻略 · 人间天堂</title>
+<style>
+  :root {
+    --green: #2d6a4f;
+    --green-light: #52b788;
+    --green-pale: #d8f3dc;
+    --gold: #e9c46a;
+    --brown: #7b5e3a;
+    --text: #1a1a2e;
+    --text-light: #555;
+    --white: #fff;
+    --radius: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    background: #f5f0eb;
+    overflow-x: hidden;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    height: 100vh;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(to bottom, rgba(0,0,0,.25) 0%, rgba(0,20,10,.6) 100%),
+      url('https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?w=1600&q=80') center/cover no-repeat;
+    animation: bgZoom 18s ease-in-out infinite alternate;
+  }
+
+  @keyframes bgZoom {
+    from { transform: scale(1); }
+    to   { transform: scale(1.06); }
+  }
+
+  .hero-badge {
+    position: relative;
+    background: rgba(255,255,255,.15);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.3);
+    color: #fff;
+    font-size: .75rem;
+    letter-spacing: .15em;
+    padding: .35em 1.2em;
+    border-radius: 999px;
+    margin-bottom: 1.2rem;
+  }
+
+  .hero h1 {
+    position: relative;
+    font-size: clamp(2.4rem, 8vw, 5rem);
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.15;
+    text-shadow: 0 4px 24px rgba(0,0,0,.4);
+    letter-spacing: .04em;
+  }
+
+  .hero h1 span { color: var(--gold); }
+
+  .hero-sub {
+    position: relative;
+    margin-top: .8rem;
+    font-size: clamp(.95rem, 3vw, 1.2rem);
+    color: rgba(255,255,255,.85);
+    font-weight: 300;
+    letter-spacing: .06em;
+  }
+
+  .hero-cta {
+    position: relative;
+    margin-top: 2.4rem;
+    display: flex;
+    gap: .8rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .5em;
+    padding: .75em 1.8em;
+    border-radius: 999px;
+    font-size: .95rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform .2s, box-shadow .2s;
+    cursor: pointer;
+    border: none;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+
+  .btn-primary { background: var(--green-light); color: #fff; }
+  .btn-outline  { background: transparent; color: #fff; border: 2px solid rgba(255,255,255,.6); }
+
+  .hero-scroll {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .4rem;
+    color: rgba(255,255,255,.6);
+    font-size: .75rem;
+    animation: bounce 2s ease-in-out infinite;
+  }
+  .hero-scroll svg { width: 20px; height: 20px; }
+  @keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(6px)} }
+
+  /* ── NAV ── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0,0,0,.06);
+    padding: 0 1rem;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: .2rem;
+    height: 52px;
+    min-width: 100%;
+    justify-content: center;
+  }
+  .nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: .35em;
+    padding: .45em 1em;
+    border-radius: 999px;
+    font-size: .85rem;
+    font-weight: 500;
+    color: var(--text-light);
+    text-decoration: none;
+    transition: all .2s;
+  }
+  .nav a:hover, .nav a.active {
+    background: var(--green-pale);
+    color: var(--green);
+  }
+
+  /* ── SECTION ── */
+  section { padding: 4rem 1rem; }
+  .section-header {
+    text-align: center;
+    margin-bottom: 2.4rem;
+  }
+  .section-tag {
+    display: inline-block;
+    background: var(--green-pale);
+    color: var(--green);
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    padding: .3em 1em;
+    border-radius: 999px;
+    margin-bottom: .7rem;
+  }
+  .section-header h2 {
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    font-weight: 800;
+    line-height: 1.2;
+  }
+  .section-header p {
+    margin-top: .6rem;
+    color: var(--text-light);
+    font-size: .95rem;
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.7;
+  }
+
+  /* ── SIGHT CARDS ── */
+  .sights { background: #fff; }
+  .sight-card {
+    max-width: 860px;
+    margin: 0 auto 3rem;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 4px 30px rgba(0,0,0,.08);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .sight-card:nth-child(even) { direction: rtl; }
+  .sight-card:nth-child(even) > * { direction: ltr; }
+
+  .sight-img {
+    position: relative;
+    overflow: hidden;
+    min-height: 280px;
+  }
+  .sight-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .5s;
+  }
+  .sight-card:hover .sight-img img { transform: scale(1.05); }
+
+  .sight-img-label {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background: rgba(0,0,0,.5);
+    backdrop-filter: blur(6px);
+    color: #fff;
+    font-size: .7rem;
+    padding: .3em .8em;
+    border-radius: 999px;
+  }
+
+  .sight-body {
+    padding: 2rem 2rem 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1rem;
+  }
+  .sight-num {
+    font-size: 3rem;
+    font-weight: 900;
+    color: var(--green-pale);
+    line-height: 1;
+  }
+  .sight-body h3 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-top: -.8rem;
+  }
+  .sight-body h3 small {
+    display: block;
+    font-size: .8rem;
+    font-weight: 400;
+    color: var(--text-light);
+    margin-top: .2rem;
+  }
+  .sight-body p {
+    font-size: .9rem;
+    color: var(--text-light);
+    line-height: 1.8;
+  }
+  .sight-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+  }
+  .tag {
+    background: var(--green-pale);
+    color: var(--green);
+    font-size: .72rem;
+    padding: .25em .75em;
+    border-radius: 999px;
+    font-weight: 500;
+  }
+  .sight-info {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    font-size: .82rem;
+    color: var(--text-light);
+    border-top: 1px solid #f0f0f0;
+    padding-top: .8rem;
+  }
+  .sight-info span { display: flex; align-items: center; gap: .5em; }
+  .sight-info span::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green-light); flex-shrink: 0; }
+
+  /* ── FOOD ── */
+  .food { background: #faf7f2; }
+  .food-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1.2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .food-card {
+    background: #fff;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 2px 16px rgba(0,0,0,.06);
+    transition: transform .25s, box-shadow .25s;
+  }
+  .food-card:hover { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(0,0,0,.12); }
+  .food-img { position: relative; height: 180px; overflow: hidden; }
+  .food-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s; }
+  .food-card:hover .food-img img { transform: scale(1.08); }
+  .food-badge {
+    position: absolute;
+    top: .8rem; right: .8rem;
+    background: var(--gold);
+    color: #6b4a00;
+    font-size: .68rem;
+    font-weight: 700;
+    padding: .2em .65em;
+    border-radius: 999px;
+  }
+  .food-body { padding: 1.1rem 1.2rem 1.3rem; }
+  .food-body h4 { font-size: 1rem; font-weight: 700; margin-bottom: .35rem; }
+  .food-body p { font-size: .82rem; color: var(--text-light); line-height: 1.7; }
+  .food-price {
+    margin-top: .65rem;
+    font-size: .8rem;
+    font-weight: 600;
+    color: #c0392b;
+  }
+
+  /* ── TRANSPORT ── */
+  .transport { background: var(--green); color: #fff; }
+  .transport .section-tag { background: rgba(255,255,255,.2); color: #fff; }
+  .transport .section-header h2 { color: #fff; }
+  .transport .section-header p { color: rgba(255,255,255,.75); }
+
+  .transport-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .transport-card {
+    background: rgba(255,255,255,.1);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: var(--radius);
+    padding: 1.5rem 1.4rem;
+    transition: background .2s;
+  }
+  .transport-card:hover { background: rgba(255,255,255,.18); }
+  .transport-icon {
+    font-size: 2.2rem;
+    margin-bottom: .8rem;
+  }
+  .transport-card h4 { font-size: 1rem; font-weight: 700; margin-bottom: .6rem; color: var(--gold); }
+  .transport-card ul { list-style: none; display: flex; flex-direction: column; gap: .45rem; }
+  .transport-card li {
+    font-size: .82rem;
+    color: rgba(255,255,255,.82);
+    line-height: 1.55;
+    padding-left: 1.2em;
+    position: relative;
+  }
+  .transport-card li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--green-light);
+  }
+
+  /* ── TIPS ── */
+  .tips { background: #fff; }
+  .tips-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+  .tip-card {
+    background: #f8f8f8;
+    border-radius: var(--radius);
+    padding: 1.4rem 1.2rem;
+    text-align: center;
+    transition: transform .2s;
+  }
+  .tip-card:hover { transform: translateY(-3px); }
+  .tip-icon { font-size: 2rem; margin-bottom: .65rem; }
+  .tip-card h4 { font-size: .9rem; font-weight: 700; margin-bottom: .4rem; }
+  .tip-card p { font-size: .78rem; color: var(--text-light); line-height: 1.65; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: #1a1a2e;
+    color: rgba(255,255,255,.55);
+    text-align: center;
+    padding: 2.5rem 1rem;
+    font-size: .8rem;
+    line-height: 1.8;
+  }
+  footer strong { color: rgba(255,255,255,.85); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 640px) {
+    .sight-card { grid-template-columns: 1fr; }
+    .sight-card:nth-child(even) { direction: ltr; }
+    .sight-img { min-height: 220px; }
+    .sight-body { padding: 1.4rem; }
+  }
+
+  /* ── FADE IN ── */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity .6s ease, transform .6s ease;
+  }
+  .fade-in.visible { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="hero-bg"></div>
+  <div class="hero-badge">✦ 2025 精选旅游攻略</div>
+  <h1>人间<span>天堂</span><br>杭州</h1>
+  <p class="hero-sub">西湖 · 灵隐寺 · 千岛湖 · 杭帮美食</p>
+  <div class="hero-cta">
+    <a href="#sights" class="btn btn-primary">🗺️ 探索景点</a>
+    <a href="#food" class="btn btn-outline">🍜 美食推荐</a>
+  </div>
+  <div class="hero-scroll">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+    向下滑动
+  </div>
+</section>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#sights">🏞️ 景点</a>
+    <a href="#food">🍜 美食</a>
+    <a href="#transport">🚄 交通</a>
+    <a href="#tips">💡 贴士</a>
+  </div>
+</nav>
+
+<!-- SIGHTS -->
+<section class="sights" id="sights">
+  <div class="section-header fade-in">
+    <span class="section-tag">ATTRACTIONS</span>
+    <h2>必游三大景点</h2>
+    <p>西湖烟雨、千年古刹、碧水千岛——每一处都是诗与画的交融</p>
+  </div>
+
+  <!-- 西湖 -->
+  <div class="sight-card fade-in">
+    <div class="sight-img">
+      <img src="https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?w=800&q=80" alt="西湖" loading="lazy">
+      <span class="sight-img-label">UNESCO 世界遗产</span>
+    </div>
+    <div class="sight-body">
+      <div class="sight-num">01</div>
+      <h3>西湖
+        <small>West Lake · 杭州市中心</small>
+      </h3>
+      <p>西湖是杭州的灵魂，湖光山色如诗如画。苏堤春晓、断桥残雪、雷峰夕照、三潭印月……十景各有千秋。2011年被列入UNESCO世界文化遗产，是杭州最标志性的存在。</p>
+      <div class="sight-tags">
+        <span class="tag">苏堤春晓</span>
+        <span class="tag">断桥残雪</span>
+        <span class="tag">雷峰夕照</span>
+        <span class="tag">三潭印月</span>
+        <span class="tag">花港观鱼</span>
+      </div>
+      <div class="sight-info">
+        <span>门票：免费（游船另收费）</span>
+        <span>开放时间：全天开放</span>
+        <span>推荐游览时长：3–5小时</span>
+        <span>最佳时节：春季赏花、秋季观叶</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 灵隐寺 -->
+  <div class="sight-card fade-in">
+    <div class="sight-img">
+      <img src="https://images.unsplash.com/photo-1600077606083-0a4797a23d4c?w=800&q=80" alt="灵隐寺" loading="lazy">
+      <span class="sight-img-label">千年古刹 · 东晋创建</span>
+    </div>
+    <div class="sight-body">
+      <div class="sight-num">02</div>
+      <h3>灵隐寺
+        <small>Lingyin Temple · 西湖区</small>
+      </h3>
+      <p>始建于东晋咸和元年（326年），是中国佛教禅宗十大古刹之一。寺内飞来峰石刻艺术精湛，大雄宝殿雄伟壮观，古木参天，香火鼎盛，素有"仙灵所隐"之称。</p>
+      <div class="sight-tags">
+        <span class="tag">飞来峰石刻</span>
+        <span class="tag">大雄宝殿</span>
+        <span class="tag">寺内素斋</span>
+        <span class="tag">禅意文化</span>
+      </div>
+      <div class="sight-info">
+        <span>门票：飞来峰45元 + 灵隐寺30元</span>
+        <span>开放时间：07:00–18:30</span>
+        <span>推荐游览时长：2–3小时</span>
+        <span>小贴士：清晨前往人少，素斋值得一试</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 千岛湖 -->
+  <div class="sight-card fade-in">
+    <div class="sight-img">
+      <img src="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=800&q=80" alt="千岛湖" loading="lazy">
+      <span class="sight-img-label">国家5A级景区</span>
+    </div>
+    <div class="sight-body">
+      <div class="sight-num">03</div>
+      <h3>千岛湖
+        <small>Thousand Island Lake · 淳安县</small>
+      </h3>
+      <p>千岛湖因湖内1078座翠绿小岛而得名，湖水能见度达12米，是世界上最清澈的淡水湖之一。乘船游览中心湖区，碧水青山尽收眼底，令人心旷神怡。</p>
+      <div class="sight-tags">
+        <span class="tag">中心湖区</span>
+        <span class="tag">岛屿观光</span>
+        <span class="tag">千岛湖鱼头</span>
+        <span class="tag">生态旅游</span>
+      </div>
+      <div class="sight-info">
+        <span>门票：中心湖区约195元（含船票）</span>
+        <span>开放时间：08:00–17:00</span>
+        <span>推荐游览时长：全天（建议住一晚）</span>
+        <span>距杭州：高铁约40分钟</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOD -->
+<section class="food" id="food">
+  <div class="section-header fade-in">
+    <span class="section-tag">FOOD & DINING</span>
+    <h2>必尝杭帮美食</h2>
+    <p>杭帮菜以清淡鲜美著称，每一道都是对江南味道最好的诠释</p>
+  </div>
+
+  <div class="food-grid">
+    <div class="food-card fade-in">
+      <div class="food-img">
+        <img src="https://images.unsplash.com/photo-1563245372-f21724e3856d?w=600&q=80" alt="西湖醋鱼" loading="lazy">
+        <span class="food-badge">必点招牌</span>
+      </div>
+      <div class="food-body">
+        <h4>🐟 西湖醋鱼</h4>
+        <p>以西湖草鱼为原料，烹制后浇上酸甜可口的糖醋汁，肉质鲜嫩滑口，是杭州最具代表性的名菜。</p>
+        <div class="food-price">推荐餐厅：楼外楼 · ¥68–88/份</div>
+      </div>
+    </div>
+
+    <div class="food-card fade-in">
+      <div class="food-img">
+        <img src="https://images.unsplash.com/photo-1580822184713-fc5400e7fe10?w=600&q=80" alt="东坡肉" loading="lazy">
+        <span class="food-badge">经典名菜</span>
+      </div>
+      <div class="food-body">
+        <h4>🥩 东坡肉</h4>
+        <p>苏东坡首创，猪五花肉慢炖数小时，肉质酥烂、肥而不腻，入口即化，是杭州饮食文化的灵魂。</p>
+        <div class="food-price">推荐餐厅：楼外楼 · ¥45–60/份</div>
+      </div>
+    </div>
+
+    <div class="food-card fade-in">
+      <div class="food-img">
+        <img src="https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=600&q=80" alt="龙井虾仁" loading="lazy">
+        <span class="food-badge">时令佳肴</span>
+      </div>
+      <div class="food-body">
+        <h4>🍵 龙井虾仁</h4>
+        <p>鲜嫩河虾配以明前龙井茶叶翻炒，虾仁白嫩爽口，茶香清新怡人，色香味形俱佳的江南雅食。</p>
+        <div class="food-price">推荐：龙井草堂 · ¥88–128/份</div>
+      </div>
+    </div>
+
+    <div class="food-card fade-in">
+      <div class="food-img">
+        <img src="https://images.unsplash.com/photo-1569050467447-ce54b3bbc37d?w=600&q=80" alt="小笼包" loading="lazy">
+        <span class="food-badge">街头必吃</span>
+      </div>
+      <div class="food-body">
+        <h4>🥟 虾肉小笼包</h4>
+        <p>皮薄汁多，内馅鲜嫩，一口咬下鲜汤四溢。河坊街、南宋御街随处可见，是最亲民的杭州小食。</p>
+        <div class="food-price">推荐：知味观 · ¥18–28/笼</div>
+      </div>
+    </div>
+
+    <div class="food-card fade-in">
+      <div class="food-img">
+        <img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&q=80" alt="千岛湖鱼头" loading="lazy">
+        <span class="food-badge">千岛湖特产</span>
+      </div>
+      <div class="food-body">
+        <h4>🐠 千岛湖鱼头</h4>
+        <p>千岛湖有机大头鱼，汤色乳白似奶，肉质紧实鲜甜，搭配豆腐炖煮，鲜美无比，到湖必吃。</p>
+        <div class="food-price">推荐：湖滨鱼馆 · ¥58–98/份</div>
+      </div>
+    </div>
+
+    <div class="food-card fade-in">
+      <div class="food-img">
+        <img src="https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=600&q=80" alt="片儿川" loading="lazy">
+        <span class="food-badge">百年老味</span>
+      </div>
+      <div class="food-body">
+        <h4>🍜 片儿川面</h4>
+        <p>杭州传统汤面，以笋片、猪肉、雪菜为浇头，汤底清鲜，面条劲道，是杭州人最爱的家常早面。</p>
+        <div class="food-price">推荐：奎元馆 · ¥18–25/碗</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRANSPORT -->
+<section class="transport" id="transport">
+  <div class="section-header fade-in">
+    <span class="section-tag">TRANSPORTATION</span>
+    <h2>交通出行指南</h2>
+    <p>多种交通方式任你选，轻松抵达每一处美景</p>
+  </div>
+
+  <div class="transport-grid">
+    <div class="transport-card fade-in">
+      <div class="transport-icon">✈️</div>
+      <h4>抵达杭州</h4>
+      <ul>
+        <li>萧山国际机场 · 地铁7号/19号线直达市区</li>
+        <li>杭州东站 · 高铁主站，全国主要城市均有直达</li>
+        <li>杭州站 · 到西湖打车仅需10分钟</li>
+        <li>沪杭高铁 · 上海出发约45分钟</li>
+      </ul>
+    </div>
+
+    <div class="transport-card fade-in">
+      <div class="transport-icon">🚇</div>
+      <h4>西湖周边</h4>
+      <ul>
+        <li>地铁1号线 → 武林广场站，步行约15分钟到湖边</li>
+        <li>12处地铁站可接驳公交直达景区内部</li>
+        <li>骑共享单车环湖 · 最推荐的方式</li>
+        <li>西湖免费游览，游船另购票</li>
+      </ul>
+    </div>
+
+    <div class="transport-card fade-in">
+      <div class="transport-icon">🚌</div>
+      <h4>前往灵隐寺</h4>
+      <ul>
+        <li>公交7路 / 游4路 → 灵隐终点站直达</li>
+        <li>地铁+公交接驳约30分钟</li>
+        <li>打车从西湖约15分钟，约20元</li>
+        <li>建议清晨7点前到达，避开人流高峰</li>
+      </ul>
+    </div>
+
+    <div class="transport-card fade-in">
+      <div class="transport-icon">🚄</div>
+      <h4>前往千岛湖</h4>
+      <ul>
+        <li>杭州西站 → 千岛湖站 · 高铁约40分钟</li>
+        <li>合杭高铁湖杭段，班次密集方便</li>
+        <li>抵达后景区专线大巴约10分钟</li>
+        <li>建议安排一晚住宿，体验夜晚湖景</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- TIPS -->
+<section class="tips" id="tips">
+  <div class="section-header fade-in">
+    <span class="section-tag">TRAVEL TIPS</span>
+    <h2>旅行实用贴士</h2>
+    <p>出发前必看，让你的杭州之旅更顺畅</p>
+  </div>
+
+  <div class="tips-grid">
+    <div class="tip-card fade-in">
+      <div class="tip-icon">📅</div>
+      <h4>最佳时节</h4>
+      <p>春季（3–5月）赏樱花莲花，秋季（9–11月）层林尽染，景色最美。夏季荷花盛开，冬季可赏断桥残雪。</p>
+    </div>
+    <div class="tip-card fade-in">
+      <div class="tip-icon">📱</div>
+      <h4>必备APP</h4>
+      <p>支付宝领取杭州地铁乘车码；「掌上西湖」预约免费景点；高德/百度地图导航景区内部路线。</p>
+    </div>
+    <div class="tip-card fade-in">
+      <div class="tip-icon">🎫</div>
+      <h4>门票预订</h4>
+      <p>灵隐寺、千岛湖建议提前在官方APP或携程购票，节假日高峰期可避免现场排队等候。</p>
+    </div>
+    <div class="tip-card fade-in">
+      <div class="tip-icon">👟</div>
+      <h4>着装建议</h4>
+      <p>穿透气运动鞋，日均步行2万步以上；西湖边早晚温差大，带一件薄外套；灵隐寺进殿着装庄重。</p>
+    </div>
+    <div class="tip-card fade-in">
+      <div class="tip-icon">🏨</div>
+      <h4>住宿推荐</h4>
+      <p>前3天住西湖边（方便游览）；去千岛湖可住一晚湖景民宿（400–600元/晚），体验最佳观湖视角。</p>
+    </div>
+    <div class="tip-card fade-in">
+      <div class="tip-icon">💰</div>
+      <h4>旅行预算</h4>
+      <p>三天两晚参考：交通300–500元、住宿600–1200元、餐饮300–500元、门票约300元，合计约1500–2500元。</p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div style="font-size:1.8rem;margin-bottom:.6rem;">🌿</div>
+  <strong>杭州旅游攻略 2025</strong><br>
+  西湖 · 灵隐寺 · 千岛湖 · 杭帮美食<br>
+  <span style="margin-top:.5rem;display:block">愿你的每一次旅行都成为最美的记忆 ✨</span>
+  <div style="margin-top:1.2rem;opacity:.4;font-size:.7rem">图片来源：Unsplash | 内容仅供参考，门票及价格以官方为准</div>
+</footer>
+
+<script>
+  // 平滑滚动 + nav active
+  const sections = document.querySelectorAll('section[id], nav');
+  const navLinks = document.querySelectorAll('.nav a');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id);
+        });
+      }
+    });
+  }, { rootMargin: '-40% 0px -50% 0px' });
+
+  document.querySelectorAll('section[id]').forEach(s => observer.observe(s));
+
+  // fade in
+  const fadeObserver = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 80);
+        fadeObserver.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12 });
+
+  document.querySelectorAll('.fade-in').forEach(el => fadeObserver.observe(el));
+</script>
+</body>
+</html>

@@ -1,0 +1,617 @@
+/**
+ * ws-chat-handlers.mjs — Chat Message Handling Functions
+ * Extracted from ws-handler.mjs (Iter-59) to reduce module size.
+ * 
+ * Contains: handleSendMessage, compressHistoryIfNeeded,
+ *           saveAssistantReply, asyncGenerateTitle, asyncGenerateSuggestions
+ *
+ * @module ws-chat-handlers
+ */
+import { logger } from '../lib/logger.mjs';
+import { ts } from './helpers.mjs';
+import { WebSocket } from 'ws';
+import { WS_SERVER_TYPES, FRONTEND_EVENT_TYPES } from '#shared/message-types';
+import { insertAuditLog } from '../services/admin-service.mjs';
+import { createRequire } from 'module';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _require = createRequire(import.meta.url);
+// [P0-2-FIX] Lazy-open event_stream DB for model_route lookup
+let _auxDb = null;
+function _getAuxDb() {
+  if (_auxDb) return _auxDb;
+  try {
+    const Database = _require('better-sqlite3');
+    _auxDb = new Database(path.resolve(__dirname, '../db/rangerai.db'), { readonly: true });
+    return _auxDb;
+  } catch (e) {
+    logger.warn('[P0-2-FIX] Cannot open aux DB for model_route lookup: ' + e.message);
+    return null;
+  }
+}
+function _lookupModelFromEventStream(msgId) {
+  try {
+    const db = _getAuxDb();
+    if (!db) return null;
+    const row = db.prepare(`
+      SELECT json_extract(payload, '$.model') AS model
+      FROM event_stream
+      WHERE event_type = 'model_route'
+        AND task_id = ?
+        AND json_extract(payload, '$.model') IS NOT NULL
+        AND json_extract(payload, '$.model') != ''
+        AND json_extract(payload, '$.model') != 'RangerAI'
+      ORDER BY id DESC LIMIT 1
+    `).get(msgId);
+    return row ? row.model : null;
+  } catch (e) {
+    logger.warn('[P0-2-FIX] model_route lookup error: ' + e.message);
+    return null;
+  }
+}
+
+let deps = null;
+
+export function initChatHandlers(dependencies) {
+  deps = dependencies;
+}
+
+export function getDeps() {
+  return deps;
+}
+export async function handleSendMessage(ws, msg, state, ip) {
+  const {
+    sendEvent, workerManager, eventBuffer, taskStore, rateLimiter, monitor,
+    activeTasksBySession, toolMetadataByMsgId,
+    expandFileAttachments, inlineFallback, generateTitle, generateSuggestions, generateHistorySummary,
+    getChatBySessionKey, createMessage, updateChatTitle,
+    saveSession, HISTORY_LIMIT, MAX_TASK_DURATION,
+  } = deps;
+
+  // Rate limiting
+  const msgCheck = rateLimiter.checkMessage(state.sessionKey);
+  if (!msgCheck.allowed) {
+    logger.info(`[${ts()}] [rate-limit] Message rejected for session ${state.sessionKey}: ${msgCheck.reason}`);
+    sendEvent(ws, { type: "error", message: `请求过于频繁，请${msgCheck.retryAfter || 10}秒后重试` });
+    return;
+  }
+  rateLimiter.recordMessage(state.sessionKey);
+  monitor.recordMessage();
+
+  if (msg.content.length > 2000) {
+    logger.info(`[${ts()}] Long message received: ${msg.content.length} chars from ${ip}`);
+    sendEvent(ws, { type: "thinking", content: `收到完整消息 (${msg.content.length} 字符)\n` });
+  }
+
+  // Check stale processing
+  if (state.isProcessing) {
+    const processingAge = state.processingStartedAt ? Date.now() - state.processingStartedAt : 0;
+    if (processingAge > 120000) {
+      // FIX: Restored to 120s (was incorrectly lowered to 45s).
+      // Agent tasks (tool calls, subagents) routinely take 60-90s.
+      // 45s caused mid-task state resets → context loss + 409 busy loops.
+      logger.info(`[${ts()}] RECOVERY: isProcessing was stale (${Math.floor(processingAge / 1000)}s > 120s), force-resetting`);
+      state.isProcessing = false;
+      state.processingStartedAt = null;
+    } else {
+      // Still within grace period — send visible error so frontend knows it's busy
+      sendEvent(ws, { type: "error", message: "正在处理上一条消息，请稍候..." });
+      sendEvent(ws, { type: "status", status: "busy" });
+      return;
+    }
+  }
+
+  // Redis distributed lock
+  if (eventBuffer && eventBuffer.acquireLock) {
+    const lockAcquired = await eventBuffer.acquireLock(state.sessionKey);
+    if (!lockAcquired) {
+      logger.info(`[${ts()}] [lock] Session ${state.sessionKey} locked by another task, rejecting`);
+      sendEvent(ws, { type: "error", message: "该会话正在处理中，请稍候..." });
+      return;
+    }
+  }
+
+  state.isProcessing = true;
+  state.processingStartedAt = Date.now();
+  const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+  // Expand file attachments
+  const rawContent = msg.content;
+  msg.content = await expandFileAttachments(rawContent);
+  if (msg.content !== rawContent) {
+    logger.info(`[${ts()}] File attachments expanded for msgId=${msgId}`);
+  }
+
+  // Save user message to database
+  try {
+    const chatRecord = await getChatBySessionKey(state.sessionKey);
+    if (chatRecord) {
+      await createMessage({ chatId: chatRecord.id, role: "user", content: msg.content, msgId });
+    }
+  } catch (dbErr) {
+    logger.info(`[${ts()}] [db] Failed to save user msg: ${dbErr.message}`);
+  }
+
+  let processingGuardTimer = null;
+  let taskHeartbeat = null;
+  let reply;
+
+  try {
+    processingGuardTimer = setTimeout(() => {
+      if (state.isProcessing) {
+        logger.info(`[${ts()}] SAFETY: isProcessing stuck for 35min, force-resetting`);
+        state.isProcessing = false;
+        state.processingStartedAt = null;
+        sendEvent(ws, { type: "thinking", content: "\n[系统] 处理时间较长，已自动重置。请重新发送消息。\n" });
+        sendEvent(ws, { type: "status", status: "idle" });
+      }
+    }, MAX_TASK_DURATION + 120000);
+
+    const taskSessionKey = msg.sessionKey || state.sessionKey;
+    activeTasksBySession.set(taskSessionKey, { msgId, startedAt: Date.now() });
+    eventBuffer.startTask(msgId, taskSessionKey, msg.content);
+    taskStore.startTask(msgId, taskSessionKey, msg.content).catch((e) => { logger.debug("[ws-handler] startTask failed:", e.message); });
+
+    taskHeartbeat = setInterval(() => {
+      if (ws.readyState === 1) {
+        sendEvent(ws, { type: "progress", taskId: msgId, phase: "processing", timestamp: Date.now() });
+      }
+    }, 10000);
+
+    // Parse forceAgent metadata
+    const forceAgent = msg.metadata?.forceAgent === true;
+    const forceHint = forceAgent ? (msg.metadata?.hint || "") : "";
+    const taskContent = forceAgent && forceHint ? `[SYSTEM: ${forceHint}]\n\n${msg.content}` : msg.content;
+
+    // ── User Role Injection ──
+    // Inject user role into roleSystemPrompt so the agent can enforce permission boundaries.
+    // admin/manager: full capabilities. member/viewer/cs: no server-side code modification.
+    const userRole = state.userRole || 'member';
+    const userId = state.userId || null;
+    const username = state.username || 'anonymous';
+    // RBAC v2: Only admin (jianwufy) has full unrestricted access
+    const isAdminUser = userRole === 'admin';
+    const isManagerUser = userRole === 'manager';
+    let userRolePrompt;
+    if (isAdminUser) {
+      userRolePrompt = `[USER_CONTEXT] 当前用户: ${username} (role: admin) — 超级管理员，具有完整系统权限，可执行所有操作。`;
+    } else if (isManagerUser) {
+      userRolePrompt = `[USER_CONTEXT] 当前用户: ${username} (role: manager) — 管理层账户。\n` +
+        `【权限说明】可以查看系统状态和运行数据分析，但以下操作禁止：\n` +
+        `- 修改 /opt/rangerai/ 下的核心配置文件\n` +
+        `- 执行 sudo、systemctl 等系统管理命令\n` +
+        `- 重启或停止 Ranger 核心服务\n` +
+        `- 修改其他用户的权限或角色\n` +
+        `- 泄露服务器凭据或 API 密钥\n` +
+        `可正常使用：AI 对话、知识库管理、工单管理、数据分析、团队管理等功能。`;
+    } else {
+      userRolePrompt = `[USER_CONTEXT] 当前用户: ${username} (role: ${userRole}) — 普通权限账户。\n` +
+        `【重要权限限制】以下操作对此账户禁止，如被要求请礼貌拒绝并说明需要管理员权限：\n` +
+        `- 修改服务器文件或代码（exec/edit/write 写入系统路径）\n` +
+        `- 修改 Caddy/Nginx 等系统配置并 reload/restart\n` +
+        `- 执行 sudo 命令或系统级操作\n` +
+        `- 部署、重启任何生产服务\n` +
+        `- 读取其他用户的对话或私有数据\n` +
+        `- 尝试提升自身权限或冒充其他角色\n` +
+        `用户可正常使用：AI 对话、知识库查询、工单管理、数据查看等功能。`;
+    }
+
+    try {
+      // Resolve chatId for event routing
+      let taskChatId = null;
+      try {
+        const chatRec = await getChatBySessionKey(taskSessionKey);
+        if (chatRec) taskChatId = chatRec.id;
+      } catch (_) { /* best-effort */ }
+      let effectiveModel = msg.model || undefined;
+      if (effectiveModel === 'anthropic/auto') {
+        effectiveModel = 'anthropic/claude-sonnet-4-6'; // Fix invalid model ID
+      }
+      reply = await workerManager.sendTask(msgId, taskSessionKey, taskContent, state.conversationHistory, ws, effectiveModel, msg.attachments, userRolePrompt, null, taskChatId, userId, userRole);
+    } catch (workerErr) {
+      logger.info(`[${ts()}] Worker failed: ${workerErr.message}, using inline fallback`);
+      sendEvent(ws, { type: "recovery_status", phase: "fallback", message: "系统遇到问题，正在切换到备用模式..." });
+      sendEvent(ws, { type: "thinking", content: "正在处理中...\n" });
+      // B-FIX: Write fallback event to audit_logs for observability
+      insertAuditLog(
+        state.userId || 0,
+        state.username || 'system',
+        'FALLBACK_TRIGGERED',
+        'worker',
+        msgId,
+        JSON.stringify({ reason: workerErr.message.slice(0, 200), sessionKey: state.sessionKey })
+      ).catch(e => logger.debug(`[ws-handler] audit fallback log failed: ${e.message}`));
+      reply = await inlineFallback(msg.content, state.conversationHistory, ws, sendEvent);
+    }
+
+    sendEvent(ws, { type: "status", status: "idle" });
+    state.conversationHistory.push({ role: "user", content: msg.content });
+    if (reply) {
+      state.conversationHistory.push({ role: "assistant", content: reply });
+    }
+
+    // Token-aware history compression (v2.0: sync summary before dropping)
+    await compressHistoryIfNeeded(state, taskSessionKey, ws);
+
+    // Persist session
+    saveSession(taskSessionKey, state.conversationHistory);
+
+    // Write assistant reply to database
+    await saveAssistantReply(msgId, taskSessionKey, reply, ws);
+
+    // AI Title Generation (async)
+    asyncGenerateTitle(state, taskSessionKey, msg.content, reply, ws);
+
+    // AI Suggestions (async)
+    asyncGenerateSuggestions(msg.content, reply, ws);
+
+  } catch (err) {
+    logger.info(`[${ts()}] Handler error: ${err.message}`);
+    sendEvent(ws, {
+      type: "error",
+      message: err.message.includes("Worker") || err.message.includes("worker")
+        ? "系统暂时繁忙，请稍后重试"
+        : `处理出错: ${err.message}`,
+    });
+    sendEvent(ws, { type: "status", status: "idle" });
+  } finally {
+    if (taskHeartbeat) clearInterval(taskHeartbeat);
+    state.isProcessing = false;
+    state.processingStartedAt = null;
+    try { clearTimeout(processingGuardTimer); } catch (e) { logger.debug("[ws-handler] clearTimeout failed:", e.message); }
+
+    const _taskDuration = state.processingStartedAt ? Date.now() - state.processingStartedAt : 0;
+    rateLimiter.completeTask(msg.sessionKey || state.sessionKey);
+    monitor.recordTask({ duration: _taskDuration, tier: "standard", success: reply !== undefined && reply !== null, model: "rangerai" });
+
+    const taskSK = msg.sessionKey || state.sessionKey;
+    const _cMsgId = activeTasksBySession.get(taskSK)?.msgId;
+    if (_cMsgId) {
+      eventBuffer.completeTask(_cMsgId);
+      taskStore.completeTask(_cMsgId, reply ?? "").catch((e) => { logger.debug("[ws-handler] completeTask failed:", e.message); });
+    }
+    activeTasksBySession.delete(taskSK);
+
+    // Post-task reflect trigger
+    if (reply !== undefined && reply !== null) {
+      import("child_process").then(({ exec: cpExec }) => {
+        const taskTitle = (msg.content || "").slice(0, 50).replace(/['"]/g, "");
+        cpExec(
+          `bash /home/admin/.openclaw/workspace/skills/self-evolution/reflect.sh "${taskTitle}" "成功"`,
+          { timeout: 5000, env: { ...process.env, HOME: "/home/admin" } },
+          (err, stdout) => {
+            if (err) logger.info(`[${ts()}] [reflect] Error: ${err.message}`);
+            else logger.info(`[${ts()}] [reflect] ${stdout.trim()}`);
+          }
+        );
+      }).catch((e) => { logger.debug("[ws-handler] promise failed:", e.message); });
+    }
+  }
+}
+
+// ─── Helper Functions ────────────────────────────────────────
+
+/**
+ * compressHistoryIfNeeded v2.0 — Improved history compression
+ * 
+ * Key improvements over v1.0:
+ * 1. Synchronous summary generation (await) — no more fire-and-forget that loses context
+ * 2. Preserves first user message (initial intent) during compression
+ * 3. Summary generation has a 25s timeout with graceful fallback
+ * 4. Better logging for debugging context loss issues
+ */
+export async function compressHistoryIfNeeded(state, taskSessionKey, ws) {
+  const { sendEvent, saveSession, generateHistorySummary, HISTORY_LIMIT } = deps;
+
+  const estimateTokens = (text) => {
+    const cjk = (text.match(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/g) || []).length;
+    return Math.ceil(cjk * 2.0 + (text.length - cjk) / 3.5);
+  };
+
+  const estimatedTokens = state.conversationHistory.reduce((sum, m) => sum + estimateTokens(m.content || ""), 0);
+
+  if (estimatedTokens > 50000 || state.conversationHistory.length > HISTORY_LIMIT) {
+    logger.info(`[${ts()}] History limits hit (tokens: ${estimatedTokens}, msgs: ${state.conversationHistory.length}), compressing...`);
+
+    // v2.0: Preserve the first user message (initial intent/context)
+    let firstUserMsg = null;
+    for (const m of state.conversationHistory) {
+      if (m.role === 'user') {
+        firstUserMsg = { role: 'user', content: m.content.slice(0, 500) };
+        break;
+      }
+    }
+
+    let keptTokens = 0;
+    let keepCount = 0;
+    for (let i = state.conversationHistory.length - 1; i >= 0; i--) {
+      const msgTokens = estimateTokens(state.conversationHistory[i].content || "");
+      if ((keptTokens + msgTokens > 40000 || keepCount >= 30) && keepCount >= 2) break;
+      keptTokens += msgTokens;
+      keepCount++;
+    }
+
+    const keep = state.conversationHistory.slice(-keepCount);
+    const droppedMessages = state.conversationHistory.slice(0, state.conversationHistory.length - keepCount);
+    const droppedCount = droppedMessages.length;
+
+    if (droppedCount > 0) {
+      if (ws?.readyState === 1) {
+        sendEvent(ws, { type: "system_notice", message: "对话历史过长，正在生成记忆摘要...", severity: "info" });
+      }
+
+      // v2.0: Synchronous summarization with timeout
+      let summaryContent = null;
+      try {
+        const summaryPromise = generateHistorySummary(droppedMessages);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Summary generation timed out (25s)')), 25000)
+        );
+        summaryContent = await Promise.race([summaryPromise, timeoutPromise]);
+        logger.info(`[${ts()}] Summary generated synchronously (${(summaryContent || '').length} chars)`);
+      } catch (e) {
+        logger.info(`[${ts()}] Summary generation failed: ${e.message}, using fallback`);
+      }
+
+      // Build the compressed history
+      const summaryText = summaryContent
+        ? summaryContent
+        : `[系统背景: 早期对话已压缩。${firstUserMsg ? '用户最初的问题是: ' + firstUserMsg.content.slice(0, 200) : ''}]`;
+
+      // v2.0: Include first user message for intent continuity
+      const compressed = [{ role: "system", content: summaryText }];
+      if (firstUserMsg && !keep.some(m => m.role === 'user' && m.content === firstUserMsg.content)) {
+        compressed.push({ role: "system", content: `[用户初始意图] ${firstUserMsg.content}` });
+      }
+      compressed.push(...keep);
+
+      state.conversationHistory = compressed;
+      logger.info(`[${ts()}] History compressed: dropped ${droppedCount}, kept ${keepCount} (est ${keptTokens} tokens). Summary: ${summaryContent ? 'AI-generated' : 'fallback'}.`);
+
+      if (ws?.readyState === 1) {
+        sendEvent(ws, { type: "history", messages: state.conversationHistory });
+      }
+    } else {
+      const lastMsg = state.conversationHistory[state.conversationHistory.length - 1];
+      if (lastMsg && lastMsg.role === "user" && estimateTokens(lastMsg.content) > 40000) {
+        lastMsg.content = lastMsg.content.slice(0, 30000) + "\n\n...[系统拦截: 单条消息超过安全长度限制，已被强制截断以保护后端稳定。]...";
+        logger.info(`[${ts()}] Emergency truncation of single massive user message`);
+      }
+    }
+  }
+}
+
+export async function saveAssistantReply(msgId, taskSessionKey, reply, ws) {
+  const { getChatBySessionKey, createChat, createMessage, eventBuffer, toolMetadataByMsgId } = deps;
+
+  let toolMetadataJson = null;
+  try {
+    if (toolMetadataByMsgId.has(msgId)) {
+      const toolMeta = toolMetadataByMsgId.get(msgId);
+      if (toolMeta.tools.length > 0 || toolMeta.steps.length > 0) {
+        toolMetadataJson = JSON.stringify(toolMeta);
+      }
+      toolMetadataByMsgId.delete(msgId);
+    }
+  } catch (metaErr) {
+    logger.info(`[${ts()}] [db] Failed to serialize tool metadata: ${metaErr.message}`);
+  }
+
+  try {
+    let chatRecord = await getChatBySessionKey(taskSessionKey);
+    // Auto-create chat record if missing (sessionKey prefix normalization handles agent:main: prefix)
+    if (!chatRecord && createChat) {
+      try {
+        const normalized = taskSessionKey ? taskSessionKey.replace(/^agent:[^:]+:/, '') : taskSessionKey;
+        chatRecord = await createChat({ title: '对话', sessionKey: normalized });
+        logger.info(`[${ts()}] [db] Auto-created chat for sessionKey=${normalized}`);
+      } catch (createErr) {
+        logger.info(`[${ts()}] [db] Failed to auto-create chat: ${createErr.message}`);
+      }
+    }
+    // [TOKEN-FIX] Extract model and tokens from event buffer
+    let _msgModel = null;
+    let _msgTokens = null;
+    try {
+      const allEvts = eventBuffer.getEvents(msgId, 0);
+      const streamEnd = allEvts.find((e) => e.type === "stream_end");
+      const msgDone = allEvts.find((e) => e.type === "message_done");
+      const statsEvt = allEvts.find((e) => e.type === "stats");
+      // [P0-2-FIX] Also check model_route event as authoritative model source
+      const modelRouteEvt = allEvts.find((e) => e.type === "model_route" && e.model);
+      const refEvt = streamEnd || msgDone;
+      if (refEvt) {
+        if (refEvt.model && refEvt.model !== "RangerAI") _msgModel = refEvt.model;
+        if (refEvt.tokens) _msgTokens = refEvt.tokens;
+      }
+      // [P0-2-FIX] Fallback 1: model_route from in-memory eventBuffer (if present)
+      if (!_msgModel && modelRouteEvt && modelRouteEvt.model && modelRouteEvt.model !== "RangerAI") {
+        _msgModel = modelRouteEvt.model;
+      }
+      // [P0-2-FIX] Fallback 2: model_route from event_stream SQLite (most reliable)
+      if (!_msgModel && msgId) {
+        _msgModel = _lookupModelFromEventStream(msgId);
+        if (_msgModel) logger.info(`[P0-2-FIX] Resolved model via event_stream: msgId=${msgId} model=${_msgModel}`);
+      }
+      if (!_msgTokens && statsEvt && statsEvt.tokens) _msgTokens = statsEvt.tokens;
+    } catch (_) {}
+    if (chatRecord && reply !== null && reply !== undefined) {
+      await createMessage({ chatId: chatRecord.id, role: "assistant", content: reply, msgId, model: _msgModel, tokens: _msgTokens, metadata: toolMetadataJson });
+      logger.info(`[${ts()}] [db] Saved assistant reply for chat ${chatRecord.id}${_msgModel ? ` model=${_msgModel}` : ''}${_msgTokens ? ` tokens=${_msgTokens}` : ''}${toolMetadataJson ? " (with tool metadata)" : ""}`);
+    } else if (chatRecord && (reply === null || reply === undefined)) {
+      // Salvage partial reply from event-buffer
+      try {
+        const allEvts = eventBuffer.getEvents(msgId, 0);
+        let partialContent = "";
+        const streamEnd = allEvts.find((e) => e.type === "stream_end");
+        if (streamEnd && streamEnd.content) {
+          partialContent = streamEnd.content;
+        } else {
+          const chunks = allEvts.filter((e) => e.type === "stream_chunk");
+          if (chunks.length > 0) partialContent = chunks.map((c) => c.content || "").join("");
+        }
+        if (!partialContent) {
+          const msgDone = allEvts.find((e) => e.type === "message_done");
+          if (msgDone && msgDone.content) partialContent = msgDone.content;
+        }
+        if (partialContent && partialContent.length > 0) {
+          await createMessage({
+            chatId: chatRecord.id, role: "assistant", content: partialContent, msgId,
+            model: _msgModel, tokens: _msgTokens,
+            metadata: toolMetadataJson ? toolMetadataJson : JSON.stringify({ partial: true, reason: "worker_failed" }),
+          });
+          logger.info(`[${ts()}] [db] Salvaged partial reply (${partialContent.length} chars) for chat ${chatRecord.id}`);
+        }
+      } catch (salvageErr) {
+        logger.info(`[${ts()}] [db] Partial reply salvage failed: ${salvageErr.message}`);
+      }
+    }
+  } catch (dbErr) {
+    logger.info(`[${ts()}] [db] Failed to save reply: ${dbErr.message}`);
+  }
+}
+
+export function asyncGenerateTitle(state, taskSessionKey, userMsg, reply, ws) {
+  const { sendEvent, generateTitle, getChatBySessionKey, updateChatTitle } = deps;
+  (async () => {
+    try {
+      if (!state.titleGenerated) {
+        state.titleGenerated = true;
+        const title = await generateTitle(userMsg, reply, taskSessionKey);
+        if (title && ws.readyState === 1) {
+          sendEvent(ws, { type: "title_update", title, sessionKey: taskSessionKey });
+          try {
+            const chatRecord = await getChatBySessionKey(taskSessionKey);
+            if (chatRecord) await updateChatTitle(chatRecord.id, title);
+          } catch (e) { logger.debug("[ws-handler] caught:", e.message); }
+          logger.info(`[${ts()}] Sent title_update to frontend: ${title}`);
+        }
+      }
+    } catch (e) {
+      logger.info(`[${ts()}] Title gen async error: ${e.message}`);
+    }
+  })();
+}
+
+export function asyncGenerateSuggestions(userMsg, reply, ws) {
+  const { sendEvent, generateSuggestions } = deps;
+  (async () => {
+    try {
+      const suggestions = await generateSuggestions(userMsg, reply);
+      if (suggestions && ws.readyState === 1) {
+        sendEvent(ws, { type: "suggestions", suggestions });
+        logger.info(`[${ts()}] Sent suggestions to frontend: ${JSON.stringify(suggestions)}`);
+      }
+    } catch (e) {
+      logger.info(`[${ts()}] Suggestions gen async error: ${e.message}`);
+    }
+  })();
+}
+
+
+// ─── P0: Task Rebind on Reconnect ────────────────────────────
+export function rebindTaskOnReconnect(ws, sessionKey) {
+  const { workerManager, taskStore, eventBuffer, sendEvent } = deps;
+  
+  // Check if there's a pending task for this session
+  for (const [msgId, task] of workerManager.pendingTasks) {
+    if (task.sessionKey === sessionKey && task.ws === null) {
+      logger.info(`[${ts()}] [P0-REBIND] Rebinding task ${msgId} to reconnected client (session: ${sessionKey})`);
+      task.ws = ws;
+      
+      // Clear any grace period timer
+      if (task._gracePeriodTimer) {
+        clearTimeout(task._gracePeriodTimer);
+        task._gracePeriodTimer = null;
+      }
+      
+      // Send recovery status to client
+      sendEvent(ws, { 
+        type: "recovery_status", 
+        phase: "reconnected", 
+        message: "已重新连接到进行中的任务",
+        taskId: msgId
+      });
+      
+      // Replay recent events
+      try {
+        const recentEvents = eventBuffer.getEvents(msgId, Date.now() - 60000); // Last 60s
+        if (recentEvents && recentEvents.length > 0) {
+          logger.info(`[${ts()}] [P0-REBIND] Replaying ${recentEvents.length} recent events for task ${msgId}`);
+          for (const evt of recentEvents) {
+            sendEvent(ws, evt);
+          }
+        }
+      } catch (e) {
+        logger.info(`[${ts()}] [P0-REBIND] Event replay failed: ${e.message}`);
+      }
+      
+      return true;
+    }
+  }
+  
+  // Also check TaskStore for tasks that completed while disconnected
+  (async () => {
+    try {
+      const sessionState = await taskStore.getSessionState(sessionKey);
+      if (sessionState.status === 'completed' && sessionState.task) {
+        sendEvent(ws, {
+          type: "recovery_status",
+          phase: "completed_while_away",
+          message: "任务在断开期间已完成",
+          taskId: sessionState.task.msgId,
+          result: sessionState.task.result
+        });
+      }
+    } catch (e) {
+      logger.debug(`[P0-REBIND] Session state check failed: ${e.message}`);
+    }
+  })();
+  
+  return false;
+}
+
+export function handleDisconnectGracePeriod(ws) {
+  const { workerManager, eventBuffer, taskStore } = deps;
+  const GRACE_PERIOD_MS = 300000;
+
+  for (const [msgId, task] of workerManager.pendingTasks) {
+    if (task.ws === ws) {
+      logger.info(`[${ts()}] Client disconnected, task ${msgId} still running — grace period ${GRACE_PERIOD_MS / 1000}s`);
+      task.ws = null;
+      task._disconnectedAt = Date.now();
+
+      task._gracePeriodTimer = setTimeout(() => {
+        const currentTask = workerManager.pendingTasks.get(msgId);
+        if (currentTask && currentTask.ws === null) {
+          const lastActivity = currentTask.lastActivityAt || currentTask._disconnectedAt;
+          const silentMs = Date.now() - lastActivity;
+          if (silentMs < 120000) {
+            logger.info(`[${ts()}] Task ${msgId} grace period expired but worker active (${Math.round(silentMs / 1000)}s ago) — extending 120s`);
+            currentTask._gracePeriodTimer = setTimeout(() => {
+              const ct = workerManager.pendingTasks.get(msgId);
+              if (ct && ct.ws === null) {
+                logger.info(`[${ts()}] Task ${msgId} extended grace period expired — cleaning up server-side only`);
+                workerManager._clearTaskTimers(msgId);
+                workerManager.pendingTasks.delete(msgId);
+                try { eventBuffer.completeTask(msgId); } catch (e) { /* cleanup best-effort */ }
+                taskStore.completeTask(msgId, "Grace period expired (extended)").catch((e) => { logger.debug("[ws-handler] grace completeTask failed:", e.message); });
+              }
+            }, 120000);
+            return;
+          }
+          logger.info(`[${ts()}] Task ${msgId} grace period expired — no reconnection, cleaning up server-side only`);
+          workerManager._clearTaskTimers(msgId);
+          workerManager.pendingTasks.delete(msgId);
+          try { eventBuffer.completeTask(msgId); } catch (e) { /* cleanup best-effort */ }
+          taskStore.completeTask(msgId, "Grace period expired").catch((e) => { logger.debug("[ws-handler] grace completeTask failed:", e.message); });
+        } else if (currentTask && currentTask.ws !== null) {
+          logger.info(`[${ts()}] Task ${msgId} was reconnected during grace period — keeping alive`);
+        } else {
+          logger.info(`[${ts()}] Task ${msgId} already completed during grace period`);
+        }
+      }, GRACE_PERIOD_MS);
+    }
+  }
+}

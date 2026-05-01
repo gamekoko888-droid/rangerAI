@@ -1,0 +1,37 @@
+{
+  "round": "Rauto",
+  "timestamp": "2026-04-29T22:04:38Z",
+  "git_hash": "b43af69",
+  "git_dirty_files": 1000,
+  "repo_size_bytes": 888948886,
+  "repo_size_human": "856M",
+  "bak_files": {
+    "count": 36,
+    "size_bytes": 1864175,
+    "size_human": "1.9M"
+  },
+  "dist_backups": {
+    "count": 5,
+    "size_human": "58M"
+  },
+  "dead_modules": {
+    "count": 0,
+    "names": ""
+  },
+  "tests": {
+    "total": 0,
+    "pass": 0,
+    "fail": 0
+  },
+  "syntax_check": {
+    "errors": 0,
+    "failed_files": ""
+  },
+  "services": {
+    "rangerai_ws": "active",
+    "rangerai_web": "active",
+    "http_status": 200
+  },
+  "recent_errors_10min": 0
+0
+}

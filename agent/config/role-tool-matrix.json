@@ -1,0 +1,61 @@
+{
+  "_version": "1.0",
+  "_description": "RangerAI Role × Tool Permission Matrix — P0-1",
+  "_updated": "2026-04-20",
+  "_roles": ["admin", "manager", "member", "cs", "viewer"],
+  "_groups": {
+    "read": ["read", "read_file", "file_read", "memory_search", "memory_get", "web_search", "web_fetch", "image", "canvas", "screenshot", "navigate", "get_text", "get_html", "scroll", "wait"],
+    "write": ["write", "write_file", "file_write", "edit", "edit_file", "file_str_replace", "create_file", "prose"],
+    "exec": ["exec", "shell"],
+    "media": ["tts", "generate_image", "transcribe_audio", "speak_text", "analyze_image", "analyze_video", "analyze_audio", "analyze_document"],
+    "agent": ["sessions", "subagents", "sessions_spawn", "sessions_send", "sessions_list", "cron", "message"],
+    "admin": ["gateway", "browser"]
+  },
+  "matrix": {
+    "admin": {
+      "read": true,
+      "write": true,
+      "exec": true,
+      "media": true,
+      "agent": true,
+      "admin": true
+    },
+    "manager": {
+      "read": true,
+      "write": true,
+      "exec": true,
+      "media": true,
+      "agent": true,
+      "admin": false
+    },
+    "member": {
+      "read": true,
+      "write": true,
+      "exec": true,
+      "media": true,
+      "agent": false,
+      "admin": false
+    },
+    "cs": {
+      "read": true,
+      "write": false,
+      "exec": false,
+      "media": true,
+      "agent": false,
+      "admin": false
+    },
+    "viewer": {
+      "read": true,
+      "write": false,
+      "exec": false,
+      "media": false,
+      "agent": false,
+      "admin": false
+    }
+  },
+  "high_risk_tools": {
+    "_description": "高危工具在所有非 admin 角色下需要二次确认（human-approval.mjs）",
+    "tools": ["exec", "shell", "write", "write_file", "edit", "edit_file"],
+    "require_confirmation_for_roles": ["manager", "member"]
+  }
+}

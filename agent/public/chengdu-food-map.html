@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成都美食地图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --red: #c0392b;
+    --red-dark: #922b21;
+    --orange: #e67e22;
+    --orange-light: #f39c12;
+    --cream: #fdf6ec;
+    --text: #2c2c2c;
+    --text-light: #666;
+    --card-bg: #fff;
+    --shadow: 0 4px 20px rgba(0,0,0,0.10);
+    --radius: 16px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ===== HERO ===== */
+  .hero {
+    background: linear-gradient(135deg, #8b0000 0%, #c0392b 40%, #e74c3c 70%, #e8632a 100%);
+    color: #fff;
+    text-align: center;
+    padding: 52px 20px 44px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; left: -60px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; right: -40px;
+    width: 260px; height: 260px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+  }
+  .hero-icon {
+    font-size: 56px;
+    display: block;
+    margin-bottom: 12px;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+  }
+  .hero h1 {
+    font-size: clamp(28px, 8vw, 42px);
+    font-weight: 900;
+    letter-spacing: 4px;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    position: relative; z-index: 1;
+  }
+  .hero-sub {
+    margin-top: 10px;
+    font-size: clamp(13px, 4vw, 17px);
+    opacity: 0.92;
+    letter-spacing: 2px;
+    font-weight: 400;
+    position: relative; z-index: 1;
+  }
+  .hero-tags {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    position: relative; z-index: 1;
+  }
+  .hero-tag {
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    backdrop-filter: blur(4px);
+  }
+
+  /* ===== SECTION TITLE ===== */
+  .section {
+    padding: 28px 16px 8px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--red-dark);
+    margin-bottom: 18px;
+  }
+  .section-title::before {
+    content: '';
+    display: inline-block;
+    width: 5px; height: 22px;
+    background: linear-gradient(180deg, var(--red), var(--orange));
+    border-radius: 3px;
+  }
+
+  /* ===== FOOD CARDS ===== */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0 16px 8px;
+  }
+  .card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px 14px 16px;
+    cursor: pointer;
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--red), var(--orange));
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .card:hover, .card:active {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 10px 30px rgba(192,57,43,0.18);
+  }
+  .card-emoji {
+    font-size: 36px;
+    display: block;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .card-name {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--red-dark);
+    text-align: center;
+    margin-bottom: 5px;
+  }
+  .card-desc {
+    font-size: 11.5px;
+    color: var(--text-light);
+    text-align: center;
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .card-detail {
+    display: none;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #eee;
+    animation: fadeIn 0.25s ease;
+  }
+  .card.expanded .card-detail { display: block; }
+  .card-badge {
+    display: inline-block;
+    background: linear-gradient(90deg, #c0392b, #e67e22);
+    color: #fff;
+    font-size: 10px;
+    border-radius: 10px;
+    padding: 2px 8px;
+    margin: 2px 2px;
+    font-weight: 600;
+  }
+  .card-recs {
+    margin-top: 6px;
+  }
+  .card-recs-title {
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 4px;
+  }
+  .rec-item {
+    display: inline-block;
+    background: #fff5f5;
+    border: 1px solid #f5c6cb;
+    border-radius: 8px;
+    font-size: 11px;
+    padding: 2px 8px;
+    margin: 2px 2px;
+    color: var(--red);
+    font-weight: 500;
+  }
+  .tap-hint {
+    text-align: center;
+    font-size: 10px;
+    color: #bbb;
+    margin-top: 8px;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ===== MAP AREA ===== */
+  .map-section {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 28px 16px 8px;
+  }
+  .map-container {
+    background: linear-gradient(145deg, #fff9f0, #fff3e0);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px 16px;
+    position: relative;
+  }
+  .map-svg-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 5/4;
+    max-height: 320px;
+    overflow: visible;
+  }
+  .map-svg-wrap svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* landmark tooltip */
+  .landmark {
+    cursor: pointer;
+  }
+  .landmark circle {
+    transition: r 0.2s, fill 0.2s;
+  }
+  .landmark:hover circle, .landmark.active circle {
+    r: 11;
+    fill: #e74c3c;
+  }
+  .lm-tooltip {
+    display: none;
+    position: absolute;
+    background: rgba(139,0,0,0.93);
+    color: #fff;
+    font-size: 12px;
+    border-radius: 10px;
+    padding: 8px 12px;
+    pointer-events: none;
+    z-index: 10;
+    min-width: 140px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    line-height: 1.7;
+  }
+  .lm-tooltip.show { display: block; animation: fadeIn 0.2s ease; }
+  .lm-tooltip strong { font-size: 13px; display: block; margin-bottom: 2px; }
+
+  /* ===== TIPS ===== */
+  .tips-section {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+  }
+  .tips-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .tip-card {
+    background: linear-gradient(135deg, var(--red), #c0392b);
+    color: #fff;
+    border-radius: 14px;
+    padding: 16px 14px;
+    box-shadow: 0 4px 16px rgba(192,57,43,0.2);
+  }
+  .tip-card.orange {
+    background: linear-gradient(135deg, #e67e22, #f39c12);
+  }
+  .tip-icon { font-size: 26px; display: block; margin-bottom: 6px; }
+  .tip-title { font-size: 14px; font-weight: 700; margin-bottom: 5px; }
+  .tip-body { font-size: 11.5px; opacity: 0.92; line-height: 1.7; }
+
+  /* ===== FOOTER ===== */
+  .footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    color: #bbb;
+    border-top: 1px solid #eee;
+  }
+  .footer a { color: var(--orange); text-decoration: none; }
+
+  /* ===== SCROLL REVEAL ===== */
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 400px) {
+    .cards-grid { grid-template-columns: 1fr; }
+    .tips-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<header class="hero">
+  <span class="hero-icon">🗺️</span>
+  <h1>成都美食地图</h1>
+  <p class="hero-sub">麻辣鲜香 · 舌尖上的天府之国</p>
+  <div class="hero-tags">
+    <span class="hero-tag">🌶️ 麻辣</span>
+    <span class="hero-tag">🔥 火锅</span>
+    <span class="hero-tag">🍢 串串</span>
+    <span class="hero-tag">🥟 小吃</span>
+    <span class="hero-tag">🍜 面食</span>
+  </div>
+</header>
+
+<!-- FOOD CARDS -->
+<div class="section reveal">
+  <div class="section-title">🍽️ 必吃美食</div>
+</div>
+<div class="cards-grid reveal">
+
+  <div class="card" onclick="toggleCard(this)">
+    <span class="card-emoji">🔥</span>
+    <div class="card-name">成都火锅</div>
+    <div class="card-desc">麻辣牛油红汤<br>左手火锅右手串串</div>
+    <div class="card-detail">
+      <span class="card-badge">牛油底料</span>
+      <span class="card-badge">九宫格</span>
+      <span class="card-badge">毛肚必点</span>
+      <div class="card-recs">
+        <div class="card-recs-title">📍 推荐店铺</div>
+        <span class="rec-item">大龙燚</span>
+        <span class="rec-item">海底捞</span>
+        <span class="rec-item">蜀大侠</span>
+      </div>
+    </div>
+    <div class="tap-hint">点击查看详情 ▾</div>
+  </div>
+
+  <div class="card" onclick="toggleCard(this)">
+    <span class="card-emoji">🍢</span>
+    <div class="card-name">串串香</div>
+    <div class="card-desc">竹签涮红汤<br>冷锅 / 热锅串串</div>
+    <div class="card-detail">
+      <span class="card-badge">冷锅串串</span>
+      <span class="card-badge">热锅串串</span>
+      <span class="card-badge">论斤称</span>
+      <div class="card-recs">
+        <div class="card-recs-title">📍 推荐店铺</div>
+        <span class="rec-item">冒椒火辣</span>
+        <span class="rec-item">刘记串串</span>
+      </div>
+    </div>
+    <div class="tap-hint">点击查看详情 ▾</div>
+  </div>
+
+  <div class="card" onclick="toggleCard(this)">
+    <span class="card-emoji">🐰</span>
+    <div class="card-name">兔头</div>
+    <div class="card-desc">脸颊肉干香<br>麻辣入骨·成都特色</div>
+    <div class="card-detail">
+      <span class="card-badge">麻辣味</span>
+      <span class="card-badge">五香味</span>
+      <span class="card-badge">越嚼越香</span>
+      <div class="card-recs">
+        <div class="card-recs-title">📍 推荐店铺</div>
+        <span class="rec-item">双流老妈兔头</span>
+      </div>
+    </div>
+    <div class="tap-hint">点击查看详情 ▾</div>
+  </div>
+
+  <div class="card" onclick="toggleCard(this)">
+    <span class="card-emoji">🥟</span>
+    <div class="card-name">钟水饺</div>
+    <div class="card-desc">1931年荔枝巷创立<br>红油微甜带辣</div>
+    <div class="card-detail">
+      <span class="card-badge">百年老字号</span>
+      <span class="card-badge">红油特调</span>
+      <span class="card-badge">猪肉馅</span>
+      <div class="card-recs">
+        <div class="card-recs-title">📍 推荐地点</div>
+        <span class="rec-item">锦里老街店</span>
+        <span class="rec-item">春熙路店</span>
+      </div>
+    </div>
+    <div class="tap-hint">点击查看详情 ▾</div>
+  </div>
+
+  <div class="card" onclick="toggleCard(this)">
+    <span class="card-emoji">🍜</span>
+    <div class="card-name">担担面</div>
+    <div class="card-desc">细面配芽菜肉末<br>麻辣酸香·一碗入魂</div>
+    <div class="card-detail">
+      <span class="card-badge">细碱水面</span>
+      <span class="card-badge">宜宾芽菜</span>
+      <span class="card-badge">花生碎</span>
+      <div class="card-recs">
+        <div class="card-recs-title">📍 风味描述</div>
+        <span class="rec-item">麻辣酸甜</span>
+        <span class="rec-item">汤汁少</span>
+        <span class="rec-item">拌匀食用</span>
+      </div>
+    </div>
+    <div class="tap-hint">点击查看详情 ▾</div>
+  </div>
+
+  <div class="card" onclick="toggleCard(this)">
+    <span class="card-emoji">🥘</span>
+    <div class="card-name">夫妻肺片</div>
+    <div class="card-desc">牛杂红油拌制<br>麻辣鲜香·下饭神器</div>
+    <div class="card-detail">
+      <span class="card-badge">牛肉牛杂</span>
+      <span class="card-badge">红油凉拌</span>
+      <span class="card-badge">花椒麻香</span>
+      <div class="card-recs">
+        <div class="card-recs-title">📍 推荐地点</div>
+        <span class="rec-item">宽窄巷子</span>
+        <span class="rec-item">锦里一条街</span>
+      </div>
+    </div>
+    <div class="tap-hint">点击查看详情 ▾</div>
+  </div>
+
+</div><!-- /cards-grid -->
+
+<!-- MAP -->
+<div class="map-section reveal">
+  <div class="section-title">📍 成都美食地标</div>
+  <div class="map-container">
+    <p style="font-size:12px;color:#999;margin-bottom:12px;text-align:center;">点击地标查看附近推荐美食 👇</p>
+    <div class="map-svg-wrap" id="mapWrap">
+      <!-- Tooltip -->
+      <div class="lm-tooltip" id="tooltip"></div>
+
+      <svg viewBox="0 0 340 280" xmlns="http://www.w3.org/2000/svg">
+        <!-- background grid -->
+        <defs>
+          <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f0d9c8" stroke-width="0.5"/>
+          </pattern>
+          <radialGradient id="mapBg" cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stop-color="#fff8f0"/>
+            <stop offset="100%" stop-color="#ffeedd"/>
+          </radialGradient>
+        </defs>
+        <rect width="340" height="280" fill="url(#mapBg)" rx="12"/>
+        <rect width="340" height="280" fill="url(#grid)" rx="12" opacity="0.6"/>
+
+        <!-- 成都城区轮廓（简化多边形） -->
+        <polygon
+          points="80,40 140,25 200,30 255,50 290,90 300,140 285,190 260,230 210,255 160,260 110,245 70,215 50,170 45,120 55,80"
+          fill="rgba(192,57,43,0.07)"
+          stroke="#c0392b"
+          stroke-width="2"
+          stroke-dasharray="6,3"
+          stroke-linejoin="round"
+        />
+
+        <!-- 内环路（简化椭圆） -->
+        <ellipse cx="170" cy="145" rx="65" ry="55"
+          fill="none" stroke="#e67e22" stroke-width="1.2" stroke-dasharray="4,2" opacity="0.5"/>
+
+        <!-- 府南河（简化曲线） -->
+        <path d="M 60,160 Q 110,140 170,145 Q 230,150 280,130"
+          fill="none" stroke="#5dade2" stroke-width="2.5" opacity="0.5" stroke-linecap="round"/>
+        <text x="88" y="136" font-size="9" fill="#5dade2" opacity="0.8">府南河</text>
+
+        <!-- 中轴线装饰 -->
+        <line x1="170" y1="20" x2="170" y2="265" stroke="#e67e22" stroke-width="0.8" stroke-dasharray="3,4" opacity="0.25"/>
+        <line x1="30" y1="145" x2="310" y2="145" stroke="#e67e22" stroke-width="0.8" stroke-dasharray="3,4" opacity="0.25"/>
+
+        <!-- 地标点：宽窄巷子 -->
+        <g class="landmark" id="lm-wkxz" onclick="showTip(event,'宽窄巷子','🔥 火锅 · 🥘 夫妻肺片 · 🥟 钟水饺\n老成都生活体验，小吃街聚集地',this)">
+          <circle cx="120" cy="115" r="8" fill="#c0392b" opacity="0.9"/>
+          <text x="120" y="118.5" text-anchor="middle" font-size="9" fill="#fff" font-weight="bold">宽</text>
+          <text x="120" y="103" text-anchor="middle" font-size="10" fill="#8b0000" font-weight="700">宽窄巷子</text>
+        </g>
+
+        <!-- 地标点：锦里 -->
+        <g class="landmark" id="lm-jl" onclick="showTip(event,'锦里古街','🥟 钟水饺 · 🥘 夫妻肺片 · 🍜 担担面\n靠近武侯祠，成都最著名历史文化街区',this)">
+          <circle cx="155" cy="175" r="8" fill="#c0392b" opacity="0.9"/>
+          <text x="155" y="178.5" text-anchor="middle" font-size="9" fill="#fff" font-weight="bold">锦</text>
+          <text x="155" y="163" text-anchor="middle" font-size="10" fill="#8b0000" font-weight="700">锦里</text>
+        </g>
+
+        <!-- 地标点：春熙路 -->
+        <g class="landmark" id="lm-cxl" onclick="showTip(event,'春熙路','🍢 串串香 · 🥟 钟水饺 · 🍜 担担面\n成都商业中心，网红美食聚集',this)">
+          <circle cx="195" cy="130" r="8" fill="#e67e22" opacity="0.9"/>
+          <text x="195" y="133.5" text-anchor="middle" font-size="9" fill="#fff" font-weight="bold">春</text>
+          <text x="195" y="118" text-anchor="middle" font-size="10" fill="#8b0000" font-weight="700">春熙路</text>
+        </g>
+
+        <!-- 地标点：武侯祠 -->
+        <g class="landmark" id="lm-whc" onclick="showTip(event,'武侯祠','🐰 双流兔头 · 🔥 大龙燚火锅\n三国文化圣地，周边老成都味道最浓',this)">
+          <circle cx="140" cy="195" r="8" fill="#922b21" opacity="0.9"/>
+          <text x="140" y="198.5" text-anchor="middle" font-size="9" fill="#fff" font-weight="bold">武</text>
+          <text x="193" y="198" text-anchor="middle" font-size="10" fill="#8b0000" font-weight="700">武侯祠</text>
+        </g>
+
+        <!-- 地标点：太古里 -->
+        <g class="landmark" id="lm-tgl" onclick="showTip(event,'太古里','🍢 冒椒火辣 · 🔥 蜀大侠火锅\n时尚潮流商圈，精品餐厅云集',this)">
+          <circle cx="215" cy="155" r="8" fill="#e67e22" opacity="0.9"/>
+          <text x="215" y="158.5" text-anchor="middle" font-size="9" fill="#fff" font-weight="bold">太</text>
+          <text x="215" y="143" text-anchor="middle" font-size="10" fill="#8b0000" font-weight="700">太古里</text>
+        </g>
+
+        <!-- 指南针 -->
+        <g transform="translate(295,40)">
+          <circle cx="0" cy="0" r="16" fill="rgba(255,255,255,0.8)" stroke="#ddd" stroke-width="1"/>
+          <polygon points="0,-12 3,0 0,3 -3,0" fill="#c0392b"/>
+          <polygon points="0,12 3,0 0,-3 -3,0" fill="#ccc"/>
+          <text x="0" y="-15" text-anchor="middle" font-size="8" fill="#c0392b" font-weight="bold">N</text>
+        </g>
+
+        <!-- 比例尺 -->
+        <g transform="translate(30,255)">
+          <line x1="0" y1="0" x2="40" y2="0" stroke="#999" stroke-width="1.5"/>
+          <line x1="0" y1="-3" x2="0" y2="3" stroke="#999" stroke-width="1.5"/>
+          <line x1="40" y1="-3" x2="40" y2="3" stroke="#999" stroke-width="1.5"/>
+          <text x="20" y="-5" text-anchor="middle" font-size="8" fill="#999">~5km</text>
+        </g>
+
+        <!-- 标题 -->
+        <text x="170" y="16" text-anchor="middle" font-size="11" fill="#8b0000" font-weight="800" letter-spacing="2">成都中心城区</text>
+      </svg>
+    </div><!-- /map-svg-wrap -->
+    <p style="font-size:11px;color:#bbb;text-align:center;margin-top:8px;">⚠️ 地图为示意图，仅供参考</p>
+  </div>
+</div>
+
+<!-- TIPS -->
+<div class="tips-section reveal">
+  <div class="section-title">💡 打卡小贴士</div>
+  <div class="tips-grid">
+    <div class="tip-card">
+      <span class="tip-icon">🕐</span>
+      <div class="tip-title">最佳打卡时间</div>
+      <div class="tip-body">
+        午餐 12:00–13:30<br>
+        晚餐 18:00–20:00<br>
+        夜宵 21:00 后<br>
+        <strong>避开</strong>周末午高峰
+      </div>
+    </div>
+    <div class="tip-card orange">
+      <span class="tip-icon">🌶️</span>
+      <div class="tip-title">必备蘸料指南</div>
+      <div class="tip-body">
+        🥜 麻酱+蒜泥（万能）<br>
+        🧄 蒜泥+香油（偏清）<br>
+        🌶️ 干碟辣椒（重口）<br>
+        🍋 柠檬汁（去腻）
+      </div>
+    </div>
+    <div class="tip-card orange">
+      <span class="tip-icon">🧊</span>
+      <div class="tip-title">吃辣小技巧</div>
+      <div class="tip-body">
+        喝牛奶而非水解辣<br>
+        先吃主食垫肚子<br>
+        花椒麻 ≠ 辣椒辣<br>
+        红汤降一格更安全
+      </div>
+    </div>
+    <div class="tip-card">
+      <span class="tip-icon">📱</span>
+      <div class="tip-title">排队攻略</div>
+      <div class="tip-body">
+        提前2小时取号<br>
+        工作日人少30%<br>
+        美团/大众可预约<br>
+        门口小吃先垫肚
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <p>🌶️ 成都美食地图 · 愿你吃遍天府</p>
+  <p style="margin-top:4px;">Made with ❤️ by <a href="#">RangerAI</a></p>
+</footer>
+
+<script>
+  // Toggle card expand
+  function toggleCard(el) {
+    const isOpen = el.classList.contains('expanded');
+    document.querySelectorAll('.card.expanded').forEach(c => c.classList.remove('expanded'));
+    if (!isOpen) el.classList.add('expanded');
+    const hint = el.querySelector('.tap-hint');
+    if (hint) hint.textContent = el.classList.contains('expanded') ? '点击收起 ▴' : '点击查看详情 ▾';
+  }
+
+  // Map landmark tooltip
+  const tooltip = document.getElementById('tooltip');
+  let activeLm = null;
+
+  function showTip(e, name, desc, lmEl) {
+    e.stopPropagation();
+    if (activeLm === lmEl && tooltip.classList.contains('show')) {
+      tooltip.classList.remove('show');
+      lmEl.classList.remove('active');
+      activeLm = null;
+      return;
+    }
+    if (activeLm) activeLm.classList.remove('active');
+    activeLm = lmEl;
+    lmEl.classList.add('active');
+
+    tooltip.innerHTML = '<strong>📍 ' + name + '</strong>' + desc.replace(/\n/g, '<br>');
+
+    const wrap = document.getElementById('mapWrap');
+    const wRect = wrap.getBoundingClientRect();
+    const eRect = e.target.getBoundingClientRect();
+    let left = eRect.left - wRect.left + 14;
+    let top = eRect.top - wRect.top - 10;
+
+    tooltip.classList.add('show');
+    const tw = tooltip.offsetWidth;
+    const th = tooltip.offsetHeight;
+    if (left + tw > wRect.width - 8) left = wRect.width - tw - 8;
+    if (left < 4) left = 4;
+    if (top - th < 4) top += 28;
+    else top -= th;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.landmark')) {
+      tooltip.classList.remove('show');
+      if (activeLm) { activeLm.classList.remove('active'); activeLm = null; }
+    }
+  });
+
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  reveals.forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

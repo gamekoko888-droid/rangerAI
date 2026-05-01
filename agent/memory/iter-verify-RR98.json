@@ -1,0 +1,9 @@
+{
+  "round": "R98",
+  "timestamp": "2026-04-30T03:17:13Z",
+  "version": "iter-verify-v2",
+  "total_pass": 10,
+  "total_fail": 0,
+  "verdict": "PASS",
+  "checks": [{"round":"R98","id":"V1","desc":"planner.mjs 行数","expected":"<=500","actual":"52","status":"PASS"},{"round":"R98","id":"V2","desc":"task-engine.mjs 行数","expected":"<=500","actual":"134","status":"PASS"},{"round":"R98","id":"V3","desc":"7个新模块全部存在","expected":"true","actual":"true","status":"PASS"},{"round":"R98","id":"V4","desc":"所有新模块>50行真实逻辑","expected":"true","actual":"true","status":"PASS"},{"round":"R98","id":"V5","desc":"所有新模块被其他文件引用","expected":"true","actual":"true","status":"PASS"},{"round":"R98","id":"ANTI-CHEAT","desc":"单个新模块最大行数(plan-storage)","expected":"<=500","actual":"489","status":"PASS"},{"round":"HEALTH","id":"TESTS","desc":"测试失败数","expected":"0","actual":"0","status":"PASS"},{"round":"HEALTH","id":"SYNTAX","desc":"语法错误数","expected":"0","actual":"0","status":"PASS"},{"round":"HEALTH","id":"SERVICE","desc":"rangerai-ws 状态","expected":"active","actual":"active","status":"PASS"},{"round":"HEALTH","id":"HTTP","desc":"ranger.voyage HTTP","expected":"200","actual":"200","status":"PASS"}]
+}

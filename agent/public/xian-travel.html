@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>长安 · 千年古都 — 西安旅游指南</title>
+  <style>
+    :root {
+      --zhu-red: #C0392B;
+      --deep-red: #922B21;
+      --gold: #D4A017;
+      --ancient-gold: #B8860B;
+      --dark-gold: #8B6914;
+      --cream: #FDF6E3;
+      --ink: #1A1208;
+      --gray: #6B5344;
+      --light-gray: #F5ECD7;
+      --white: #FFFFFF;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      overflow-x: hidden;
+    }
+
+    /* ===== NAV ===== */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: rgba(26,18,8,0.88);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      height: 52px;
+    }
+    .nav-logo {
+      color: var(--gold);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 18px;
+      list-style: none;
+    }
+    .nav-links a {
+      color: #E8D5A3;
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--gold); }
+
+    /* ===== HERO ===== */
+    .hero {
+      position: relative;
+      height: 100vh;
+      min-height: 600px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background-image: url('https://images.pexels.com/photos/28844757/pexels-photo-28844757.jpeg?auto=compress&cs=tinysrgb&w=1200');
+      background-size: cover;
+      background-position: center 40%;
+      filter: brightness(0.45);
+    }
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg,
+        rgba(26,18,8,0.3) 0%,
+        rgba(192,57,43,0.15) 50%,
+        rgba(26,18,8,0.8) 100%);
+    }
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      padding: 0 24px;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: var(--zhu-red);
+      color: var(--gold);
+      font-size: 11px;
+      letter-spacing: 3px;
+      padding: 5px 16px;
+      border-radius: 2px;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+    }
+    .hero-title {
+      font-size: clamp(42px, 10vw, 80px);
+      font-weight: 900;
+      color: var(--white);
+      letter-spacing: 8px;
+      line-height: 1.1;
+      text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .hero-title span { color: var(--gold); }
+    .hero-subtitle {
+      margin-top: 16px;
+      font-size: clamp(14px, 3vw, 18px);
+      color: #E8D5A3;
+      letter-spacing: 4px;
+      font-weight: 300;
+    }
+    .hero-desc {
+      margin-top: 24px;
+      max-width: 480px;
+      font-size: 14px;
+      color: rgba(255,255,255,0.75);
+      line-height: 1.8;
+    }
+    .hero-cta {
+      margin-top: 36px;
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      background: var(--zhu-red);
+      color: var(--white);
+      border: none;
+      padding: 14px 32px;
+      font-size: 15px;
+      letter-spacing: 2px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: background 0.2s, transform 0.15s;
+      font-weight: 600;
+    }
+    .btn-primary:hover { background: var(--deep-red); transform: translateY(-2px); }
+    .btn-outline {
+      background: transparent;
+      color: var(--gold);
+      border: 1.5px solid var(--gold);
+      padding: 14px 32px;
+      font-size: 15px;
+      letter-spacing: 2px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-outline:hover { background: rgba(212,160,23,0.15); transform: translateY(-2px); }
+    .hero-scroll {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      color: rgba(255,255,255,0.5);
+      font-size: 11px;
+      letter-spacing: 2px;
+      animation: bounce 2s infinite;
+    }
+    .hero-scroll::after {
+      content: '';
+      display: block;
+      width: 1px;
+      height: 40px;
+      background: linear-gradient(rgba(255,255,255,0.5), transparent);
+    }
+    @keyframes bounce {
+      0%,100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(8px); }
+    }
+
+    /* ===== SECTION COMMON ===== */
+    section { padding: 80px 0; }
+    .container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+    .section-header { text-align: center; margin-bottom: 52px; }
+    .section-tag {
+      display: inline-block;
+      color: var(--zhu-red);
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+    .section-title {
+      font-size: clamp(26px, 5vw, 38px);
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: 3px;
+    }
+    .section-title span { color: var(--zhu-red); }
+    .section-line {
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--zhu-red), var(--gold));
+      margin: 16px auto 0;
+      border-radius: 2px;
+    }
+    .section-desc {
+      margin-top: 16px;
+      color: var(--gray);
+      font-size: 14px;
+      line-height: 1.8;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* ===== ATTRACTIONS ===== */
+    .attractions-bg { background: var(--white); }
+    .attraction-card {
+      background: var(--white);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(26,18,8,0.1);
+      margin-bottom: 40px;
+      transition: transform 0.25s, box-shadow 0.25s;
+      border: 1px solid rgba(212,160,23,0.15);
+    }
+    .attraction-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(26,18,8,0.15);
+    }
+    .attraction-card-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .attraction-card:nth-child(even) .attraction-card-inner {
+      direction: rtl;
+    }
+    .attraction-card:nth-child(even) .attraction-info {
+      direction: ltr;
+    }
+    .attraction-img-wrap {
+      position: relative;
+      height: 320px;
+      overflow: hidden;
+    }
+    .attraction-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s;
+    }
+    .attraction-card:hover .attraction-img-wrap img {
+      transform: scale(1.05);
+    }
+    .attraction-img-badge {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: var(--zhu-red);
+      color: var(--white);
+      font-size: 11px;
+      padding: 4px 12px;
+      border-radius: 2px;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+    .attraction-info {
+      padding: 36px 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .attraction-num {
+      font-size: 48px;
+      font-weight: 900;
+      color: rgba(212,160,23,0.2);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .attraction-name-zh {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: 2px;
+    }
+    .attraction-name-en {
+      font-size: 12px;
+      color: var(--gray);
+      letter-spacing: 2px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+    .attraction-divider {
+      width: 40px;
+      height: 2px;
+      background: var(--zhu-red);
+      margin: 16px 0;
+    }
+    .attraction-desc {
+      font-size: 14px;
+      color: var(--gray);
+      line-height: 1.85;
+    }
+    .attraction-meta {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .meta-tag {
+      background: var(--light-gray);
+      color: var(--gray);
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .meta-tag.highlight {
+      background: rgba(192,57,43,0.08);
+      color: var(--zhu-red);
+    }
+    .attraction-tip {
+      margin-top: 20px;
+      background: linear-gradient(135deg, rgba(212,160,23,0.1), rgba(192,57,43,0.05));
+      border-left: 3px solid var(--gold);
+      padding: 12px 16px;
+      border-radius: 0 6px 6px 0;
+      font-size: 13px;
+      color: var(--gray);
+      line-height: 1.6;
+    }
+    .attraction-tip strong { color: var(--dark-gold); }
+
+    /* ===== FOOD SECTION ===== */
+    .food-bg {
+      background: linear-gradient(180deg, var(--cream) 0%, #FFF8EC 100%);
+      position: relative;
+    }
+    .food-bg::before {
+      content: '食';
+      position: absolute;
+      top: 40px;
+      right: 30px;
+      font-size: 200px;
+      font-weight: 900;
+      color: rgba(212,160,23,0.05);
+      pointer-events: none;
+    }
+    .food-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .food-card {
+      background: var(--white);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 16px rgba(26,18,8,0.08);
+      transition: transform 0.2s;
+      border: 1px solid rgba(212,160,23,0.1);
+    }
+    .food-card:hover { transform: translateY(-3px); }
+    .food-card-img {
+      height: 160px;
+      overflow: hidden;
+    }
+    .food-card-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s;
+    }
+    .food-card:hover .food-card-img img { transform: scale(1.06); }
+    .food-card-body { padding: 16px 18px 20px; }
+    .food-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: 1px;
+    }
+    .food-price {
+      display: inline-block;
+      color: var(--zhu-red);
+      font-size: 13px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .food-desc {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--gray);
+      line-height: 1.7;
+    }
+    .food-featured {
+      grid-column: span 2;
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      min-height: 200px;
+    }
+    .food-featured .food-card-img {
+      height: auto;
+    }
+    .food-featured .food-name { font-size: 22px; }
+    .food-featured .food-desc { font-size: 14px; }
+
+    /* ===== TRANSPORT ===== */
+    .transport-bg { background: var(--ink); }
+    .transport-bg .section-title { color: var(--white); }
+    .transport-bg .section-desc { color: rgba(255,255,255,0.55); }
+    .transport-bg .section-tag { color: var(--gold); }
+    .transport-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .transport-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(212,160,23,0.2);
+      border-radius: 10px;
+      padding: 28px 24px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .transport-card:hover {
+      background: rgba(212,160,23,0.08);
+      border-color: var(--gold);
+    }
+    .transport-icon {
+      font-size: 32px;
+      margin-bottom: 14px;
+    }
+    .transport-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .transport-list {
+      list-style: none;
+    }
+    .transport-list li {
+      font-size: 13px;
+      color: rgba(255,255,255,0.7);
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      line-height: 1.6;
+    }
+    .transport-list li:last-child { border-bottom: none; }
+    .transport-list li::before {
+      content: '→';
+      color: var(--zhu-red);
+      margin-right: 8px;
+      font-size: 11px;
+    }
+    .transport-highlight {
+      grid-column: span 2;
+      background: linear-gradient(135deg, rgba(192,57,43,0.2), rgba(212,160,23,0.1));
+      border: 1px solid rgba(192,57,43,0.3);
+      border-radius: 10px;
+      padding: 24px 28px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .transport-highlight-icon { font-size: 40px; }
+    .transport-highlight-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+    .transport-highlight-desc {
+      font-size: 13px;
+      color: rgba(255,255,255,0.65);
+      line-height: 1.7;
+    }
+
+    /* ===== TIPS STRIP ===== */
+    .tips-strip {
+      background: linear-gradient(135deg, var(--zhu-red), var(--deep-red));
+      padding: 40px 0;
+    }
+    .tips-strip .section-title { color: var(--white); }
+    .tips-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin-top: 32px;
+    }
+    .tip-item {
+      text-align: center;
+      padding: 20px 12px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .tip-icon { font-size: 28px; margin-bottom: 10px; }
+    .tip-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+    .tip-text {
+      font-size: 12px;
+      color: rgba(255,255,255,0.75);
+      line-height: 1.6;
+    }
+
+    /* ===== FOOTER ===== */
+    footer {
+      background: #0D0905;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .footer-logo {
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: 4px;
+      margin-bottom: 12px;
+    }
+    .footer-copy {
+      font-size: 12px;
+      color: rgba(255,255,255,0.3);
+      line-height: 1.8;
+    }
+    .footer-copy a { color: rgba(255,255,255,0.4); text-decoration: none; }
+
+    /* ===== DIVIDER ===== */
+    .ornament-divider {
+      text-align: center;
+      margin: 0;
+      padding: 24px 0;
+      color: rgba(212,160,23,0.4);
+      font-size: 18px;
+      letter-spacing: 8px;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 680px) {
+      nav { padding: 0 16px; }
+      .nav-links { gap: 12px; }
+      .nav-links li:nth-child(n+3) { display: none; }
+
+      .attraction-card-inner,
+      .attraction-card:nth-child(even) .attraction-card-inner {
+        grid-template-columns: 1fr;
+        direction: ltr;
+      }
+      .attraction-img-wrap { height: 220px; }
+      .attraction-info { padding: 24px 20px; }
+      .attraction-num { font-size: 36px; }
+      .attraction-name-zh { font-size: 22px; }
+
+      .food-grid { grid-template-columns: 1fr; }
+      .food-featured { grid-column: span 1; grid-template-columns: 1fr; }
+      .food-featured .food-card-img { height: 160px; }
+
+      .transport-grid { grid-template-columns: 1fr; }
+      .transport-highlight { grid-column: span 1; flex-direction: column; text-align: center; }
+
+      .tips-grid { grid-template-columns: repeat(2, 1fr); }
+
+      section { padding: 56px 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">长安 · 西安</div>
+  <ul class="nav-links">
+    <li><a href="#attractions">景点</a></li>
+    <li><a href="#food">美食</a></li>
+    <li><a href="#transport">交通</a></li>
+    <li><a href="#tips">贴士</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-badge">UNESCO 世界遗产 · 千年古都</div>
+    <h1 class="hero-title"><span>长</span>安<br>西 安</h1>
+    <p class="hero-subtitle">十三朝古都 · 丝路起点 · 华夏文明摇篮</p>
+    <p class="hero-desc">
+      这座城市沉淀了三千年的历史，从周秦汉唐到今朝，
+      每一块城砖都藏着帝王将相的故事，每一口美食都带着盛唐的烟火气息。
+    </p>
+    <div class="hero-cta">
+      <a href="#attractions" class="btn-primary">探索景点</a>
+      <a href="#food" class="btn-outline">品味美食</a>
+    </div>
+  </div>
+  <div class="hero-scroll">向下滚动</div>
+</div>
+
+<!-- ATTRACTIONS -->
+<section class="attractions-bg" id="attractions">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">Top Attractions</div>
+      <h2 class="section-title">三大<span>必游</span>景点</h2>
+      <div class="section-line"></div>
+      <p class="section-desc">跨越千年的文明见证，每一处都是与历史的深度对话</p>
+    </div>
+
+    <!-- 兵马俑 -->
+    <div class="attraction-card">
+      <div class="attraction-card-inner">
+        <div class="attraction-img-wrap">
+          <img src="https://images.pexels.com/photos/28844757/pexels-photo-28844757.jpeg?auto=compress&cs=tinysrgb&w=800" alt="兵马俑" loading="lazy">
+          <div class="attraction-img-badge">世界第八大奇迹</div>
+        </div>
+        <div class="attraction-info">
+          <div class="attraction-num">01</div>
+          <div class="attraction-name-zh">秦始皇兵马俑</div>
+          <div class="attraction-name-en">Terracotta Army Museum</div>
+          <div class="attraction-divider"></div>
+          <p class="attraction-desc">
+            公元前 246 年，秦始皇命人建造这支地下军队以守护他的永恒帝国。
+            8000 余件陶俑，无一雷同，每张面孔都有独立的灵魂。
+            一号坑如同打开的时光之门，让你直面两千年前的秦朝雄威。
+          </p>
+          <div class="attraction-meta">
+            <span class="meta-tag highlight">⏱ 建议 3-4 小时</span>
+            <span class="meta-tag">📍 临潼区，市区约 40km</span>
+            <span class="meta-tag">🎫 ¥120/人</span>
+          </div>
+          <div class="attraction-tip">
+            <strong>💡 攻略：</strong>建议早上 8:30 开门即入场，提前在官方APP购票可避免排队。
+            请务必雇佣官方讲解员，陶俑背后的历史远比想象丰富。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 大雁塔 -->
+    <div class="attraction-card">
+      <div class="attraction-card-inner">
+        <div class="attraction-img-wrap">
+          <img src="https://images.pexels.com/photos/13998391/pexels-photo-13998391.jpeg?auto=compress&cs=tinysrgb&w=800" alt="大雁塔" loading="lazy">
+          <div class="attraction-img-badge">唐代佛教圣地</div>
+        </div>
+        <div class="attraction-info">
+          <div class="attraction-num">02</div>
+          <div class="attraction-name-zh">大雁塔</div>
+          <div class="attraction-name-en">Giant Wild Goose Pagoda</div>
+          <div class="attraction-divider"></div>
+          <p class="attraction-desc">
+            唐永徽三年（652年），玄奘法师西天取经归来，奉旨建造此塔藏经。
+            七层方形楼阁式砖塔，高 64.5 米，历经 1300 年岁月而巍然屹立。
+            塔下的大唐不夜城入夜后灯火通明，再现盛唐繁华。
+          </p>
+          <div class="attraction-meta">
+            <span class="meta-tag highlight">⏱ 建议 2-3 小时</span>
+            <span class="meta-tag">📍 雁塔区，市中心附近</span>
+            <span class="meta-tag">🎫 ¥30/人（含南广场）</span>
+          </div>
+          <div class="attraction-tip">
+            <strong>💡 攻略：</strong>傍晚 18:00 后前往体验大唐不夜城步行街，夜晚的塔影和广场灯光秀绝不可错过。每周末有盛唐歌舞表演。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 华清池 -->
+    <div class="attraction-card">
+      <div class="attraction-card-inner">
+        <div class="attraction-img-wrap">
+          <img src="https://images.pexels.com/photos/35233610/pexels-photo-35233610.jpeg?auto=compress&cs=tinysrgb&w=800" alt="华清池夜景" loading="lazy">
+          <div class="attraction-img-badge">皇家温泉 · 千古爱情</div>
+        </div>
+        <div class="attraction-info">
+          <div class="attraction-num">03</div>
+          <div class="attraction-name-zh">华清宫 · 华清池</div>
+          <div class="attraction-name-en">Huaqing Palace & Hot Spring</div>
+          <div class="attraction-divider"></div>
+          <p class="attraction-desc">
+            骊山脚下，温泉长流不息。唐明皇与杨贵妃的爱情传奇在此上演，
+            "春寒赐浴华清池，温泉水滑洗凝脂"——白居易的诗句让这里流传千古。
+            夜晚的骊山实景演出《长恨歌》是中国最美的露天演出之一。
+          </p>
+          <div class="attraction-meta">
+            <span class="meta-tag highlight">⏱ 建议 2-3 小时（含演出）</span>
+            <span class="meta-tag">📍 临潼区，邻近兵马俑</span>
+            <span class="meta-tag">🎫 ¥150/人（含夜游）</span>
+          </div>
+          <div class="attraction-tip">
+            <strong>💡 攻略：</strong>建议与兵马俑合并为一日游（同在临潼区）。
+            夜晚《长恨歌》演出约 70 分钟，提前购票，带件外套防寒。
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="ornament-divider">◆ ◇ ◆ ◇ ◆</div>
+
+<!-- FOOD SECTION -->
+<section class="food-bg" id="food">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">Xi'an Cuisine</div>
+      <h2 class="section-title">舌尖上的<span>长安</span></h2>
+      <div class="section-line"></div>
+      <p class="section-desc">汇聚西北豪迈与关中细腻，每一口都是历史的味道</p>
+    </div>
+
+    <div class="food-grid">
+      <!-- 肉夹馍 featured -->
+      <div class="food-card food-featured">
+        <div class="food-card-img">
+          <img src="https://images.pexels.com/photos/5409319/pexels-photo-5409319.jpeg?auto=compress&cs=tinysrgb&w=600" alt="西安美食" loading="lazy">
+        </div>
+        <div class="food-card-body">
+          <div class="food-name">肉夹馍</div>
+          <span class="food-price">¥12 - 18 / 个</span>
+          <p class="food-desc">
+            被誉为"中国汉堡"，以白吉馍夹入腊汁肉而成。
+            腊汁肉经数小时文火慢炖，香气浓郁而不腻，
+            面饼酥脆回甜——简单的搭配成就了千年的经典。
+            <br><br>
+            <strong style="color:#8B6914">📍 推荐：</strong>回民街樊记腊汁肉夹馍、老孙家饭庄
+          </p>
+        </div>
+      </div>
+
+      <!-- 羊肉泡馍 -->
+      <div class="food-card">
+        <div class="food-card-img">
+          <img src="https://images.pexels.com/photos/28844766/pexels-photo-28844766.jpeg?auto=compress&cs=tinysrgb&w=400" alt="羊肉泡馍" loading="lazy" style="object-position: center; filter: saturate(1.2);">
+        </div>
+        <div class="food-card-body">
+          <div class="food-name">羊肉泡馍</div>
+          <span class="food-price">¥35 - 55 / 碗</span>
+          <p class="food-desc">
+            将烤馍掰成碎块，浸入浓郁羊骨汤，
+            配以粉丝、木耳、羊肉片，
+            是西北冬日暖胃第一选。
+          </p>
+        </div>
+      </div>
+
+      <!-- 凉皮 -->
+      <div class="food-card">
+        <div class="food-card-img">
+          <img src="https://images.pexels.com/photos/18338672/pexels-photo-18338672.jpeg?auto=compress&cs=tinysrgb&w=400" alt="凉皮" loading="lazy" style="filter: saturate(1.3) brightness(0.9);">
+        </div>
+        <div class="food-card-body">
+          <div class="food-name">秦镇米皮 · 凉皮</div>
+          <span class="food-price">¥10 - 15 / 份</span>
+          <p class="food-desc">
+            软糯透亮的米皮，佐以香醋、辣椒油、
+            芝麻酱，爽滑酸辣，
+            是西安人最日常的街头美食。
+          </p>
+        </div>
+      </div>
+
+      <!-- 贾三灌汤包 -->
+      <div class="food-card">
+        <div class="food-card-img">
+          <img src="https://images.pexels.com/photos/5409319/pexels-photo-5409319.jpeg?auto=compress&cs=tinysrgb&w=400" alt="灌汤包" loading="lazy">
+        </div>
+        <div class="food-card-body">
+          <div class="food-name">贾三灌汤包</div>
+          <span class="food-price">¥28 - 38 / 笼</span>
+          <p class="food-desc">
+            回民街的百年名店，薄皮大馅汤汁充盈，
+            一口咬下鲜香爆溢，
+            是回民街最值得排队的美食之一。
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 美食地图提示 -->
+    <div style="margin-top:32px; background:linear-gradient(135deg,rgba(192,57,43,0.07),rgba(212,160,23,0.07)); border:1px solid rgba(212,160,23,0.2); border-radius:10px; padding:24px 28px; display:flex; gap:20px; align-items:flex-start;">
+      <div style="font-size:32px; flex-shrink:0;">🗺️</div>
+      <div>
+        <div style="font-size:16px; font-weight:700; color:var(--ink); margin-bottom:8px;">美食打卡地图</div>
+        <div style="font-size:13px; color:var(--gray); line-height:1.8;">
+          <strong style="color:var(--zhu-red)">回民街（北院门）</strong>：西安最知名的美食街，聚集肉夹馍、灌汤包、羊肉泡馍等数十种小吃，建议傍晚前往，避开正午高峰。<br>
+          <strong style="color:var(--zhu-red)">永兴坊</strong>：网红打卡地，摔碗酒、biangbiang面一条街，适合拍照和尝新。<br>
+          <strong style="color:var(--zhu-red)">老孙家饭庄</strong>：百年老字号，羊肉泡馍的正宗代表，接待过无数国家领导人。
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="ornament-divider">◆ ◇ ◆ ◇ ◆</div>
+
+<!-- TRANSPORT -->
+<section class="transport-bg" id="transport">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">Getting Around</div>
+      <h2 class="section-title" style="color:var(--white);">交通<span style="color:var(--gold)">指南</span></h2>
+      <div class="section-line"></div>
+      <p class="section-desc" style="color:rgba(255,255,255,0.5);">从抵达到游览，全程顺畅出行方案</p>
+    </div>
+
+    <div class="transport-grid">
+
+      <div class="transport-card">
+        <div class="transport-icon">✈️</div>
+        <div class="transport-title">抵达西安</div>
+        <ul class="transport-list">
+          <li>西安咸阳国际机场，距市区约 40km</li>
+          <li>机场大巴 ¥30，约 60 分钟达市区</li>
+          <li>地铁14号线直达北客站，再换乘</li>
+          <li>出租车/网约车约 ¥100-130</li>
+          <li>高铁：北京/上海可直达西安北站</li>
+        </ul>
+      </div>
+
+      <div class="transport-card">
+        <div class="transport-icon">🚇</div>
+        <div class="transport-title">市区地铁</div>
+        <ul class="transport-list">
+          <li>共 8 条线路，覆盖主要景区</li>
+          <li>大雁塔：3号线大雁塔站</li>
+          <li>钟楼/回民街：2号线钟楼站</li>
+          <li>城墙：2号线南稍门站</li>
+          <li>单次票价 ¥2 起，支持支付宝/微信</li>
+        </ul>
+      </div>
+
+      <div class="transport-card">
+        <div class="transport-icon">🚌</div>
+        <div class="transport-title">临潼景区交通</div>
+        <ul class="transport-list">
+          <li>游5路（华清池→兵马俑），全程约20min</li>
+          <li>地铁9号线直达兵马俑站（在建/开通中）</li>
+          <li>旅游包车：半日约 ¥200-300</li>
+          <li>拼车/打车：市区至临潼约 ¥60-80</li>
+          <li>建议兵马俑+华清池合并为一日行程</li>
+        </ul>
+      </div>
+
+      <div class="transport-card">
+        <div class="transport-icon">🚲</div>
+        <div class="transport-title">城内出行</div>
+        <ul class="transport-list">
+          <li>共享单车（美团/哈啰）覆盖全城</li>
+          <li>古城墙上可租骑自行车游览</li>
+          <li>滴滴/高德叫车方便快捷</li>
+          <li>回民街附近建议步行游览</li>
+          <li>旅游观光巴士串联主要景点</li>
+        </ul>
+      </div>
+
+      <div class="transport-highlight">
+        <div class="transport-highlight-icon">🗓️</div>
+        <div>
+          <div class="transport-highlight-title">推荐行程安排（3天2夜）</div>
+          <div class="transport-highlight-desc">
+            <strong style="color:var(--gold)">Day 1 · 古城核心：</strong>上午城墙骑行 → 下午钟鼓楼 + 回民街 → 傍晚大雁塔夜景 + 大唐不夜城<br>
+            <strong style="color:var(--gold)">Day 2 · 临潼一日：</strong>早起出发 → 华清宫上午游览 → 午餐 → 兵马俑下午参观 → 傍晚《长恨歌》演出<br>
+            <strong style="color:var(--gold)">Day 3 · 深度体验：</strong>碑林博物馆 → 永兴坊美食打卡 → 陕西历史博物馆 → 返程
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- TIPS STRIP -->
+<section class="tips-strip" id="tips">
+  <div class="container">
+    <div class="section-header" style="margin-bottom:0">
+      <h2 class="section-title" style="color:var(--white);">出行<span style="color:var(--gold)">小贴士</span></h2>
+    </div>
+    <div class="tips-grid">
+      <div class="tip-item">
+        <div class="tip-icon">🌡️</div>
+        <div class="tip-title">最佳时节</div>
+        <div class="tip-text">4-5月春季 / 9-10月秋季<br>气候宜人，避开暑期高峰</div>
+      </div>
+      <div class="tip-item">
+        <div class="tip-icon">📱</div>
+        <div class="tip-title">购票方式</div>
+        <div class="tip-text">提前1-3天在景区官方APP或美团购票，旺季务必提前，可节省排队时间</div>
+      </div>
+      <div class="tip-item">
+        <div class="tip-icon">💰</div>
+        <div class="tip-title">费用预算</div>
+        <div class="tip-text">3天人均约 ¥1500-2500<br>（含门票+餐饮+交通+住宿）</div>
+      </div>
+      <div class="tip-item">
+        <div class="tip-icon">🌙</div>
+        <div class="tip-title">住宿推荐</div>
+        <div class="tip-text">推荐住南门/钟楼附近，交通便利，步行可达回民街和大部分景点</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">长安 · 西安</div>
+  <p class="footer-copy">
+    图片来源：<a href="https://www.pexels.com" target="_blank">Pexels</a>（免费商业授权）<br>
+    内容仅供参考，景点票价及开放时间请以官方公告为准<br>
+    © 2026 RangerAI · 西安旅游指南
+  </p>
+</footer>
+
+<script>
+  // Intersection Observer for scroll animations
+  const cards = document.querySelectorAll('.attraction-card, .food-card, .transport-card');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.style.opacity = '1';
+        entry.target.style.transform = entry.target.style.transform.replace('translateY(20px)', 'translateY(0)') || '';
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+
+  cards.forEach(card => {
+    card.style.opacity = '0';
+    card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    card.style.transform = 'translateY(20px)';
+    observer.observe(card);
+  });
+
+  // Nav active highlight on scroll
+  const sections = document.querySelectorAll('section[id], .hero');
+  const navLinks = document.querySelectorAll('.nav-links a');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(sec => {
+      if (window.scrollY >= sec.offsetTop - 80) current = sec.id || '';
+    });
+    navLinks.forEach(a => {
+      a.style.color = a.getAttribute('href') === '#' + current ? 'var(--gold)' : '';
+    });
+  }, { passive: true });
+</script>
+</body>
+</html>

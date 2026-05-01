@@ -1,0 +1,9 @@
+{
+  "round": "R97",
+  "timestamp": "2026-04-30T03:17:03Z",
+  "version": "iter-verify-v2",
+  "total_pass": 10,
+  "total_fail": 0,
+  "verdict": "PASS",
+  "checks": [{"round":"R97","id":"V1","desc":"openclaw-handler.mjs 行数","expected":"<=500","actual":"59","status":"PASS"},{"round":"R97","id":"V2","desc":"6个模块全部>50行","expected":"true","actual":"true","status":"PASS"},{"round":"R97","id":"V3","desc":"6个模块全部被import","expected":"true","actual":"true","status":"PASS"},{"round":"R97","id":"ANTI-CHEAT-1","desc":"partN文件为正常代码","expected":"正常代码","actual":"正常代码","status":"PASS"},{"round":"R97","id":"ANTI-CHEAT-2","desc":"无data:URL动态import","expected":"0","actual":"0","status":"PASS"},{"round":"R97","id":"ANTI-CHEAT-3","desc":"新模块包含实际函数定义(非纯re-export)","expected":"true","actual":"true","status":"PASS"},{"round":"HEALTH","id":"TESTS","desc":"测试失败数","expected":"0","actual":"0","status":"PASS"},{"round":"HEALTH","id":"SYNTAX","desc":"语法错误数","expected":"0","actual":"0","status":"PASS"},{"round":"HEALTH","id":"SERVICE","desc":"rangerai-ws 状态","expected":"active","actual":"active","status":"PASS"},{"round":"HEALTH","id":"HTTP","desc":"ranger.voyage HTTP","expected":"200","actual":"200","status":"PASS"}]
+}

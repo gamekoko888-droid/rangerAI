@@ -1,0 +1,1270 @@
+// ─── User Message Handler (extracted from agent-worker.mjs) ───
+// High-level orchestration for a single user message turn:
+// attachments → smart routing → Gateway (with retry) → error handling
+// v3.2: Intelligent long message segmentation via chat.inject
+//       Instead of truncating, split long context into segments and inject
+//       them into the session transcript before sending the actual question.
+
+import fs from "fs";
+import { resetStepCounter, sendEvent, sendStep, updateStep } from "./ipc-utils.mjs";
+import { sanitizeForFrontend, estimateTokens } from "./format-utils.mjs";
+import { handleViaOpenClaw } from "./openclaw-handler.mjs";
+import { segmentLongMessage } from "./segmenter.mjs";
+import { getRoutingDecision, logRoutingDecision, callDirectAPIDirect, callDirectAPIWithModel, callAnthropicDirect, callDirectAPI, getSoulSystemPrompt } from "../llm-gateway.mjs";
+import { getConversationHistory, getChatBySessionKey } from "./db-proxy.mjs";
+import { checkAndCompress } from "./context-compressor.mjs";
+import { getContextManager, clearSessionState } from "./context-window-manager.mjs"; // v12.1: Token budget
+import { handleVisionMessage } from "./vision-handler.mjs";
+import { buildKnowledgeInjectedMessage } from "./knowledge-injector.mjs";
+import { generatePlan } from "./task-planner.mjs"; // R55: Active plan generation
+import { shouldTriggerWideResearch, executeWideResearch } from "./wide-research.mjs"; // R59: Wide Research
+import { classifyIntent, getRoutingOverride } from "./intent-classifier.mjs"; // R60: LLM intent pre-classification
+import { extractAndSaveMemory } from "./memory-extractor.mjs";
+// TD-003: conversation-recall merged into memory-manager
+// import { recallRelevantContext } from "./conversation-recall.mjs";
+import { startTrace, startSpan, updateTraceModel, endTrace } from "./observability.mjs";
+import { logger } from '../lib/logger.mjs';
+// v22.2: Removed - direct LLM fallback disabled in v22.1
+// import { handleDegradedGatewayFallback, handleGatewayExhaustedFallback } from "./api-fallback.mjs";
+import { buildProgressBlock, hasProgress, shouldTrackProgress, setTrackerMsgId, restoreTrackerFromDB } from "./task-progress-tracker.mjs"; // v14.7 R52: Todo attention mechanism
+// Phase 1: Event Stream + Task State Management
+import { emitEvent, emitEventSync, EVENT_TYPES, getRecentEvents, summarizeEvents } from './event-stream.mjs';
+import { getOrCreateTaskState, updateTaskState, getTaskStateSnapshot, extractGoalHeuristic } from './task-state-manager.mjs';
+import { addAnchor, detectAnchorCandidate, buildLayeredContext } from './context-buffer.mjs';
+import { recallUnifiedMemory, extractEpisodicMemory, applyScoreDecay, recallShortTermContext } from './memory-manager.mjs';
+import { buildHandoffPacket, recordTransition } from './model-handoff.mjs';
+import { MODEL_MAP, THINKING_MAP } from './smart-router.mjs';
+
+// [REMOVED v20.0] Supervisor bridge removed — all tasks go through Gateway direct flow
+const ts = () => new Date().toISOString();
+
+// ─── Phase 4: Model Transition Tracking ───
+const _sessionLastModel = new Map(); // sessionKey → last used model
+
+// F33: Module-level storage for Gateway usage data (keyed by msgId)
+const _gatewayUsageMap = new Map();
+
+
+// ─── Refactored: Attachment Pipeline ───
+async function enrichMessageWithAttachments(userMessage, attachments, ts) {
+  if (!attachments || attachments.length === 0) return userMessage;
+  const fileAttachments = attachments.filter(a => a.type !== "image" && a.url);
+  if (fileAttachments.length === 0) return userMessage;
+
+  logger.info(`[${ts()}] [worker] Found ${fileAttachments.length} non-image file attachment(s), parsing...`);
+  const { parseFile, parseUrl } = await import("../lib/file-parser.mjs");
+  const fileContents = [];
+
+  for (const att of fileAttachments) {
+    try {
+      const fileName = att.name || att.url.split("/").pop() || "unknown";
+      let result;
+
+      if (att.url.startsWith("/files/")) {
+        const localPath = "/opt/rangerai-agent/files/" + att.url.split("/").pop();
+        if (fs.existsSync(localPath)) {
+          result = await parseFile(localPath, att.mimeType);
+        } else {
+          const pubPath = "/opt/rangerai-agent/public" + att.url;
+          const uploadPath = "/opt/rangerai-agent/uploads/" + att.url.split("/").pop();
+          if (fs.existsSync(pubPath)) result = await parseFile(pubPath, att.mimeType);
+          else if (fs.existsSync(uploadPath)) result = await parseFile(uploadPath, att.mimeType);
+        }
+      }
+      
+      if (!result && att.url.startsWith("http")) {
+        result = await parseUrl(att.url, fileName, att.mimeType);
+      }
+
+      if (result && result.type !== 'missing' && result.type !== 'error') {
+        if (['image', 'audio', 'video', 'archive', 'binary'].includes(result.type)) {
+          fileContents.push(`--- 文件: ${fileName} (${result.text}) ---`);
+          logger.info(`[${ts()}] [worker] Skipped ${result.type} file ${fileName}`);
+        } else {
+          const truncNote = result.truncated ? " (已截断)" : "";
+          fileContents.push(`--- 文件: ${fileName}${truncNote} ---
+${result.text}
+--- 文件结束 ---`);
+          logger.info(`[${ts()}] [worker] Parsed ${result.type} file ${fileName}: ${result.text.length} chars${result.truncated ? " (truncated)" : ""}`);
+        }
+      } else {
+        fileContents.push(`--- 文件: ${fileName} (无法读取内容) ---`);
+        logger.info(`[${ts()}] [worker] Could not load file ${fileName}: ${result?.text || "not found"}`);
+      }
+    } catch (err) {
+      const name = att.name || "unknown";
+      logger.info(`[${ts()}] [worker] Error parsing file attachment ${name}: ${err.message}`);
+      fileContents.push(`--- 文件: ${name} (读取失败: ${err.message}) ---`);
+    }
+  }
+
+  if (fileContents.length > 0) {
+    const newMessage = userMessage + "\n\n" + fileContents.join("\n\n");
+    logger.info(`[${ts()}] [worker] Injected ${fileContents.length} file content(s) into message, total ${newMessage.length} chars`);
+    return newMessage;
+  }
+  return userMessage;
+}
+
+// ─── Refactored: Model Resolution Pipeline ───
+function resolveExecutionModel(userModel, ts, msgId, sendEvent) {
+  if (!userModel) return null;
+  logger.info(`[${ts()}] [worker] User selected model: ${userModel} for ${msgId}`);
+    // v12.1: Defensive normalization for model IDs with dots
+    if (userModel && userModel.includes("claude-sonnet-4.6")) {
+      userModel = userModel.replace("claude-sonnet-4.6", "claude-sonnet-4-6");
+      logger.info(`[${ts()}] [worker] [v12.1] Normalized model ID to: ${userModel}`);
+    }
+  sendEvent(msgId, { 
+    type: "routing_info", 
+    taskType: "user-selected", 
+    thinking: "standard",
+    confidence: 1.0,
+    fallbackModel: userModel,
+    description: `用户手动选择模型: ${userModel}`
+  });
+  
+  // Direct API routing — no prefix needed — Gateway routes to direct providers
+  return userModel;
+}
+
+
+// ─── Session Health Check Throttle (Fix P1-1) ───
+// sessions.list is expensive — only check every 10 messages or every 5 minutes per session
+const _sessionHealthCache = new Map(); // sessionKey → { lastCheckAt, msgCount }
+function shouldRunSessionHealthCheck(sessionKey) {
+  const now = Date.now();
+  const cache = _sessionHealthCache.get(sessionKey) || { lastCheckAt: 0, msgCount: 0 };
+  cache.msgCount++;
+  const timeSinceLast = now - cache.lastCheckAt;
+  if (timeSinceLast > 5 * 60 * 1000 || cache.msgCount >= 10) {
+    cache.lastCheckAt = now;
+    cache.msgCount = 0;
+    _sessionHealthCache.set(sessionKey, cache);
+    return true;
+  }
+  _sessionHealthCache.set(sessionKey, cache);
+  return false;
+}
+
+// ─── Long Message Segmentation Constants ───
+const GATEWAY_SAFE_LENGTH = 12000;      // Increased to fit inline knowledge context      // Safe single-message length for Gateway
+const SEGMENT_SIZE = 4000;              // Max chars per injected context segment
+const MAX_SEGMENTS = 5;                 // Max number of context segments to inject
+const INJECT_DELAY_MS = 500;            // Delay between inject calls for stability
+
+/**
+ * Split a long message into context segments + final question.
+ * Returns { segments: string[], question: string } where:
+ *   - segments: context chunks to inject via chat.inject (can be empty)
+ *   - question: the final message to send via chat.send
+ * 
+ * Strategy:
+ *   1. If message is short enough, return as-is (no segmentation)
+ *   2. If message has KNOWLEDGE_CONTEXT, extract it and split into segments
+ *   3. If message is just long text (no markers), split by paragraphs
+ */
+// [EXTRACTED] function segmentLongMessage(message) { moved to segmenter.mjs
+
+/**
+ * Split text into segments of approximately maxSize chars.
+ * Tries to split at paragraph/sentence boundaries.
+ */
+// [EXTRACTED] function splitIntoSegments(text, moved to segmenter.mjs
+
+/**
+ * Inject context segments into the Gateway session via chat.inject.
+ * Each segment is added as an assistant message in the transcript.
+ */
+async function injectContextSegments(gateway, sessionKey, segments, msgId) {
+  const stepId = sendStep(msgId, "注入参考资料", "running", `${segments.length} 段上下文`);
+  
+  for (let i = 0; i < segments.length; i++) {
+    const segmentLabel = `参考资料 (${i + 1}/${segments.length})`;
+    const segmentContent = segments[i];
+    
+    // [FIX-2026-03-15] Use a hidden internal tag to prevent leakage and instruction confusion
+    const instructedContent = i === 0
+      ? `[INTERNAL_KNOWLEDGE_CONTEXT_DO_NOT_REVEAL]\n\n${segmentContent}`
+      : segmentContent;
+    
+    try {
+      await gateway.request("chat.inject", {
+        sessionKey,
+        message: instructedContent,
+        label: segmentLabel
+      });
+      logger.info(`[${ts()}] [worker] Injected context segment ${i + 1}/${segments.length}: ${segmentContent.length} chars`);
+      updateStep(msgId, stepId, "running", `已注入 ${i + 1}/${segments.length} 段`);
+      
+      // Small delay between injections for stability
+      if (i < segments.length - 1) {
+        await new Promise(r => setTimeout(r, INJECT_DELAY_MS));
+      }
+    } catch (err) {
+      logger.info(`[${ts()}] [worker] Failed to inject segment ${i + 1}: ${err.message}`);
+      // If chat.inject is not available, fall back to including context in the message
+      updateStep(msgId, stepId, "error", `注入失败: ${err.message.substring(0, 50)}`);
+      return false;
+    }
+  }
+  
+  updateStep(msgId, stepId, "completed", `已注入 ${segments.length} 段参考资料`);
+  return true;
+}
+
+/**
+ * Rebuild a corrupted Gateway session by deleting and letting it auto-create.
+ * v3.7: After rebuild, inject recent conversation history from DB into the new session
+ * so that OpenClaw retains context about the ongoing conversation.
+ */
+async function rebuildSession(gateway, sessionKey) {
+  logger.info(`[${ts()}] [worker] Rebuilding session: ${sessionKey}`);
+  try {
+    // Step 0: Abort any running chat
+    try { await gateway.abortChat(sessionKey); } catch(_err) { /* v22.0 */ logger.error("[user-message-handler] silent catch:", _err?.message || _err); }
+
+    // Step 1: Try sessions.compact first (clears history, preserves session)
+    // NOTE: Gateway does NOT support sessions.reset — only compact/delete/list/patch
+    let sessionExists = true;
+    try {
+      await gateway.compactSession(sessionKey);
+      logger.info(`[${ts()}] [worker] Session compacted successfully (history cleared, session preserved)`);
+    } catch (compactErr) {
+      logger.info(`[${ts()}] [worker] sessions.compact failed: ${compactErr.message}, falling back to delete`);
+      // Fallback: delete session (will be auto-created on next chat.send)
+      try {
+        await gateway.deleteSession(sessionKey);
+        sessionExists = false;
+        logger.info(`[${ts()}] [worker] Session deleted (will auto-create on next chat.send)`);
+      } catch (delErr) {
+        logger.info(`[${ts()}] [worker] Session delete also failed: ${delErr.message}`);
+        // Session may still exist in a broken state — try to continue anyway
+      }
+    }
+
+    await new Promise(r => setTimeout(r, 500));
+    // Step 1.5: Proactive Context Compression
+    try {
+      const compressResult = await checkAndCompress(sessionKey, gateway, null);
+      if (compressResult.compressed) {
+        logger.info(`[${ts()}] [worker] Context compressed: ${compressResult.summarized} msgs summarized, ${compressResult.kept} kept`);
+      }
+    } catch (compressErr) {
+      logger.info(`[${ts()}] [worker] Context compression check failed (non-fatal): ${compressErr.message}`);
+    }
+
+    // Step 2: Context Recovery — inject recent history from DB as user-role context
+    // CRITICAL: Do NOT use chat.inject — it injects as assistant role, causing LLM to
+    // treat history as its own output. Always use chat.send which creates user-role messages.
+    try {
+      const chat = await getChatBySessionKey(sessionKey);
+      if (chat) {
+        const history = await getConversationHistory(chat.id, 15);
+        if (history && history.length > 0) {
+          logger.info(`[${ts()}] [worker] Preparing ${history.length} history messages for context recovery`);
+          const contextMessages = history
+            .filter(m => m.content && m.content.trim().length > 0)
+            .map(m => {
+              const role = m.role === "user" ? "User" : "Assistant";
+              const content = m.content.length > 10000
+                ? m.content.substring(0, 10000) + "... (truncated)"
+                : m.content;
+              return `[${role}]: ${content}`;
+            });
+
+          if (contextMessages.length > 0) {
+            const contextSummary = `[SYSTEM_HIDDEN_CONTEXT_RECOVERY]\nThe previous session was rebuilt due to an error. Here is the recent conversation context for continuity:\n\n${contextMessages.join("\n\n")}\n[/SYSTEM_HIDDEN_CONTEXT_RECOVERY]`;
+
+            // ALWAYS use chat.send for context recovery — it works whether session exists or not:
+            // - If session exists (after compact): chat.send adds to existing session
+            // - If session was deleted: chat.send auto-creates new session
+            // R53 KV-Cache fix: Deterministic idempotency key (no random values)
+            const key = `ctx-recovery-${sessionKey}-${msgId}`;
+            try {
+              const sendResult = await gateway.request("chat.send", {
+                sessionKey,
+                message: contextSummary,
+                deliver: false,
+                idempotencyKey: key
+              });
+              // v21.2: deliver:false injects context without generating response, no abort needed
+              logger.info(`[${ts()}] [worker] Context recovery successful: ${contextMessages.length} messages injected via chat.send`);
+            } catch (sendErr) {
+              logger.info(`[${ts()}] [worker] Context recovery via chat.send failed: ${sendErr.message}`);
+              // Non-fatal: the next user message will still create a new session
+            }
+          }
+        } else {
+          logger.info(`[${ts()}] [worker] No history found in DB for session rebuild context recovery`);
+        }
+      } else {
+        logger.info(`[${ts()}] [worker] Chat not found in DB for sessionKey: ${sessionKey}`);
+      }
+    } catch (dbErr) {
+      logger.info(`[${ts()}] [worker] Context recovery DB error (non-fatal): ${dbErr.message}`);
+    }
+
+    logger.info(`[${ts()}] [worker] Session rebuild complete`);
+    return true;
+  } catch (err) {
+    logger.info(`[${ts()}] [worker] Session rebuild failed: ${err.message}`);
+    return false;
+  }
+}
+
+/**
+ * @param {string} msgId
+ * @param {string} userMessage
+ * @param {Array} conversationHistory
+ * @param {string} sessionKey
+ * @param {string|null} userModel
+ * @param {Array} attachments
+ * @param {string|null} roleSystemPrompt
+ * @param {object} deps - { gateway, gatewayBreaker, browserBreaker }
+ */
+export async function handleUserMessage(msgId, userMessage, conversationHistory, sessionKey, userModel, attachments, roleSystemPrompt, deps = {}) {
+  // v6.2: Gateway sessions.patch requires full key with agent:main: prefix
+  // chat.send auto-adds this prefix, but sessions.patch does NOT
+  const gatewaySessionKey = sessionKey.startsWith("agent:main:") ? sessionKey : `agent:main:${sessionKey}`;
+  let _traceStatus = 'success';
+  let _traceError = null;
+  let _resultLen = 0;
+  let _resultText = "";
+  try {
+  const _result = await _handleUserMessageInner(msgId, userMessage, conversationHistory, sessionKey, userModel, attachments, roleSystemPrompt, { ...deps, gatewaySessionKey });
+  _resultLen = typeof _result === "string" ? _result.length : 0;
+  _resultText = typeof _result === "string" ? _result : "";
+  return _result;
+  } catch(err) {
+    _traceStatus = 'error';
+    _traceError = err.message;
+    throw err;
+  } finally {
+    // F33: Use Gateway real token data if available, fallback to gpt-tokenizer estimation
+    try {
+      let tokenInfo = null;
+      const _gatewayUsage = _gatewayUsageMap.get(msgId);
+      _gatewayUsageMap.delete(msgId); // Clean up
+      if (_gatewayUsage && (_gatewayUsage.input > 0 || _gatewayUsage.output > 0)) {
+        // F33: Real Gateway token data (includes cache tokens)
+        tokenInfo = {
+          prompt_tokens: _gatewayUsage.input || 0,
+          completion_tokens: _gatewayUsage.output || 0,
+          total_tokens: _gatewayUsage.totalTokens || (_gatewayUsage.input + _gatewayUsage.output),
+          cache_read_tokens: _gatewayUsage.cacheRead || 0,
+          cache_write_tokens: _gatewayUsage.cacheWrite || 0,
+          gateway_cost: _gatewayUsage.cost || null,
+          source: _gatewayUsage.source || 'gateway'
+        };
+        logger.info(`[${ts()}] [worker] [F33] Using Gateway real tokens: prompt=${tokenInfo.prompt_tokens}, completion=${tokenInfo.completion_tokens}, total=${tokenInfo.total_tokens}, cacheRead=${tokenInfo.cache_read_tokens || 0}, cacheWrite=${tokenInfo.cache_write_tokens || 0}, source=${tokenInfo.source}`);
+      } else {
+        // F15: Fallback to gpt-tokenizer estimation
+        const completionTokens = _resultText ? estimateTokens(_resultText) : 0;
+        const promptTokens = userMessage ? estimateTokens(userMessage) : 0;
+        tokenInfo = (completionTokens > 0 || promptTokens > 0) ? {
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: promptTokens + completionTokens,
+          source: 'estimate'
+        } : null;
+        logger.info(`[${ts()}] [worker] [F33] Using estimated tokens: prompt=${promptTokens}, completion=${completionTokens}`);
+      }
+      endTrace(msgId, _traceStatus, _traceError, tokenInfo);
+    } catch(_) { /* v22.0 */ logger.error("[user-message-handler] silent catch:", _?.message || _); }
+  }
+}
+
+async function _handleUserMessageInner(msgId, userMessage, conversationHistory, sessionKey, userModel, attachments, roleSystemPrompt, deps = {}) {
+  const { gatewaySessionKey, gateway, gatewayBreaker, browserBreaker, userId, userRole = 'member' } = deps;
+  const isAdmin = userRole === 'admin';
+  // Security: inject role restriction into roleSystemPrompt for non-admin users
+  if (!isAdmin && roleSystemPrompt !== null) {
+    const securityPolicy = `\n\n[SECURITY POLICY]\n当前用户角色：${userRole}（非管理员）。\n\n你可以自由使用以下工具为用户服务：\n- web_search / browser / web_fetch：搜索信息、浏览网页、获取数据\n- read / read_file：读取非系统文件\n- exec：运行数据分析脚本（python/node）、curl 获取公开 API\n- 所有 AI 推理、文本生成、翻译、数据分析能力\n\n你必须严格遵守以下限制：\n1. 禁止修改 /opt/rangerai/ 下的任何文件（Ranger 系统代码）\n2. 禁止修改 /etc/ 下的系统配置文件\n3. 禁止执行 sudo、systemctl、reboot 等系统管理命令\n4. 禁止重启或管理 Ranger 服务\n5. 禁止泄露服务器凭据、密钥或内部 API 地址\n6. 禁止修改数据库 schema 或删除数据\n\n如收到上述被禁止的请求，礼貌拒绝并说明需要管理员权限。对于搜索、分析、浏览等请求，请正常执行。[/SECURITY POLICY]`;
+    roleSystemPrompt = (roleSystemPrompt || '') + securityPolicy;
+  }
+
+  // DEBUG: Log attachments received
+  logger.info(`[${ts()}] [worker] [DEBUG-ATTACH] attachments received: ${JSON.stringify(attachments || null)}`);
+  if (attachments && attachments.length > 0) {
+    attachments.forEach((a, i) => logger.info(`[${ts()}] [worker] [DEBUG-ATTACH] att[${i}]: type=${a.type}, url=${a.url?.substring(0,80)}, mimeType=${a.mimeType}, name=${a.name}`));
+  }
+  userMessage = await enrichMessageWithAttachments(userMessage, attachments, ts);
+
+  logger.info(`[${ts()}] [worker] === New message (${msgId}): ${userMessage.length} chars ===`);
+
+  // ─── Phase 1: Event Stream + Task State ───
+  const taskId = `task-${sessionKey}`;
+  emitEvent(sessionKey, taskId, EVENT_TYPES.USER_MESSAGE, {
+    content: userMessage.substring(0, 500),
+    hasAttachments: !!(attachments && attachments.length > 0),
+    model: userModel || 'auto',
+  });
+  // Initialize or retrieve task state
+  let taskState;
+  try {
+    taskState = await getOrCreateTaskState(sessionKey, taskId);
+    if (!taskState.user_goal && userMessage.length > 10) {
+      const goal = extractGoalHeuristic(userMessage);
+      if (goal) {
+        await updateTaskState(taskId, { user_goal: goal });
+      }
+    }
+  } catch (tsErr) {
+    logger.warn(`[${ts()}] [worker] [task-state] Init failed (non-fatal): ${tsErr.message}`);
+  }
+  // ─── End Phase 1 Init ───
+
+  // ─── Phase 2: Auto-anchor first user message ───
+  try {
+    const anchorCandidate = detectAnchorCandidate(
+      { role: 'user', content: userMessage },
+      { isFirstMessage: conversationHistory.length <= 2 }
+    );
+    if (anchorCandidate && anchorCandidate.shouldAnchor) {
+      addAnchor(sessionKey, userMessage.substring(0, 1000), anchorCandidate.reason, anchorCandidate.priority);
+      logger.info(`[${ts()}] [worker] [ctx-buffer] Auto-anchored: ${anchorCandidate.reason} (priority=${anchorCandidate.priority})`);
+    }
+  } catch (_anchorErr) {
+    // Non-fatal
+  }
+  // ─── End Phase 2 Anchor ───
+  // ─── Observability: 开始追踪 ───
+  try { startTrace(msgId, { sessionKey, userId, model: userModel, messageLen: userMessage.length }); } catch(_) { /* v22.0 */ logger.error("[user-message-handler] silent catch:", _?.message || _); }
+
+  resetStepCounter();
+  sendEvent(msgId, { type: "status", status: "thinking" });
+  // ─── v9.0: Smart Preemptive Abort — abort OLD run precisely before sending new message ───
+  // v8.2 removed preemptive abort because abortChat(sessionKey) killed NEW runs.
+  // v9.0 fix: Use runId-based abort to precisely kill only the OLD run.
+  // This prevents lane occupation timeout (was 13+ minutes blocking new messages).
+  {
+    let oldRunAborted = false;
+    try {
+      const { getCurrentRunId, getCurrentSessionKey } = await import("./run-tracker.mjs");
+      const oldRunId = getCurrentRunId(sessionKey);
+      const oldSK = getCurrentSessionKey();
+      if (oldRunId && gateway.isConnected) {
+        const abortSK = oldSK || sessionKey;
+        logger.info(`[${ts()}] [worker] [v9.0] Preemptive abort: killing old runId=${oldRunId} on session=${abortSK}`);
+        try {
+          await gateway.request("chat.abort", { sessionKey: abortSK, runId: oldRunId });
+          oldRunAborted = true;
+          logger.info(`[${ts()}] [worker] [v9.0] Old run aborted successfully, waiting for lane release...`);
+          // Wait for Gateway to process the abort and release the lane
+          await new Promise(r => setTimeout(r, 800));
+        } catch (abortErr) {
+          logger.info(`[${ts()}] [worker] [v9.0] Preemptive abort failed (run may have already ended): ${abortErr.message}`);
+        }
+      } else {
+        logger.info(`[${ts()}] [worker] [v9.0] No active old run to abort (runId=${oldRunId}, connected=${gateway.isConnected})`);
+      }
+    } catch (importErr) {
+      logger.info(`[${ts()}] [worker] [v9.0] Could not import run tracking: ${importErr.message}`);
+    }
+    if (oldRunAborted) {
+      logger.info(`[${ts()}] [worker] [v9.0] Lane should be free now, proceeding with new message`);
+    }
+  }
+
+  // ─── User-Selected Model Path (v14.0: Route through Gateway for full Agent capabilities) ───
+  // CRITICAL FIX: Previously, user-selected models went through Direct API which bypassed
+  // knowledge injection, context recall, and tool calling. Now we use sessions.patch to
+  // set the model on the Gateway session, then fall through to the normal Gateway path.
+  if (userModel && typeof userModel === 'string' && userModel.trim()) {
+    const modelStr = resolveExecutionModel(userModel, ts, msgId, sendEvent);
+    logger.info(`[${ts()}] [worker] [v14.0] User selected model: ${modelStr}, routing through Gateway with sessions.patch`);
+    
+    // Handle vision pipeline for user-selected model
+    {
+      const hasImageAttachments = attachments && attachments.some(a => a.type === "image" && a.url);
+      if (hasImageAttachments) {
+        logger.info(`[${ts()}] [worker] [v14.0] Image attachments detected, running vision pipeline`);
+        const routing = getRoutingDecision(userMessage);
+        const vr = await handleVisionMessage(msgId, userMessage, attachments, conversationHistory, routing, { forceVision: true });
+        if (vr.handled) return vr.content;
+        if (vr.userMessage) userMessage = vr.userMessage;
+      }
+    }
+    
+    // v23.1: Model patching moved to openclaw-handler.mjs (v23.1) which handles
+    // cross-provider routing with dedicated sessions. No longer patch here.
+    logger.info(`[${ts()}] [worker] [v14.0→v23.1] Model ${modelStr} will be applied by openclaw-handler v23.1`);
+    // Fall through to normal Gateway path below (knowledge injection + context recall + tools)
+  }
+
+  // --- v4.0: LLM Pre-Classifier Integration ---
+  // When worker/smart-router.mjs provides a routeResult (from Gemini Flash pre-classifier),
+  // use it as the AUTHORITATIVE routing decision. Skip getRoutingDecision() and R60.
+  let intentResult = null;
+  let intentOverride = null;
+  let routing;
+  
+  if (deps.routeResult && deps.routeResult.category !== 'user_override') {
+    // LLM pre-classifier result available - use it directly
+    const rr = deps.routeResult;
+    routing = getRoutingDecision(userMessage); // Still call for healthScore/gatewayStatus
+    // Override with LLM pre-classifier results
+    routing.taskType = rr.category;
+    routing.fallbackModel = rr.model;
+    routing.thinking = rr.thinking || 'high';
+    routing.confidence = rr.confidence || 0.9;
+    routing.description = 'LLM pre-classifier: ' + rr.reason;
+    logger.info('[' + ts() + '] [worker] [v4.0] Using LLM pre-classifier: type=' + rr.category + ' model=' + rr.model + ' thinking=' + rr.thinking + ' conf=' + rr.confidence);
+    // Phase 1: Record routing decision in event stream
+    emitEvent(sessionKey, taskId, EVENT_TYPES.MODEL_ROUTE, {
+      category: rr.category, model: rr.model, thinking: rr.thinking,
+      confidence: rr.confidence, reason: rr.reason,
+    }, rr.model);
+  } else {
+    // No LLM result (user override or LLM failed) - use legacy R60 + keyword routing
+    try {
+      intentResult = await classifyIntent(userMessage);
+      intentOverride = getRoutingOverride(intentResult);
+      if (intentOverride) {
+        logger.info('[' + ts() + '] [worker] [R60] Intent override: type=' + (intentOverride.overrideType || 'none') + ' skipPlan=' + intentOverride.skipPlan + ' reason=' + intentOverride.reason);
+      }
+    } catch (intentErr) {
+      logger.warn('[' + ts() + '] [worker] [R60] Intent classification failed (silent): ' + intentErr.message);
+    }
+    routing = getRoutingDecision(userMessage);
+  // R60: Apply intent override — if LLM says it's chat, override the keyword-based classification
+  if (intentOverride?.overrideType) {
+    const originalType = routing.taskType;
+    routing.taskType = intentOverride.overrideType;
+    // R60-FIX-v2: Chat intent handled via directive injection (see gatewayMessage construction below)
+    routing.description = `Intent override: ${intentOverride.reason} (was: ${originalType})`;
+    routing.confidence = intentResult?.confidence || 0.7;
+    // v23.2-FIX: Sync fallbackModel and thinking when intent override changes taskType
+    // Without this, the model stays as the original classification's model (e.g., research→gpt-5.4)
+    // even though the type was overridden to chat (which should use gpt-5.4-mini)
+    // v25.3: All types use Claude for consistent Agent mode (no more GPT typewriter output)
+    // TD-018 FIX: Use single source of truth from smart-router.mjs
+    if (MODEL_MAP[routing.taskType]) {
+      routing.fallbackModel = MODEL_MAP[routing.taskType];
+      routing.thinking = THINKING_MAP[routing.taskType] || 'high';
+      logger.info(`[${ts()}] [worker] [v23.2-FIX] Synced model to ${routing.fallbackModel} and thinking to ${routing.thinking} after override ${originalType} → ${routing.taskType}`);
+    }
+    // v22.5-FIX: When overriding image_generation → chat/other, restore Gateway routing.
+    // Without this, useGateway=false (set for image tasks) persists after override,
+    // causing false "Gateway degraded" errors for normal chat messages.
+    if (originalType === 'image_generation' && routing.taskType !== 'image_generation') {
+      routing.useGateway = true;
+      routing.gatewayStatus = routing.healthScore >= 0.3 ? 'healthy' : routing.gatewayStatus;
+      logger.info(`[${ts()}] [worker] [v22.5-FIX] Restored useGateway=true after image_generation override → ${routing.taskType}`);
+    }
+    logger.info(`[${ts()}] [worker] [R60] Routing overridden: ${originalType} → ${routing.taskType}`);
+  }
+  } // end of legacy R60 + keyword routing else block
+  logRoutingDecision(msgId, userMessage, routing);
+  
+  sendEvent(msgId, { 
+    type: "routing_info", 
+    taskType: routing.taskType, 
+    thinking: routing.thinking,
+    confidence: routing.confidence,
+    fallbackModel: routing.fallbackModel,
+    description: routing.description,
+    healthScore: routing.healthScore,
+    gatewayStatus: routing.gatewayStatus,
+    useGateway: routing.useGateway
+  });
+
+  // ─── v20.0: Supervisor removed — all tasks go through Gateway direct flow ───
+  // Deep tasks now use the same Gateway path as simple tasks.
+  // OpenClaw handles its own planning and multi-step execution natively.
+  if (intentResult?.intent === "task") {
+    logger.info(`[${ts()}] [worker] [v20.0] Task detected (was deep_task routing). All tasks now use Gateway direct flow.`);
+  }
+
+    if (!routing.useGateway && routing.gatewayStatus !== "image_direct") {
+    // v22.1: Do NOT fallback to direct LLM. Report error and suggest Gateway fix.
+    logger.error(`[${ts()}] [worker] [v22.1] Gateway degraded (score=${routing.healthScore}), but direct LLM fallback is DISABLED. Attempting Gateway reconnect...`);
+    // Try to reconnect Gateway
+    try {
+      if (gateway && typeof gateway.reconnect === 'function') {
+        await gateway.reconnect();
+        logger.info(`[${ts()}] [worker] [v22.1] Gateway reconnect initiated`);
+      }
+    } catch (reconnErr) {
+      logger.error(`[${ts()}] [worker] [v22.1] Gateway reconnect failed: ${reconnErr.message}`);
+    }
+    const errorContent = `⚠️ **AI 引擎连接异常**\n\nGateway 健康度过低 (分数: ${routing.healthScore})，请稍等片刻后重试。\n\n系统正在尝试自动恢复连接，如持续出现请联系管理员检查 Gateway 服务状态。`;
+    sendEvent(msgId, { type: "message_done", content: errorContent, model: "RangerAI", provider: "rangerai" });
+    sendEvent(msgId, { type: "status", status: "idle" });
+    return errorContent;
+  }
+
+  const MAX_RETRIES = 3;
+  let lastError = null;
+  let sessionRebuilt = false;
+
+  // ─── Vision Pipeline（Iter-63 提取至 vision-handler.mjs）───
+  {
+    const hasImageAttachments = attachments && attachments.some(a => a.type === "image" && a.url);
+    if (hasImageAttachments) {
+      const vr = await handleVisionMessage(msgId, userMessage, attachments, conversationHistory, routing);
+      if (vr.handled) return vr.content;
+      if (vr.userMessage) userMessage = vr.userMessage;
+    }
+  }
+
+  // ─── v14.1: HARD_LIMIT Continuation Detection ───
+  // When user sends "继续"/"continue"/"接着" after a HARD_LIMIT truncation,
+  // automatically inject the truncation context (pending phases + completed steps)
+  // so the AI can resume from where it left off.
+  {
+    const continuePatterns = /^(继续|接着|接着做|继续执行|接着执行|请继续|continue|resume|go on|keep going)[。.！!？?\s]*$/i;
+    const trimmedMsg = userMessage.trim();
+    if (continuePatterns.test(trimmedMsg) && conversationHistory && conversationHistory.length > 0) {
+      // Find the last assistant message
+      let lastAssistantMsg = null;
+      for (let i = conversationHistory.length - 1; i >= 0; i--) {
+        if (conversationHistory[i].role === "assistant") {
+          lastAssistantMsg = conversationHistory[i].content || "";
+          break;
+        }
+      }
+      if (lastAssistantMsg && (
+        lastAssistantMsg.includes("工具调用已达上限") ||
+        lastAssistantMsg.includes("已完成的操作步骤") ||
+        lastAssistantMsg.includes("未完成的任务阶段") ||
+        lastAssistantMsg.includes("如需继续后续步骤") ||
+        lastAssistantMsg.includes("回复可能被截断") ||
+        lastAssistantMsg.includes("内容较长，回复已分段") ||
+        lastAssistantMsg.includes("AI 引擎响应超时")
+      )) {
+        // Extract the truncation context from the last assistant message
+        const truncationSection = lastAssistantMsg.substring(
+          lastAssistantMsg.lastIndexOf("---")
+        );
+        const continuationContext = [
+          "[SYSTEM: 用户要求继续上次被截断的任务。以下是上次截断时的状态摘要，请从中断处继续执行：]",
+          truncationSection,
+          "",
+          "[请直接从上次中断的地方继续执行，不要重复已完成的步骤。如果有未完成的任务阶段，请按顺序继续。]"
+        ].join("\n");
+        userMessage = continuationContext + "\n\n" + userMessage;
+        logger.info(`[${ts()}] [worker] [v14.1] HARD_LIMIT continuation detected — injected ${continuationContext.length} chars of truncation context`);
+        sendEvent(msgId, { type: "thinking", content: "检测到继续指令，正在恢复上次任务状态...\n" });
+      }
+    }
+  }
+
+  // ─── Knowledge Context Inline Injection (v4.0) ───
+
+  // CRITICAL: Do NOT use chat.inject — it injects as assistant role, causing LLM
+  // to treat knowledge as its own previous output and continue printing it.
+  // Instead, prepend knowledge as part of the user message with clear boundaries.
+  const kStepId_1 = sendStep(msgId, "📚 背景相关性检索", "running", "正在调取行业知识库...");
+  const _knSpan = startSpan(msgId, 'knowledge_inject');
+  let gatewayMessage = await buildKnowledgeInjectedMessage(msgId, userMessage, userId);
+  const _knInjected = gatewayMessage !== userMessage;
+  _knSpan.end(_knInjected ? 'ok' : 'skip', { injected: _knInjected });
+  if (_knInjected) { updateStep(msgId, kStepId_1, "success", "业务背景已加载"); }
+  else { updateStep(msgId, kStepId_1, "success", "无需背景增强"); }
+
+  // ─── 对话上下文召回（Conversation Recall v1.0）───
+  // TF-IDF 召回与当前消息语义相关的前文片段，解决 knowledge_reference 挤出上文的问题
+  try {
+    const _rcSpan = startSpan(msgId, 'conversation_recall');
+    const recallContext = recallShortTermContext(userMessage, conversationHistory);
+
+    // ─── Phase 3: Unified Long-term Memory Recall ───
+    let unifiedMemoryBlock = '';
+    try {
+      unifiedMemoryBlock = await recallUnifiedMemory(userMessage, sessionKey, { userId });
+      if (unifiedMemoryBlock) {
+        logger.info(`[${ts()}] [worker] [memory-mgr] Unified memory recalled: ${unifiedMemoryBlock.length} chars`);
+      }
+    } catch (_memErr) {
+      // Non-fatal
+    }
+    // ─── End Phase 3 Recall ───
+    if (recallContext) {
+      gatewayMessage = gatewayMessage + recallContext;
+      logger.info(`[${ts()}] [worker] [recall] 召回上下文片段已注入，长度: ${recallContext.length} chars`);
+      _rcSpan.end('ok', { recalled: true, chars: recallContext.length });
+    } else {
+      _rcSpan.end('skip', { recalled: false });
+    }
+  } catch (recallErr) {
+    logger.warn(`[${ts()}] [worker] [recall] 召回失败（不影响主流程）: ${recallErr.message}`);
+  }
+
+  // Circuit Breaker check — with enhanced auto-recovery (RCA improvement #6)
+  if (gatewayBreaker && !gatewayBreaker.canRequest()) {
+    const cbStatus = gatewayBreaker.getStatus();
+    
+    // RCA improvement #6: If Gateway is currently connected, the breaker state is stale — reset immediately
+    if (gateway.isConnected) {
+      logger.info(`[${ts()}] [worker] Circuit breaker OPEN but Gateway is connected — stale state, force resetting`);
+      gatewayBreaker.forceReset("gateway_connected_stale_breaker");
+      sendEvent(msgId, { type: "thinking", content: "AI 引擎已恢复，正在处理...\n" });
+      // Fall through to normal processing
+    } else {
+      const timeSinceLastFailure = cbStatus.lastFailureAge || 0;
+      if (timeSinceLastFailure > 60000) {
+        logger.info(`[${ts()}] [worker] Circuit breaker auto-recovery: ${timeSinceLastFailure}ms since last failure, attempting session rebuild...`);
+        sendEvent(msgId, { type: "thinking", content: "正在尝试自动恢复 AI 引擎连接...\n" });
+        const rebuilt = await rebuildSession(gateway, sessionKey);
+        if (rebuilt) {
+          gatewayBreaker.forceReset("auto_recovery_success");
+          logger.info(`[${ts()}] [worker] Circuit breaker auto-recovery: session rebuilt, breaker reset`);
+        } else {
+          logger.info(`[${ts()}] [worker] Circuit breaker auto-recovery failed`);
+          const cbErrorMsg = `⚠️ **AI 引擎暂时不可用**\n\nGateway 连续失败 ${cbStatus.failureCount} 次，自动恢复失败。\n\n请等待 30 秒后重试，或联系 Manus 检查 Gateway 状态。`;
+          sendEvent(msgId, { type: "message_done", content: cbErrorMsg, model: "RangerAI", provider: "rangerai" });
+          sendEvent(msgId, { type: "status", status: "idle" });
+          return cbErrorMsg;
+        }
+      } else {
+        logger.info(`[${ts()}] [worker] Circuit breaker OPEN — skipping Gateway (failures=${cbStatus.failureCount}, trips=${cbStatus.totalTrips})`);
+        sendEvent(msgId, { type: "thinking", content: "⚠️ AI 引擎暂时不可用，请稍后重试...\n" });
+        const cbErrorMsg = `⚠️ **AI 引擎暂时不可用**\n\nGateway 连续失败 ${cbStatus.failureCount} 次，系统已自动熔断保护。\n\n请等待 30 秒后重试，或联系 Manus 检查 Gateway 状态。`;
+        sendEvent(msgId, { type: "message_done", content: cbErrorMsg, model: "RangerAI", provider: "rangerai" });
+        sendEvent(msgId, { type: "status", status: "idle" });
+        return cbErrorMsg;
+      }
+    }
+  }
+
+  // ─── Pre-call Session Health Check (v12.1: Enhanced with Context Window Manager) ───
+  const ctxMgr = getContextManager(sessionKey, msgId);
+
+  // Step A: Check if context manager predicts compression is needed
+  const preSendCheck = ctxMgr.checkPreSendHealth();
+  if (preSendCheck.needsCompression) {
+    logger.info(`[${ts()}] [worker] [ctx-mgr] Pre-send check: tier=${preSendCheck.tier}, action=${preSendCheck.action}, tokens≈${preSendCheck.estimatedTokens}`);
+    sendEvent(msgId, { type: "thinking", content: `正在优化对话上下文（${preSendCheck.tier === 'critical' ? '紧急' : '主动'}压缩）...` });
+    try {
+      const compactResult = await gateway.compactSession(sessionKey);
+      logger.info(`[${ts()}] [worker] [ctx-mgr] Compact result: compacted=${compactResult?.compacted}, kept=${compactResult?.kept}`);
+      ctxMgr.recordCompression(compactResult?.kept ? estimateTokens(String(compactResult.kept)) : undefined);
+
+      if (preSendCheck.tier === 'critical' && !compactResult?.compacted) {
+        logger.info(`[${ts()}] [worker] [ctx-mgr] CRITICAL: compact failed, attempting session reset...`);
+        try {
+          await gateway.resetSession(sessionKey);
+          ctxMgr.reset();
+          logger.info(`[${ts()}] [worker] [ctx-mgr] Session reset complete`);
+        } catch (resetErr) {
+          logger.info(`[${ts()}] [worker] [ctx-mgr] Session reset failed: ${resetErr.message}`);
+        }
+      }
+    } catch (compactErr) {
+      logger.info(`[${ts()}] [worker] [ctx-mgr] Compact failed (non-fatal): ${compactErr.message}`);
+    }
+  }
+
+  // Step B: Periodic Gateway sync (less frequent than before — context manager handles most cases)
+  if (ctxMgr.shouldCheckGatewayHealth()) {
+    try {
+      const sessionsList = await gateway.request("sessions.list", {});
+      const currentSession = sessionsList?.sessions?.find(s => s.key === sessionKey);
+      if (currentSession) {
+        const { totalTokens, contextTokens } = currentSession;
+        ctxMgr.syncFromGateway(totalTokens, contextTokens);
+
+        // Re-check after sync — Gateway data may reveal higher usage than estimated
+        const postSyncCheck = ctxMgr.checkPreSendHealth();
+        if (postSyncCheck.needsCompression && !preSendCheck.needsCompression) {
+          logger.info(`[${ts()}] [worker] [ctx-mgr] Post-sync compression needed (Gateway data higher than estimate)`);
+          sendEvent(msgId, { type: "thinking", content: "正在优化对话上下文..." });
+          try {
+            const compactResult = await gateway.compactSession(sessionKey);
+            ctxMgr.recordCompression();
+            logger.info(`[${ts()}] [worker] [ctx-mgr] Post-sync compact: compacted=${compactResult?.compacted}`);
+          } catch (compactErr) {
+            logger.info(`[${ts()}] [worker] [ctx-mgr] Post-sync compact failed: ${compactErr.message}`);
+          }
+        }
+      }
+    } catch (sessionCheckErr) {
+      logger.info(`[${ts()}] [worker] [ctx-mgr] Gateway health check failed (non-fatal): ${sessionCheckErr.message}`);
+    }
+  } else {
+    logger.info(`[${ts()}] [worker] [ctx-mgr] Gateway health check skipped (tier=${preSendCheck.tier}, using estimates)`);
+  }
+
+  let consecutiveEmptyReplies = 0;
+  let _recoveredContext = null; // v21.3: Stores recovered context for message prepending
+  // ─── v21.1: Proactive Context Recovery (Enhanced) ───
+  // When Gateway session silently expires (1-2h inactivity), detect and inject DB history.
+  // Also extracts tool metadata (file paths, URLs) for rich context.
+  if (conversationHistory && conversationHistory.length > 0) {
+    try {
+      const sessionsList = await gateway.request("sessions.list", {});
+      const currentSession = sessionsList?.sessions?.find(s => s.key === sessionKey || s.key === gatewaySessionKey);
+      if (!currentSession) {
+        logger.info(`[${ts()}] [worker] [v21.1] Gateway session NOT FOUND (expired). Recovering context from DB...`);
+        sendEvent(msgId, { type: "thinking", content: "正在恢复对话上下文...\n" });
+        const recoveryStepId = sendStep(msgId, "🔄 上下文恢复", "running", "检测到会话过期，正在从数据库恢复...");
+        try {
+          const chat = await getChatBySessionKey(sessionKey);
+          if (chat) {
+            const history = await getConversationHistory(chat.id, 20);
+            if (history && history.length > 0) {
+              const contextParts = [];
+              for (const m of history) {
+                if (!m.content || m.content.trim().length === 0) continue;
+                const role = m.role === "user" ? "User" : "Assistant";
+                let entry = `[${role}]: ${m.content.length > 6000 ? m.content.substring(0, 6000) + "...(truncated)" : m.content}`;
+                // Extract tool metadata for assistant messages
+                if (m.role === "assistant" && m.metadata) {
+                  try {
+                    const meta = typeof m.metadata === "string" ? JSON.parse(m.metadata) : m.metadata;
+                    if (meta && meta.tools && meta.tools.length > 0) {
+                      const toolSummary = [];
+                      const filePaths = new Set();
+                      const urls = new Set();
+                      for (const t of meta.tools) {
+                        const toolName = t.tool || "unknown";
+                        const status = t.status || "unknown";
+                        // Extract file paths from write tool
+                        if (toolName === "write" && t.args && t.args.path) {
+                          filePaths.add(t.args.path);
+                        }
+                        // Extract file paths and URLs from exec tool results
+                        if (t.result && t.result.text) {
+                          const resultText = typeof t.result.text === "string" ? t.result.text : JSON.stringify(t.result.text);
+                          // Find URLs
+                          const urlMatches = resultText.match(/https?:\/\/[^\s"'<>]+/g);
+                          if (urlMatches) urlMatches.forEach(u => urls.add(u));
+                          // Find file paths
+                          const pathMatches = resultText.match(/\/opt\/[^\s"'<>]+\.[a-zA-Z]+/g);
+                          if (pathMatches) pathMatches.forEach(p => filePaths.add(p));
+                        }
+                        // Extract from args
+                        if (t.args) {
+                          if (t.args.command) {
+                            const cmdPaths = t.args.command.match(/\/opt\/[^\s"'<>]+\.[a-zA-Z]+/g);
+                            if (cmdPaths) cmdPaths.forEach(p => filePaths.add(p));
+                          }
+                        }
+                        toolSummary.push(`${toolName}(${status})`);
+                      }
+                      entry += "\n[Tool Context]: " + toolSummary.join(", ");
+                      if (filePaths.size > 0) entry += "\n[Files Created/Modified]: " + [...filePaths].join(", ");
+                      if (urls.size > 0) entry += "\n[URLs]: " + [...urls].join(", ");
+                    }
+                  } catch (metaErr) {
+                    // Ignore metadata parse errors
+                  }
+                }
+                contextParts.push(entry);
+              }
+              if (contextParts.length > 0) {
+                const contextSummary = `[SYSTEM_HIDDEN_CONTEXT_RECOVERY]\nThe previous Gateway session expired due to inactivity. Below is the conversation history including tool execution details. Use this to maintain continuity — you DID perform these actions in a previous session.\n\n${contextParts.join("\n\n")}\n[/SYSTEM_HIDDEN_CONTEXT_RECOVERY]`;
+                // v21.3: Store context for message prepending instead of chat.send
+                // chat.send creates a separate Gateway run that causes event routing conflicts
+                // (v16.1 sessionKey matching dispatches both runs' events to same handler,
+                // causing premature stream_end from the shorter recovery response)
+                _recoveredContext = contextSummary;
+                logger.info(`[${ts()}] [worker] [v21.3] Context recovery stored: ${contextParts.length} messages, ${contextSummary.length} chars (will prepend to message)`);
+                updateStep(msgId, recoveryStepId, "success", `已恢复 ${contextParts.length} 条历史消息（含工具上下文）`);
+              } else {
+                logger.info(`[${ts()}] [worker] [v21.1] No history content to recover`);
+                updateStep(msgId, recoveryStepId, "success", "无需恢复");
+              }
+            } else {
+              logger.info(`[${ts()}] [worker] [v21.1] No history in DB for recovery`);
+              updateStep(msgId, recoveryStepId, "success", "无历史记录");
+            }
+          } else {
+            logger.info(`[${ts()}] [worker] [v21.1] Chat not found in DB for sessionKey: ${sessionKey}`);
+            updateStep(msgId, recoveryStepId, "success", "新会话");
+          }
+        } catch (recoveryErr) {
+          logger.info(`[${ts()}] [worker] [v21.1] Context recovery failed (non-fatal): ${recoveryErr.message}`);
+          updateStep(msgId, recoveryStepId, "error", "恢复失败，继续处理");
+        }
+      } else {
+        logger.info(`[${ts()}] [worker] [v21.1] Gateway session exists (tokens: ${currentSession.totalTokens || "unknown"})`);
+      }
+    } catch (listErr) {
+      logger.info(`[${ts()}] [worker] [v21.1] sessions.list failed (non-fatal): ${listErr.message}`);
+    }
+  }
+
+
+  // R56: Restore tracker from DB if not in memory (handles restart recovery)
+  if (!hasProgress(sessionKey)) {
+    try { await restoreTrackerFromDB(sessionKey); } catch(_err) { /* v22.0 */ logger.error("[user-message-handler] silent catch:", _err?.message || _err); }
+  }
+  // R56: Set msgId for DB persistence tracking
+  setTrackerMsgId(sessionKey, msgId);
+  // v14.7 R52: Todo attention mechanism — append progress block to prevent lost-in-the-middle
+  if (hasProgress(sessionKey) && shouldTrackProgress(routing?.taskType)) {
+    const progressBlock = buildProgressBlock(sessionKey);
+    if (progressBlock) {
+      gatewayMessage = gatewayMessage + progressBlock;
+      logger.info(`[${ts()}] [worker] [progress-tracker] Appended progress block (${progressBlock.length} chars) to gatewayMessage`);
+    }
+  // Phase 1: Inject task state snapshot into prompt
+  try {
+    const stateSnapshot = await getTaskStateSnapshot(taskId);
+    if (stateSnapshot) {
+      gatewayMessage = stateSnapshot + '\n\n' + gatewayMessage;
+      logger.info(`[${ts()}] [worker] [task-state] Injected task state snapshot (${stateSnapshot.length} chars)`);
+    }
+  } catch (_tsErr) {
+    logger.warn(`[${ts()}] [worker] [task-state] Snapshot injection failed: ${_tsErr.message}`);
+  }
+  }
+
+  const { question: cleanQuestion } = segmentLongMessage(userMessage);
+
+  // R55: Active plan generation — proactively generate numbered plan via lightweight LLM
+  // Only for complex tasks (code/sysadmin/research/reasoning), silent failure
+  // R60: Skip plan generation if intent classifier says it's chat
+  if (intentOverride?.skipPlan || (deps.routeResult?.category === "chat")) {
+    logger.info(`[${ts()}] [worker] [R60] Skipping plan generation (intent: ${intentResult?.intent}, reason: ${intentOverride?.reason})`);
+  } else {
+    try {
+      // v27.0: Promise.race with 3s timeout — Planner failure never blocks main flow
+      const planBlock = await Promise.race([
+        generatePlan(sessionKey, cleanQuestion, routing),
+        new Promise(resolve => setTimeout(() => resolve(null), 3000))
+      ]);
+      if (planBlock) {
+        gatewayMessage = gatewayMessage + "\n\n" + planBlock;
+        logger.info(`[${ts()}] [worker] [v27.0] Active plan injected (${planBlock.length} chars) into gatewayMessage`);
+      }
+    } catch (planErr) {
+      logger.warn(`[${ts()}] [worker] [v27.0] Plan generation failed (silent): ${planErr.message}`);
+    }
+  }
+  // R59: Wide Research — parallel search for research tasks
+  try {
+    if (!intentOverride?.skipWideResearch && shouldTriggerWideResearch(cleanQuestion, routing)) {
+      const researchContext = await executeWideResearch(cleanQuestion, sessionKey);
+      if (researchContext) {
+        gatewayMessage = gatewayMessage + researchContext;
+        logger.info(`[${ts()}] [worker] [R59] [WideResearch] Context injected (${researchContext.length} chars)`);
+      }
+    }
+  } catch (researchErr) {
+    // Silent — never block main flow
+    logger.warn(`[${ts()}] [worker] [R59] [WideResearch] Failed (silent): ${researchErr.message}`);
+  }
+  // R59: Tool Mask per Phase — inject allowed tool categories as soft constraint
+  try {
+    const { parsePlanFromText } = await import("./task-planner.mjs");
+    const parsedPlan = parsePlanFromText(gatewayMessage);
+    if (parsedPlan && parsedPlan.phases && parsedPlan.phases.length > 0) {
+      const currentPhase = parsedPlan.phases.find(p => p.status === 'pending' || p.status === 'running') || parsedPlan.phases[0];
+      const tools = currentPhase.allowedTools || ['all'];
+      if (!tools.includes('all')) {
+        const toolMaskBlock = `\n\n[TOOL_MASK] 当前步骤 "${currentPhase.title}" 允许工具类别：${tools.join(', ')}。请优先使用这些类别的工具，避免不必要的变更操作。[/TOOL_MASK]`;
+        gatewayMessage = gatewayMessage + toolMaskBlock;
+        logger.info(`[${ts()}] [worker] [R59] [TOOL_MASK] Phase ${currentPhase.id}: "${currentPhase.title}" -> tools: [${tools.join(', ')}]`);
+      }
+    }
+  } catch (maskErr) {
+    // Silent — never block main flow
+  }
+
+  // R60-FIX-v2: Inject chat directive for simple conversational questions
+  // Instead of bypassing Gateway, we tell the model to respond directly via text
+  if (intentOverride?.overrideType === 'chat' && intentResult?.confidence >= 0.7) {
+    const chatDirective = [
+      '\n\n[SYSTEM_DIRECTIVE]',
+      '这是一个简单的对话/问答请求。请直接用文字回答，不需要使用任何工具（exec/browser/web_search等）。',
+      '除非用户明确要求执行操作（如"帮我运行"、"帮我搜索"、"打开网页"），否则直接回答即可。',
+      '[/SYSTEM_DIRECTIVE]'
+    ].join('\n');
+    gatewayMessage = chatDirective + '\n\n' + gatewayMessage;
+    logger.info(`[${ts()}] [worker] [R60-v2] Chat directive injected (confidence: ${intentResult.confidence})`);
+  }
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      // v5.0: Always pass thinking level + model routing info
+
+      // Iter-65 v3: 首包超时预警 — 120s 无响应才触发步骤预警（原60s太短，复杂任务正常超过60s）
+      let _watchdogStepId = null;
+      const _watchdogTimer = setTimeout(() => {
+        logger.info(`[${ts()}] [worker] WARN: Gateway did not deliver first chunk in 120s`);
+        _watchdogStepId = sendStep(msgId, "⏱️ 响应延迟预警", "running", "AI 通道超过 120 秒未返回内容，正在等待或重试中...");
+      }, 120000);
+
+      let result;
+      let _gatewayUsage = null; // F33: Gateway token usage data
+      try {
+        // v21.3: Prepend recovered context to message (avoids separate Gateway run)
+        // ─── Phase 4: Model Handoff Packet ───
+        let _handoffPacket = null;
+        try {
+          const _prevModel = _sessionLastModel.get(sessionKey);
+          const _currModel = routing?.fallbackModel || 'unknown';
+          if (_prevModel && _prevModel !== _currModel) {
+            _handoffPacket = await buildHandoffPacket(sessionKey, _currModel, _prevModel, deps.routeResult, {
+              userMessage, userId, conversationHistory,
+            });
+            if (_handoffPacket) {
+              logger.info(`[${ts()}] [worker] [handoff] Cross-model packet: ${_handoffPacket.length} chars (${_prevModel} → ${_currModel})`);
+            }
+          }
+          _sessionLastModel.set(sessionKey, _currModel);
+        } catch (_handoffErr) {
+          // Non-fatal
+        }
+        // ─── End Phase 4 Handoff ───
+        
+        // Build final message with all context layers
+        const contextParts = [];
+        if (_recoveredContext) contextParts.push(_recoveredContext);
+        if (_handoffPacket) contextParts.push(_handoffPacket);
+        contextParts.push(gatewayMessage);
+        const finalMessage = contextParts.join('\n\n');
+        updateTraceModel(msgId, routing?.fallbackModel || "unknown"); // P0-FIX: Track actual model for cost accuracy
+        result = await handleViaOpenClaw(finalMessage, sessionKey, msgId, { /* watch */
+          timeout: 600000,
+          thinking: routing?.thinking || 'high',
+          roleSystemPrompt,
+          needsStrongModel: (userModel && typeof userModel === 'string' && userModel.trim()) ? false : (routing?.needsStrongModel || false),  // v14.1: User-selected model takes priority over auto-upgrade
+          strongModel: routing?.strongModel || null,
+          routedModel: routing?.fallbackModel || null,
+          userRole: userRole,  // v25.4: Pass userRole for tool-level permission enforcement
+          conversationHistory: conversationHistory,  // v25.16-fix: Pass for Iter-C compression
+          gatewayTotalTokens: ctxMgr?.getGatewayTokens?.() || 0  // v25.16-fix: Gateway actual token count
+        }, { gateway, browserBreaker });
+      } finally {
+        clearTimeout(_watchdogTimer);
+        if (_watchdogStepId) {
+          // 如果有结果则标为 success，否则 error 在外层重试逻辑处理
+          updateStep(msgId, _watchdogStepId, result ? "success" : "error",
+            result ? "响应已到达" : "通道超时，将尝试备用方案");
+        }
+      }
+      
+      // v15.2: Extract thinkingReceived flag BEFORE unwrapping result object
+      const wasThinkOnly = (typeof result === "object" && result !== null && result.thinkingReceived && (!result.text || result.text.trim().length === 0));
+      if (wasThinkOnly) {
+        logger.info(`[${ts()}] [worker] [v15.2] Think-only response detected on attempt ${attempt}. Model produced thinking but no visible output.`);
+      }
+      // F33: Unwrap { text, gatewayUsage } from handleViaOpenClaw result
+      if (result && typeof result === 'object' && 'text' in result) {
+        _gatewayUsage = result.gatewayUsage || null;
+        result = result.text;
+        if (_gatewayUsage) {
+          _gatewayUsageMap.set(msgId, _gatewayUsage);
+          logger.info(`[${ts()}] [worker] [F33] Got Gateway usage: input=${_gatewayUsage.input}, output=${_gatewayUsage.output}, total=${_gatewayUsage.totalTokens}, cacheRead=${_gatewayUsage.cacheRead || 0}, cacheWrite=${_gatewayUsage.cacheWrite || 0}, source=${_gatewayUsage.source}`);
+        }
+      }
+      
+      // [FIX-2026-03-15] 知识库泄露防护层: 拦截所有冗余标签 (P2-2已合并去重)
+      if (typeof result === 'string') {
+        result = result
+          .replace(/\[SYSTEM\] 以下是知识库参考资料[\s\S]*?不要原样输出。(\n\n)?/g, '')
+          .replace(/--- 参考资料开始 ---[\s\S]*?--- 参考资料结束 ---/g, '')
+          .replace(/\[参考资料 \(\d+\/\d+\)\]/g, '')
+          .split('--- 参考资料开始')[0]
+          .split('[参考资料 (')[0]
+          .trim();
+      }
+      
+      if (!result || (typeof result === "string" && result.trim().length === 0) || wasThinkOnly) {
+        consecutiveEmptyReplies++;
+        logger.info(`[${ts()}] [worker] Empty reply on attempt ${attempt} (consecutive: ${consecutiveEmptyReplies}, thinkOnly: ${wasThinkOnly})`);
+        
+        // v25.2: On empty reply, if current model is non-Claude (e.g. Gemini Flash),
+        // switch to Claude for retry. Gemini Flash often returns empty when session
+        // context was built by a different model.
+        if (routing?.fallbackModel && !routing.fallbackModel.includes('claude')) {
+          const prevModel = routing.fallbackModel;
+          routing.fallbackModel = 'anthropic/claude-sonnet-4-6';
+          routing.thinking = 'high';
+          logger.info(`[${ts()}] [worker] [v25.2] Empty reply from ${prevModel}, switching to ${routing.fallbackModel} for retry`);
+          // Also patch the Gateway session to use Claude
+          try {
+            const gwKey = sessionKey.startsWith('agent:main:') ? sessionKey : `agent:main:${sessionKey}`;
+            await gateway.request('sessions.patch', { key: gwKey, model: 'anthropic/claude-sonnet-4-6' });
+            logger.info(`[${ts()}] [worker] [v25.2] Gateway session patched to Claude for retry`);
+          } catch (patchErr) {
+            logger.warn(`[${ts()}] [worker] [v25.2] Failed to patch session for retry: ${patchErr.message}`);
+          }
+        }
+        
+        if (result && (result.includes("已执行") && result.includes("工具"))) {
+          logger.info(`[${ts()}] [worker] Tools were executed but no text summary, sending follow-up request`);
+          sendEvent(msgId, { type: "thinking", content: "工具执行完成，正在生成结果总结...\n" });
+          try {
+            const followUp = await handleViaOpenClaw("请总结刚才执行的操作和结果。", sessionKey, msgId, {
+              timeout: 60000,
+              roleSystemPrompt,
+              userRole: userRole  // v25.4: Pass userRole for tool-level permission enforcement
+            }, { gateway, browserBreaker });
+            // F33: Unwrap followUp result
+            const followUpText = (followUp && typeof followUp === 'object' && 'text' in followUp) ? followUp.text : followUp;
+            if (followUpText && followUpText.trim().length > 0) {
+              logger.info(`[${ts()}] [worker] Follow-up summary success: ${followUpText.length} chars`);
+              if (!_gatewayUsage && followUp?.gatewayUsage) _gatewayUsage = followUp.gatewayUsage;
+              return followUpText;
+            }
+          } catch (followUpErr) {
+            logger.info(`[${ts()}] [worker] Follow-up summary failed: ${followUpErr.message}`);
+          }
+          lastError = new Error("Gateway executed tools but produced no text reply");
+          break;
+        }
+        
+        // If we get 2+ consecutive empty replies, the session is likely corrupted
+        if (consecutiveEmptyReplies >= 2 && !sessionRebuilt) {
+          logger.info(`[${ts()}] [worker] ${consecutiveEmptyReplies} consecutive empty replies detected — session likely corrupted, rebuilding...`);
+          sendEvent(msgId, { type: "thinking", content: "检测到会话异常，正在重建会话...\n" });
+          sessionRebuilt = await rebuildSession(gateway, sessionKey);
+          if (sessionRebuilt) {
+            consecutiveEmptyReplies = 0;
+            logger.info(`[${ts()}] [worker] Session rebuilt, retrying...`);
+            continue;
+          }
+        }
+        
+        if (attempt < MAX_RETRIES) {
+          // v15.2: For think-only responses, inject a hint to produce actual output
+          if (wasThinkOnly) {
+            sendEvent(msgId, { type: "thinking", content: "AI 正在重新组织回复...\n" });
+            try {
+              await gateway.request("sessions.inject", {
+                key: sessionKey.startsWith("agent:main:") ? sessionKey : `agent:main:${sessionKey}`,
+                messages: [{ role: "user", content: "请直接输出回复内容，不要只进行思考。" }]
+              });
+              logger.info(`[${ts()}] [worker] [v15.2] Injected think-only recovery hint into session`);
+            } catch (injectErr) {
+              logger.info(`[${ts()}] [worker] [v15.2] Failed to inject hint: ${injectErr.message}`);
+            }
+          } else {
+            sendEvent(msgId, { type: "thinking", content: "正在优化对话上下文...\n" });
+          }
+          if (!gateway.isConnected) {
+            logger.info(`[${ts()}] [worker] Gateway disconnected during empty reply retry, waiting...`);
+            const reconnectStart = Date.now();
+            while (!gateway.isConnected && Date.now() - reconnectStart < 30000) {
+              await new Promise(r => setTimeout(r, 1000));
+            }
+          }
+          if (attempt === 2) {
+            sendEvent(msgId, { type: "thinking", content: "上下文正在深度优化，请稍候...\n" });
+            try { await gateway.compactSession(sessionKey); } catch(_err) { /* v22.0 */ logger.error("[user-message-handler] silent catch:", _err?.message || _err); }
+          } else if (attempt >= 3 && !sessionRebuilt) {
+            sendEvent(msgId, { type: "thinking", content: "尝试重建会话以恢复服务...\n" });
+            sessionRebuilt = await rebuildSession(gateway, sessionKey);
+          } else {
+            try { await gateway.compactSession(sessionKey); } catch(_err) { /* v22.0 */ logger.error("[user-message-handler] silent catch:", _err?.message || _err); }
+          }
+          continue;
+        }
+        lastError = new Error("Empty response from Gateway");
+        break;
+      }
+      
+      // Success!
+      consecutiveEmptyReplies = 0;
+      if (gatewayBreaker) gatewayBreaker.recordSuccess();
+      // SANITIZATION: Iter-S8 — unified tag stripping via sanitizeForFrontend
+      if (typeof result === "string") {
+        result = sanitizeForFrontend(result);
+      }
+      // P3: Async memory extraction (fire-and-forget, does not block response)
+      // Phase 1: Record assistant response and update task state
+      emitEvent(sessionKey, taskId, EVENT_TYPES.ASSISTANT_MESSAGE, {
+        content: (typeof result === 'string' ? result : '').substring(0, 500),
+        model: routing?.fallbackModel || 'unknown',
+      }, routing?.fallbackModel);
+      try {
+        await updateTaskState(taskId, {
+          last_model: routing?.fallbackModel || 'unknown',
+        });
+      } catch (_tsErr) { /* non-fatal */ }
+      extractAndSaveMemory(userId, userMessage, result, conversationHistory).catch(e => {
+
+        // Phase 3: Extract episodic memory from this interaction
+        extractEpisodicMemory(sessionKey, userMessage, result, { hasToolOutput: false }).catch(e => {
+          logger.warn(`[${ts()}] [worker] Episodic extraction failed: ${e.message}`);
+        });
+        logger.info(`[${ts()}] [memory-extract] Async extraction failed: ${e.message}`);
+      });
+      return result;
+    } catch (err) {
+      lastError = err;
+      logger.info(`[${ts()}] [worker] Gateway attempt ${attempt}/${MAX_RETRIES} failed: ${err.message}`);
+      
+      // If the error is "terminated" or lifecycle error, rebuild session immediately
+      if (/terminated|lifecycle.*error|session.*corrupt/i.test(err.message) && !sessionRebuilt) {
+        logger.info(`[${ts()}] [worker] Lifecycle error detected, rebuilding session before retry...`);
+        sendEvent(msgId, { type: "thinking", content: "AI 引擎会话异常，正在重建...\n" });
+        sessionRebuilt = await rebuildSession(gateway, sessionKey);
+        if (sessionRebuilt) {
+          consecutiveEmptyReplies = 0;
+        }
+      }
+      
+      if (attempt < MAX_RETRIES) {
+        const isRateLimit = /rate.?limit|quota|429|FailoverError/i.test(err.message);
+        const isBillingError = /credit.*balance|balance.*too.*low|insufficient.*credit|billing.*error/i.test(err.message);
+        if (isRateLimit || isBillingError) {
+          const reason = isBillingError ? "API 余额不足，无法重试" : "正在切换备用通道...";
+          sendEvent(msgId, { type: "thinking", content: `${reason}\n` });
+          logger.info(`[${ts()}] [worker] [BILLING-BREAK] Non-retryable error detected: ${err.message.substring(0, 100)}`);
+          break;
+        }
+        sendEvent(msgId, { type: "thinking", content: "遇到问题，正在重试...\n" });
+        if (!gateway.isConnected) {
+          logger.info(`[${ts()}] [worker] Gateway disconnected, waiting for reconnect before retry...`);
+          sendEvent(msgId, { type: "thinking", content: "等待 AI 引擎重新连接...\n" });
+          const reconnectStart = Date.now();
+          while (!gateway.isConnected && Date.now() - reconnectStart < 30000) {
+            await new Promise(r => setTimeout(r, 1000));
+          }
+          if (!gateway.isConnected) {
+            logger.info(`[${ts()}] [worker] Gateway still disconnected after 30s wait`);
+          } else {
+            logger.info(`[${ts()}] [worker] Gateway reconnected after ${Date.now() - reconnectStart}ms`);
+          }
+        }
+        const retryDelay = Math.min(2000 * Math.pow(2, attempt - 1), 30000);
+        logger.info(`[${ts()}] [worker] Retrying in ${retryDelay}ms (attempt ${attempt}/${MAX_RETRIES})`);
+        await new Promise(r => setTimeout(r, retryDelay));
+      }
+    }
+  }
+
+  // RCA improvement #2: distinguish soft vs hard failures for circuit breaker
+  if (gatewayBreaker) {
+    const isEmptyResponse = /empty.*response|no.*text.*reply/i.test(lastError?.message || "");
+    if (isEmptyResponse) {
+      gatewayBreaker.recordSoftFailure();
+      logger.info(`[${ts()}] [worker] Gateway exhausted all ${MAX_RETRIES} retries (SOFT failure — empty response). CB status: ${JSON.stringify(gatewayBreaker.getStatus())}`);
+    } else {
+      gatewayBreaker.recordFailure();
+      logger.info(`[${ts()}] [worker] Gateway exhausted all ${MAX_RETRIES} retries (HARD failure). Error: ${lastError?.message}. CB status: ${JSON.stringify(gatewayBreaker.getStatus())}`);
+    }
+  } else {
+    logger.info(`[${ts()}] [worker] Gateway exhausted all ${MAX_RETRIES} retries. Error: ${lastError?.message}`);
+  }
+
+  // ─── v22.1: Gateway 所有重试耗尽 — 报错，不降级直连 LLM ───
+  {
+    logger.error(`[${ts()}] [worker] [v22.1] Gateway exhausted all ${MAX_RETRIES} retries. Error: ${lastError?.message}. Direct LLM fallback DISABLED.`);
+    // Try to reconnect Gateway
+    try {
+      if (gateway && typeof gateway.reconnect === 'function') {
+        await gateway.reconnect();
+        logger.info(`[${ts()}] [worker] [v22.1] Gateway reconnect initiated after exhaustion`);
+      }
+    } catch (reconnErr) {
+      logger.error(`[${ts()}] [worker] [v22.1] Gateway reconnect failed: ${reconnErr.message}`);
+    }
+    const errorMsg = lastError?.message || '未知错误';
+    const isRateLimit = /rate.?limit|quota|429|FailoverError/i.test(errorMsg);
+    const errorContent = isRateLimit
+      ? `⚠️ **AI 模型配额已用尽**\n\nGateway 报告: ${errorMsg}\n\n**建议：**\n- 等待 1-2 小时后重试\n- 联系管理员检查 API 额度`
+      : `⚠️ **AI 引擎连接失败**\n\nGateway 错误: ${errorMsg}\n\n系统已尝试 ${MAX_RETRIES} 次重试均失败，正在尝试自动恢复。\n请稍等片刻后重试，如持续出现请联系管理员检查 Gateway 服务状态。`;
+    sendEvent(msgId, { type: "message_done", content: errorContent, model: "RangerAI", provider: "rangerai" });
+    sendEvent(msgId, { type: "error", code: isRateLimit ? "rate_limited" : "gateway_error", message: errorContent, recoverable: true });
+    sendEvent(msgId, { type: "status", status: "idle" });
+    return errorContent;
+  }
+}

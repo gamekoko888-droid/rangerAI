@@ -1,0 +1,37 @@
+{
+  "round": "R92",
+  "timestamp": "2026-04-29T06:53:56Z",
+  "git_hash": "3e82842",
+  "git_dirty_files": 0,
+  "repo_size_bytes": 1376035165,
+  "repo_size_human": "1.3G",
+  "bak_files": {
+    "count": 172,
+    "size_bytes": 221281684,
+    "size_human": "216M"
+  },
+  "dist_backups": {
+    "count": 13,
+    "size_human": "201M"
+  },
+  "dead_modules": {
+    "count": 0,
+    "names": ""
+  },
+  "tests": {
+    "total": 96,
+    "pass": 96,
+    "fail": 0
+  },
+  "syntax_check": {
+    "errors": 0,
+    "failed_files": ""
+  },
+  "services": {
+    "rangerai_ws": "active",
+    "rangerai_web": "active",
+    "http_status": 200
+  },
+  "recent_errors_10min": 0
+0
+}

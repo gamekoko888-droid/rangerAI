@@ -1,0 +1,72 @@
+{
+  "version": "r22-t5-v1",
+  "description": "R22 Golden Tasks — Minimum regression set covering success, degraded_success, and failed states",
+  "goldenTasks": [
+    {
+      "id": "gt-001",
+      "name": "Successful Page Extraction",
+      "prompt": "打开 https://example.com 并提取页面标题和主要文本内容",
+      "expectedTaskFamily": "page_extract",
+      "expectedPrimaryTool": "browser",
+      "expectedFallback": null,
+      "expectedFinalStatus": "success",
+      "expectedReplayFeatures": {
+        "hasWebTaskRouting": true,
+        "hasBrowserActions": true,
+        "hasBrowserEvidence": true,
+        "hasFailureRecords": false,
+        "finalOutputHasTextSnippet": true
+      }
+    },
+    {
+      "id": "gt-002",
+      "name": "Successful Site Navigation",
+      "prompt": "访问 https://news.ycombinator.com 并获取首页前5条新闻标题",
+      "expectedTaskFamily": "page_extract",
+      "expectedPrimaryTool": "browser",
+      "expectedFallback": null,
+      "expectedFinalStatus": "success",
+      "expectedReplayFeatures": {
+        "hasWebTaskRouting": true,
+        "hasBrowserActions": true,
+        "hasBrowserEvidence": true,
+        "hasFailureRecords": false,
+        "finalOutputHasTextSnippet": true
+      }
+    },
+    {
+      "id": "gt-003",
+      "name": "Element Not Found — Degraded Success",
+      "prompt": "打开 https://example.com 并点击 #nonexistent-button 按钮获取结果",
+      "expectedTaskFamily": "site_navigation",
+      "expectedPrimaryTool": "browser",
+      "expectedFallback": "screenshot_and_replan",
+      "expectedFinalStatus": "degraded_success",
+      "expectedReplayFeatures": {
+        "hasWebTaskRouting": true,
+        "hasBrowserActions": true,
+        "hasBrowserEvidence": true,
+        "hasFailureRecords": true,
+        "failureCategory": "element_not_found",
+        "finalOutputHasTextSnippet": true
+      }
+    },
+    {
+      "id": "gt-004",
+      "name": "Navigate Failed — Failure",
+      "prompt": "打开 https://this-domain-does-not-exist-r22-test.invalid 并提取页面内容",
+      "expectedTaskFamily": "page_lookup",
+      "expectedPrimaryTool": "browser",
+      "expectedFallback": "web_fetch_or_search",
+      "expectedFinalStatus": "failed",
+      "expectedReplayFeatures": {
+        "hasWebTaskRouting": true,
+        "hasBrowserActions": true,
+        "hasBrowserEvidence": false,
+        "hasFailureRecords": true,
+        "failureCategory": "navigate_failed",
+        "finalOutputHasTextSnippet": false
+      }
+    }
+  ]
+}

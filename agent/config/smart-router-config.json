@@ -1,0 +1,134 @@
+{
+  "_version": "8.0",
+  "_description": "RangerAI Smart Router Configuration — v7.0 彻底移除 OpenRouter，全面直连 API",
+  "_updated": "2026-04-09",
+  "_notes": "v8.0: Gemini replaced with GPT for all non-image tasks. Gemini retained only for image_generation.",
+  "gateway_model_routing": {
+    "_description": "按任务类型决定使用强模型还是默认模型。strong_model 用于代码/推理/运维/中文创作。",
+    "strong_model": "openai/gpt-5.5",
+    "strong_model_tasks": [
+      "code",
+      "reasoning",
+      "sysadmin",
+      "chinese_content"
+    ],
+    "default_model_tasks": [
+      "chat",
+      "research",
+      "creative",
+      "gaming",
+      "translation",
+      "image_generation"
+    ],
+    "image_model": "google/gemini-3.1-flash-image-preview"
+  },
+  "direct_api_models": {
+    "_description": "直连 API 模型映射（不经过 OpenRouter）。按任务类型选择最优提供商。",
+    "image_generation": "google/gemini-3.1-flash-image-preview",
+    "code": "openai/gpt-5.5",
+    "reasoning": "openai/gpt-5.4",
+    "creative": "openai/gpt-5.4",
+    "research": "openai/gpt-5.4",
+    "gaming": "openai/gpt-5.5",
+    "sysadmin": "openai/gpt-5.5",
+    "chat": "openai/gpt-5.4-mini",
+    "chinese_content": "openai/gpt-5.4",
+    "translation": "openai/gpt-5.4-mini"
+  },
+  "direct_api_fallbacks": {
+    "_description": [
+      "直",
+      "连",
+      " ",
+      "A",
+      "P",
+      "I",
+      "f",
+      "a",
+      "l",
+      "b",
+      "c",
+      "k",
+      "顺",
+      "序",
+      "（",
+      "主",
+      "模",
+      "型",
+      "失",
+      "败",
+      "时",
+      "按",
+      "尝",
+      "试",
+      "）"
+    ],
+    "image_generation": [
+      "google/gemini-3.1-flash-image-preview",
+      "google/gemini-3-flash-preview-image"
+    ],
+    "code": [
+      "openai/gpt-5.5",
+      "openai/gpt-5.4"
+    ],
+    "reasoning": [
+      "openai/gpt-5.4",
+      "openai/gpt-5.5"
+    ],
+    "creative": [
+      "openai/gpt-5.4",
+      "openai/gpt-5.5"
+    ],
+    "research": [
+      "openai/gpt-5.4",
+      "openai/gpt-5.5"
+    ],
+    "gaming": [
+      "openai/gpt-5.5",
+      "openai/gpt-5.4"
+    ],
+    "sysadmin": [
+      "openai/gpt-5.5",
+      "openai/gpt-5.4"
+    ],
+    "chat": [
+      "openai/gpt-5.4-mini",
+      "openai/gpt-5.5",
+      "openai/gpt-5.4"
+    ],
+    "chinese_content": [
+      "openai/gpt-5.4",
+      "openai/gpt-5.5"
+    ],
+    "translation": [
+      "openai/gpt-5.4-mini",
+      "openai/gpt-5.4",
+      "openai/gpt-5.5"
+    ]
+  },
+  "task_thinking_levels": {
+    "code": "high",
+    "sysadmin": "high",
+    "reasoning": "high",
+    "research": "medium",
+    "creative": "medium",
+    "chinese_content": "medium",
+    "image_generation": "low",
+    "gaming": "low",
+    "chat": "low",
+    "translation": "low"
+  },
+  "direct_api_defaults": {
+    "max_tokens": 16384,
+    "temperature": 0.7,
+    "stream": true
+  },
+  "soul_md_path": "/home/admin/.openclaw/SOUL.md",
+  "soul_md_max_chars": 25000,
+  "health_thresholds": {
+    "degraded": 0.3,
+    "warning": 0.6,
+    "auto_fallback": true,
+    "_description": "Gateway health score thresholds. Score 0-1 based on availability/latency/error_rate. Below degraded → auto-fallback to DirectAPI."
+  }
+}

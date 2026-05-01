@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RangerAI — Event Stats Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; }
+  .header { background: #1e293b; padding: 16px 24px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 20px; color: #38bdf8; }
+  .header .controls { display: flex; gap: 12px; align-items: center; }
+  .header select, .header button { background: #334155; color: #e2e8f0; border: 1px solid #475569; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+  .header button:hover { background: #475569; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; }
+  .card .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+  .card .value.blue { color: #38bdf8; }
+  .card .value.green { color: #4ade80; }
+  .card .value.amber { color: #fbbf24; }
+  .card .value.purple { color: #a78bfa; }
+  .card .value.rose { color: #fb7185; }
+  .section { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; margin-bottom: 24px; }
+  .section h2 { font-size: 16px; color: #94a3b8; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 8px 12px; font-size: 12px; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #334155; }
+  td { padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #1e293b; }
+  tr:hover td { background: #334155; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge.core { background: #38bdf820; color: #38bdf8; }
+  .badge.infra { background: #4ade8020; color: #4ade80; }
+  .badge.tool { background: #fbbf2420; color: #fbbf24; }
+  .badge.user { background: #a78bfa20; color: #a78bfa; }
+  .bar-chart { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row { display: flex; align-items: center; gap: 12px; }
+  .bar-label { width: 160px; font-size: 12px; color: #94a3b8; text-align: right; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 24px; background: #0f172a; border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 600; min-width: 30px; transition: width 0.5s ease; }
+  .bar-count { width: 60px; font-size: 12px; color: #64748b; text-align: right; flex-shrink: 0; }
+  .loading { text-align: center; padding: 40px; color: #64748b; }
+  .error { background: #7f1d1d40; border: 1px solid #991b1b; padding: 12px; border-radius: 8px; color: #fca5a5; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  .tab { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; color: #94a3b8; background: transparent; border: none; }
+  .tab.active { background: #334155; color: #e2e8f0; }
+  .tab:hover { color: #e2e8f0; }
+  .json-payload { max-height: 80px; overflow: auto; font-family: monospace; font-size: 11px; color: #64748b; background: #0f172a; padding: 4px 8px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>⚡ RangerAI Event Stats</h1>
+  <div class="controls">
+    <select id="daysPicker">
+      <option value="1">Last 24h</option>
+      <option value="7" selected>Last 7 days</option>
+      <option value="30">Last 30 days</option>
+      <option value="90">Last 90 days</option>
+    </select>
+    <button onclick="loadData()">Refresh</button>
+  </div>
+</div>
+<div class="container">
+  <div id="summary" class="grid"><div class="loading">Loading...</div></div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('distribution', this)">Event Distribution</button>
+    <button class="tab" onclick="switchTab('recent', this)">Recent Events</button>
+    <button class="tab" onclick="switchTab('daily', this)">Daily Trend</button>
+  </div>
+  <div id="tab-distribution" class="section"></div>
+  <div id="tab-recent" class="section" style="display:none"></div>
+  <div id="tab-daily" class="section" style="display:none"></div>
+</div>
+<script>
+const ADMIN_TOKEN = 'rng3r_admin_ec6d6a69d155bc7865f2f9383eb98b0c';
+const API_BASE = window.location.origin;
+const COLORS = {
+  user_message: '#38bdf8', assistant_message: '#818cf8', final_answer: '#4ade80',
+  action: '#fbbf24', observation: '#f97316', plan_update: '#a78bfa', plan_step_update: '#c084fc',
+  knowledge_injected: '#2dd4bf', kv_cache_stats: '#fb7185', context_compress: '#e879f9',
+  todo_updated: '#34d399', model_route: '#64748b', memory_recall: '#94a3b8',
+  audio_transcribed: '#f472b6', image_generated: '#22d3ee', notify: '#fcd34d',
+  datasource_routed: '#a3e635', max_retries_exceeded: '#ef4444', tts_generated: '#8b5cf6', audio_transcribed: '#7c3aed', plan_generation_failed: '#dc2626'
+};
+function getCategory(type) {
+  if (['user_message','assistant_message','final_answer'].includes(type)) return 'core';
+  if (['action','observation','plan_update','plan_step_update','todo_updated'].includes(type)) return 'infra';
+  if (['knowledge_injected','kv_cache_stats','context_compress','model_route','memory_recall','tts_generated','audio_transcribed'].includes(type)) return 'tool';
+  return 'user';
+}
+let currentData = null;
+async function loadData() {
+  const days = document.getElementById('daysPicker').value;
+  try {
+    const resp = await fetch(`${API_BASE}/api/admin/event-stats?days=${days}`, {
+      headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}` }
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    currentData = await resp.json();
+    renderSummary(currentData.summary);
+    renderDistribution(currentData.typeDistribution);
+    renderRecent(currentData.recentEvents);
+    renderDaily(currentData.dailyTrend);
+  } catch (err) {
+    document.getElementById('summary').innerHTML = `<div class="error">Failed to load: ${err.message}</div>`;
+  }
+}
+function renderSummary(s) {
+  document.getElementById('summary').innerHTML = `
+    <div class="card"><div class="label">Total Events</div><div class="value blue">${s.totalEvents.toLocaleString()}</div></div>
+    <div class="card"><div class="label">User Messages</div><div class="value green">${s.totalMessages}</div></div>
+    <div class="card"><div class="label">Event Types</div><div class="value amber">${s.uniqueTypes}</div></div>
+    <div class="card"><div class="label">Plan Updates</div><div class="value purple">${s.planUpdates}</div></div>
+    <div class="card"><div class="label">Knowledge Injected</div><div class="value rose">${s.knowledgeInjected}</div></div>
+    <div class="card"><div class="label">KV Cache Stats</div><div class="value blue">${s.kvCacheStats}</div></div>
+  `;
+}
+function renderDistribution(types) {
+  const maxCount = Math.max(...types.map(t => t.count), 1);
+  let html = '<h2>Event Type Distribution</h2><div class="bar-chart">';
+  for (const t of types) {
+    const pct = (t.count / maxCount * 100).toFixed(1);
+    const color = COLORS[t.event_type] || '#64748b';
+    const cat = getCategory(t.event_type);
+    html += `<div class="bar-row">
+      <div class="bar-label"><span class="badge ${cat}">${cat}</span> ${t.event_type}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}30;color:${color}">${t.count}</div></div>
+      <div class="bar-count">${(t.count / types.reduce((a,b)=>a+b.count,0) * 100).toFixed(1)}%</div>
+    </div>`;
+  }
+  html += '</div>';
+  document.getElementById('tab-distribution').innerHTML = html;
+}
+function renderRecent(events) {
+  let html = '<h2>Recent Events (Last 50)</h2><table><thead><tr><th>ID</th><th>Type</th><th>Task</th><th>Tool</th><th>Payload</th><th>Time</th></tr></thead><tbody>';
+  for (const e of events) {
+    const cat = getCategory(e.event_type);
+    const payload = typeof e.payload === 'object' ? JSON.stringify(e.payload).substring(0, 120) : String(e.payload).substring(0, 120);
+    html += `<tr>
+      <td>${e.id}</td>
+      <td><span class="badge ${cat}">${e.event_type}</span></td>
+      <td style="font-family:monospace;font-size:11px">${(e.task_id || '').substring(0, 12)}</td>
+      <td>${e.tool_name || '-'}</td>
+      <td><div class="json-payload">${payload}</div></td>
+      <td style="font-size:11px;color:#64748b">${e.created_at}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('tab-recent').innerHTML = html;
+}
+function renderDaily(trend) {
+  const days = {};
+  for (const r of trend) {
+    if (!days[r.day]) days[r.day] = {};
+    days[r.day][r.event_type] = r.count;
+  }
+  let html = '<h2>Daily Trend</h2><table><thead><tr><th>Date</th><th>Total</th><th>Messages</th><th>Actions</th><th>Plans</th><th>Knowledge</th></tr></thead><tbody>';
+  for (const [day, types] of Object.entries(days).sort((a,b) => b[0].localeCompare(a[0]))) {
+    const total = Object.values(types).reduce((a,b) => a+b, 0);
+    html += `<tr>
+      <td>${day}</td>
+      <td>${total}</td>
+      <td>${types.user_message || 0}</td>
+      <td>${types.action || 0}</td>
+      <td>${(types.plan_update || 0) + (types.plan_step_update || 0)}</td>
+      <td>${types.knowledge_injected || 0}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('tab-daily').innerHTML = html;
+}
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
+  document.getElementById(`tab-${name}`).style.display = 'block';
+}
+document.getElementById('daysPicker').addEventListener('change', loadData);
+loadData();
+</script>
+</body>
+</html>

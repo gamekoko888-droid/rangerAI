@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GamePay — Пополнение мобильных игр</title>
+<style>
+/* ===== Reset & Base ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e17;--bg2:#111827;--bg3:#1a2332;--bg4:#1f2a3a;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --accent:#8b5cf6;--accent2:#a78bfa;--green:#10b981;--red:#ef4444;
+  --gold:#f59e0b;--diamond:#06b6d4;
+  --radius:12px;--radius-sm:8px;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+a{color:var(--accent2);text-decoration:none}
+img{max-width:100%}
+button{cursor:pointer;font-family:inherit;border:none;outline:none}
+input,select{border:none;outline:none;font-family:inherit}
+
+/* ===== Header ===== */
+header{
+  position:sticky;top:0;z-index:100;
+  background:rgba(10,14,23,0.92);backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  padding:0 24px;height:64px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.logo{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:800;color:#fff}
+.logo span{color:var(--accent)}
+nav{display:flex;gap:24px;align-items:center}
+nav a{color:var(--text2);font-size:14px;font-weight:500;transition:color .2s}
+nav a:hover{color:#fff}
+nav .btn-login{background:var(--accent);color:#fff;padding:8px 20px;border-radius:20px;font-size:14px;font-weight:600}
+nav .btn-login:hover{background:var(--accent2)}
+.lang-switch{display:flex;gap:4px;background:var(--bg3);border-radius:20px;padding:3px}
+.lang-switch button{padding:5px 12px;border-radius:18px;font-size:12px;background:transparent;color:var(--text2);transition:all .2s}
+.lang-switch button.active{background:var(--accent);color:#fff}
+.mobile-menu-btn{display:none;background:none;color:#fff;font-size:24px}
+
+/* ===== Hero ===== */
+.hero{
+  padding:80px 24px 60px;
+  text-align:center;
+  background:linear-gradient(180deg, rgba(139,92,246,0.08) 0%, transparent 60%);
+}
+.hero h1{font-size:clamp(28px,5vw,48px);font-weight:800;line-height:1.2;margin-bottom:16px}
+.hero h1 span{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{color:var(--text2);font-size:18px;max-width:600px;margin:0 auto 32px}
+.search-box{
+  display:flex;max-width:560px;margin:0 auto 48px;
+  background:var(--bg3);border-radius:28px;padding:6px;
+  border:1px solid rgba(255,255,255,0.08);
+}
+.search-box input{
+  flex:1;background:transparent;color:#fff;font-size:16px;
+  padding:12px 20px;min-width:0;
+}
+.search-box input::placeholder{color:var(--text3)}
+.search-box button{
+  background:var(--accent);color:#fff;padding:12px 28px;
+  border-radius:24px;font-size:15px;font-weight:600;
+}
+.trust-bar{
+  display:flex;justify-content:center;gap:40px;flex-wrap:wrap;
+}
+.trust-item{text-align:center}
+.trust-item .num{font-size:28px;font-weight:800;color:#fff}
+.trust-item .lbl{font-size:13px;color:var(--text3);margin-top:4px}
+
+/* ===== Sections ===== */
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+.section{padding:64px 0}
+.section-title{font-size:28px;font-weight:700;margin-bottom:8px}
+.section-sub{color:var(--text2);margin-bottom:32px;font-size:15px}
+
+/* ===== Game Cards ===== */
+.game-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
+  gap:16px;
+}
+.game-card{
+  background:var(--bg2);border-radius:var(--radius);
+  padding:20px 16px;text-align:center;
+  border:1px solid rgba(255,255,255,0.04);
+  transition:all .25s;cursor:pointer;
+}
+.game-card:hover{
+  transform:translateY(-4px);
+  border-color:var(--accent);
+  box-shadow:0 8px 32px rgba(139,92,246,0.15);
+}
+.game-card .icon{
+  width:64px;height:64px;border-radius:16px;margin:0 auto 12px;
+  background:var(--bg3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:32px;
+}
+.game-card .name{font-size:14px;font-weight:600;color:#fff;margin-bottom:6px}
+.game-card .discount{
+  display:inline-block;background:rgba(16,185,129,0.15);
+  color:var(--green);font-size:12px;font-weight:700;
+  padding:3px 10px;border-radius:12px;
+}
+
+/* ===== Top-Up Cards Grid ===== */
+.denom-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:12px;
+}
+.denom-card{
+  background:var(--bg2);border-radius:var(--radius-sm);
+  padding:16px;text-align:center;
+  border:2px solid transparent;
+  cursor:pointer;transition:all .2s;
+}
+.denom-card:hover,.denom-card.selected{
+  border-color:var(--accent);
+  background:rgba(139,92,246,0.08);
+}
+.denom-card .crystals{font-size:20px;font-weight:700;color:#fff}
+.denom-card .orig{font-size:13px;color:var(--text3);text-decoration:line-through;margin:4px 0}
+.denom-card .price{font-size:18px;font-weight:700;color:var(--green)}
+.denom-card .saved{font-size:11px;color:var(--accent2)}
+
+/* ===== Checkout Flow ===== */
+.checkout-preview{
+  background:var(--bg2);border-radius:var(--radius);
+  padding:32px;border:1px solid rgba(255,255,255,0.06);
+  display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start;
+}
+.checkout-steps{flex:1;min-width:280px}
+.step{display:flex;gap:16px;align-items:flex-start;margin-bottom:24px}
+.step-num{
+  width:36px;height:36px;border-radius:50%;
+  background:var(--bg3);display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:14px;flex-shrink:0;
+  color:var(--text2);
+}
+.step.active .step-num{background:var(--accent);color:#fff}
+.step-title{font-weight:600;font-size:15px;margin-bottom:4px}
+.step-desc{font-size:13px;color:var(--text2)}
+.step input,.step select{
+  background:var(--bg3);color:#fff;padding:10px 16px;
+  border-radius:8px;font-size:14px;width:100%;margin-top:8px;
+}
+.step select{appearance:none;cursor:pointer}
+.order-summary{
+  background:var(--bg3);border-radius:var(--radius-sm);
+  padding:24px;min-width:260px;
+}
+.order-summary h4{font-size:16px;margin-bottom:16px}
+.order-row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px}
+.order-row .price{color:var(--green);font-weight:600}
+.order-divider{border-top:1px solid rgba(255,255,255,0.08);margin:12px 0}
+.order-total{font-size:18px;font-weight:700;color:#fff}
+.btn-buy{
+  display:block;width:100%;margin-top:16px;
+  background:linear-gradient(135deg,var(--accent),#7c3aed);
+  color:#fff;padding:14px;border-radius:12px;
+  font-size:16px;font-weight:700;
+  transition:opacity .2s;
+}
+.btn-buy:hover{opacity:0.9}
+
+/* ===== Payment Icons ===== */
+.payment-grid{
+  display:flex;gap:24px;flex-wrap:wrap;justify-content:center;
+}
+.payment-item{
+  background:var(--bg2);border-radius:var(--radius-sm);
+  padding:20px 32px;text-align:center;
+  border:1px solid rgba(255,255,255,0.04);
+  transition:all .2s;
+}
+.payment-item:hover{border-color:var(--accent)}
+.payment-item .icon{font-size:36px;margin-bottom:8px}
+.payment-item .name{font-size:13px;color:var(--text2)}
+
+/* ===== VIP ===== */
+.vip-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.vip-card{
+  background:var(--bg2);border-radius:var(--radius);
+  padding:32px 24px;text-align:center;
+  border:1px solid rgba(255,255,255,0.04);
+  transition:all .3s;
+}
+.vip-card:hover{transform:translateY(-4px)}
+.vip-card.gold{border-color:rgba(245,158,11,0.3)}
+.vip-card.diamond{border-color:rgba(6,182,212,0.3)}
+.vip-card .tier{font-size:14px;font-weight:600;margin-bottom:8px}
+.vip-card .tier-icon{font-size:40px;margin-bottom:12px}
+.vip-card .benefit{font-size:13px;color:var(--text2);margin-top:12px;line-height:1.8}
+
+/* ===== Reviews ===== */
+.review-cards{display:flex;gap:20px;overflow-x:auto;padding-bottom:8px}
+.review-card{
+  background:var(--bg2);border-radius:var(--radius-sm);
+  padding:20px;min-width:280px;flex-shrink:0;
+  border:1px solid rgba(255,255,255,0.04);
+}
+.review-card .stars{color:var(--gold);margin-bottom:8px}
+.review-card .text{font-size:14px;color:var(--text2);margin-bottom:12px;font-style:italic}
+.review-card .user{display:flex;align-items:center;gap:10px}
+.review-card .user .avatar{
+  width:32px;height:32px;border-radius:50%;background:var(--bg3);
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+}
+.review-card .user .uname{font-size:13px;font-weight:600}
+
+/* ===== FAQ ===== */
+.faq-list{max-width:720px;margin:0 auto}
+.faq-item{
+  background:var(--bg2);border-radius:var(--radius-sm);
+  margin-bottom:12px;border:1px solid rgba(255,255,255,0.04);
+  overflow:hidden;
+}
+.faq-q{
+  padding:18px 24px;font-weight:600;cursor:pointer;
+  display:flex;justify-content:space-between;align-items:center;
+  user-select:none;
+}
+.faq-a{padding:0 24px 18px;font-size:14px;color:var(--text2);display:none}
+.faq-item.open .faq-a{display:block}
+
+/* ===== Promo Banner ===== */
+.promo-banner{
+  background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(124,58,237,0.1));
+  border-radius:var(--radius);padding:40px;
+  text-align:center;border:1px solid rgba(139,92,246,0.2);
+  margin-bottom:40px;
+}
+.promo-banner h3{font-size:24px;margin-bottom:8px}
+.promo-banner p{color:var(--text2);margin-bottom:20px}
+.promo-code{
+  display:inline-block;background:var(--bg3);color:var(--accent2);
+  padding:10px 28px;border-radius:8px;font-size:18px;
+  font-weight:700;letter-spacing:2px;font-family:monospace;
+  cursor:pointer;
+}
+
+/* ===== Footer ===== */
+footer{
+  background:var(--bg2);padding:48px 24px 32px;
+  border-top:1px solid rgba(255,255,255,0.04);
+}
+.footer-grid{
+  max-width:1200px;margin:0 auto;
+  display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;
+}
+.footer-col h4{font-size:14px;font-weight:600;margin-bottom:16px;color:#fff}
+.footer-col a{display:block;color:var(--text2);font-size:13px;margin-bottom:8px}
+.footer-col a:hover{color:#fff}
+.footer-bottom{
+  max-width:1200px;margin:40px auto 0;padding-top:24px;
+  border-top:1px solid rgba(255,255,255,0.06);
+  text-align:center;font-size:12px;color:var(--text3);
+}
+.social-links{display:flex;gap:12px;margin-top:12px}
+.social-links a{
+  width:36px;height:36px;border-radius:50%;background:var(--bg3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;transition:background .2s;
+}
+.social-links a:hover{background:var(--accent)}
+
+/* ===== Responsive ===== */
+@media(max-width:768px){
+  nav{display:none}
+  .mobile-menu-btn{display:block}
+  .hero{padding:48px 16px 40px}
+  .trust-bar{gap:24px}
+  .trust-item .num{font-size:22px}
+  .game-grid{grid-template-columns:repeat(3,1fr);gap:10px}
+  .denom-grid{grid-template-columns:repeat(2,1fr)}
+  .checkout-preview{flex-direction:column}
+  .vip-grid{grid-template-columns:1fr}
+  .footer-grid{grid-template-columns:1fr 1fr}
+}
+
+/* ===== Tab Navigation ===== */
+.tabs{display:flex;gap:0;margin-bottom:32px;background:var(--bg2);border-radius:12px;padding:4px}
+.tab-btn{
+  flex:1;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;
+  background:transparent;color:var(--text2);transition:all .2s;
+}
+.tab-btn.active{background:var(--accent);color:#fff}
+
+/* ===== Modal ===== */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.7);
+  z-index:200;display:none;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+}
+.modal-overlay.show{display:flex}
+.modal{
+  background:var(--bg2);border-radius:var(--radius);padding:40px;
+  max-width:480px;width:90%;text-align:center;
+  animation:modalIn .3s ease;
+}
+@keyframes modalIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.modal .status-icon{font-size:64px;margin-bottom:16px}
+.modal h3{font-size:22px;margin-bottom:8px}
+.modal p{color:var(--text2);margin-bottom:24px}
+.modal .btn-close{
+  background:var(--accent);color:#fff;padding:12px 32px;
+  border-radius:24px;font-size:15px;font-weight:600;
+}
+
+/* ===== Progress ===== */
+.progress-bar{
+  height:4px;background:var(--bg3);border-radius:2px;margin:16px 0;overflow:hidden;
+}
+.progress-bar .fill{
+  height:100%;background:var(--accent);border-radius:2px;
+  width:0;transition:width .5s ease;
+}
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header>
+  <div class="logo">GamePay<span>.ru</span></div>
+  <nav>
+    <a href="#games">🎮 Игры</a>
+    <a href="#how">📖 Как купить</a>
+    <a href="#promo">🎁 Акции</a>
+    <a href="#faq">❓ Помощь</a>
+    <div class="lang-switch">
+      <button class="active" onclick="switchLang('ru',this)">RU</button>
+      <button onclick="switchLang('en',this)">EN</button>
+    </div>
+    <button class="btn-login" onclick="document.getElementById('loginModal').classList.add('show')">Войти</button>
+  </nav>
+  <button class="mobile-menu-btn">☰</button>
+</header>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <h1>Пополняйте любимые игры<br><span>быстро, дёшево и безопасно</span></h1>
+  <p>Более 50 мобильных игр. Оплата картами РФ, ЮMoney, СБП. Среднее время зачисления — 4 минуты.</p>
+  <div class="search-box">
+    <input type="text" placeholder="Найти игру... (например, Genshin Impact)" oninput="filterGames(this.value)">
+    <button>🔍 Найти</button>
+  </div>
+  <div class="trust-bar">
+    <div class="trust-item"><div class="num">250K+</div><div class="lbl">игроков</div></div>
+    <div class="trust-item"><div class="num">99.7%</div><div class="lbl">успешных заказов</div></div>
+    <div class="trust-item"><div class="num">~4 мин</div><div class="lbl">среднее время</div></div>
+    <div class="trust-item"><div class="num">24/7</div><div class="lbl">поддержка</div></div>
+  </div>
+</section>
+
+<!-- ===== GAMES ===== -->
+<section class="section" id="games">
+  <div class="container">
+    <div class="section-title">🎮 Популярные игры</div>
+    <div class="section-sub">Выберите игру и пополните счёт за пару минут</div>
+    <div class="game-grid" id="gameGrid"></div>
+  </div>
+</section>
+
+<!-- ===== HOW IT WORKS ===== -->
+<section class="section" style="background:var(--bg2)" id="how">
+  <div class="container">
+    <div class="section-title">📖 Как это работает</div>
+    <div class="section-sub">3 простых шага до пополнения</div>
+    <div class="checkout-preview">
+      <div class="checkout-steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div>
+            <div class="step-title">Выберите игру и номинал</div>
+            <div class="step-desc">Найдите свою игру в каталоге и выберите нужный пакет пополнения</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div>
+            <div class="step-title">Введите UID и сервер</div>
+            <div class="step-desc">Просто укажите ваш игровой ID и регион — пароль не требуется</div>
+            <input type="text" placeholder="UID (например, 712345678)" value="712345678" style="margin-top:8px">
+            <select style="margin-top:8px"><option>Europe</option><option>America</option><option>Asia</option></select>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div>
+            <div class="step-title">Оплатите и получите валюту</div>
+            <div class="step-desc">Выберите удобный способ оплаты — и игровая валюта придёт за 3–10 минут</div>
+          </div>
+        </div>
+      </div>
+      <div class="order-summary">
+        <h4>📦 Ваш заказ</h4>
+        <div class="order-row"><span>Genshin Impact — 1980 Кристаллов</span></div>
+        <div class="order-row"><span>Официальная цена</span><span style="text-decoration:line-through;color:var(--text3)">3 590 ₽</span></div>
+        <div class="order-row"><span>Скидка 28%</span><span class="price">-1 005 ₽</span></div>
+        <div class="order-divider"></div>
+        <div class="order-row"><span class="order-total">Итого</span><span class="order-total">2 585 ₽</span></div>
+        <button class="btn-buy" onclick="showSuccess()">💳 Купить сейчас</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DENOMINATIONS DEMO ===== -->
+<section class="section" id="topup-demo">
+  <div class="container">
+    <div class="section-title">💎 Популярные номиналы — Genshin Impact</div>
+    <div class="section-sub">Выберите пакет кристаллов. Чем больше — тем выгоднее!</div>
+    <div class="denom-grid" id="denomGrid"></div>
+    <div style="margin-top:24px;text-align:center">
+      <button class="btn-buy" style="display:inline-block;width:auto;padding:14px 48px" onclick="showSuccess()">Перейти к оформлению</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PROMO ===== -->
+<section class="section" id="promo">
+  <div class="container">
+    <div class="promo-banner">
+      <h3>🎁 Скидка 15% на первый заказ</h3>
+      <p>Зарегистрируйтесь и получите персональный промокод</p>
+      <div class="promo-code" onclick="copyPromo()" title="Нажмите чтобы скопировать">WELCOME15</div>
+      <p style="margin-top:12px;font-size:12px;color:var(--text3)">Нажмите на код, чтобы скопировать</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PAYMENT ===== -->
+<section class="section" style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-title" style="text-align:center">💳 Способы оплаты</div>
+    <div class="section-sub" style="text-align:center">Принимаем все популярные способы оплаты в России и СНГ</div>
+    <div class="payment-grid">
+      <div class="payment-item"><div class="icon">💳</div><div class="name">Банковские карты<br>(МИР, Visa, MC)</div></div>
+      <div class="payment-item"><div class="icon">🟣</div><div class="name">ЮMoney</div></div>
+      <div class="payment-item"><div class="icon">🏦</div><div class="name">Сбербанк Онлайн</div></div>
+      <div class="payment-item"><div class="icon">🔵</div><div class="name">СБП<br>(Система быстрых платежей)</div></div>
+      <div class="payment-item"><div class="icon">💎</div><div class="name">USDT<br>(TRC20)</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== VIP ===== -->
+<section class="section">
+  <div class="container">
+    <div class="section-title" style="text-align:center">🏆 Клуб GamePay</div>
+    <div class="section-sub" style="text-align:center">Покупайте больше — получайте постоянную скидку</div>
+    <div class="vip-grid">
+      <div class="vip-card">
+        <div class="tier-icon">🥉</div>
+        <div class="tier" style="color:#94a3b8">Silver</div>
+        <div style="font-size:13px;color:var(--text2)">При регистрации</div>
+        <div class="benefit">Скидка 15% на первый заказ<br>Базовая поддержка<br>Доступ к акциям</div>
+      </div>
+      <div class="vip-card gold">
+        <div class="tier-icon">🥈</div>
+        <div class="tier" style="color:var(--gold)">Gold</div>
+        <div style="font-size:13px;color:var(--text2)">От 10 000 ₽</div>
+        <div class="benefit">Постоянная скидка 3%<br>Приоритетная поддержка<br>Эксклюзивные промокоды</div>
+      </div>
+      <div class="vip-card diamond">
+        <div class="tier-icon">🥇</div>
+        <div class="tier" style="color:var(--diamond)">Diamond</div>
+        <div style="font-size:13px;color:var(--text2)">От 50 000 ₽</div>
+        <div class="benefit">Постоянная скидка 7%<br>Персональный менеджер<br>Ранний доступ к новинкам</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== REVIEWS ===== -->
+<section class="section" style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-title">⭐ Отзывы игроков</div>
+    <div class="section-sub">Что говорят наши пользователи</div>
+    <div class="review-cards" id="reviewCards"></div>
+  </div>
+</section>
+
+<!-- ===== FAQ ===== -->
+<section class="section" id="faq">
+  <div class="container">
+    <div class="section-title" style="text-align:center">❓ Частые вопросы</div>
+    <div class="section-sub" style="text-align:center">Всё, что нужно знать перед покупкой</div>
+    <div class="faq-list" id="faqList"></div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-col">
+      <div class="logo" style="margin-bottom:12px">GamePay<span>.ru</span></div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Надёжное пополнение мобильных игр для игроков из России и СНГ. Быстро, безопасно, выгодно.</p>
+      <div class="social-links">
+        <a href="#" title="Telegram">💬</a>
+        <a href="#" title="VK">📘</a>
+        <a href="#" title="Discord">🎧</a>
+        <a href="#" title="YouTube">▶️</a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Игры</h4>
+      <a href="#">Genshin Impact</a><a href="#">Honkai: Star Rail</a>
+      <a href="#">PUBG Mobile</a><a href="#">Mobile Legends</a>
+      <a href="#">Free Fire</a><a href="#">Все игры →</a>
+    </div>
+    <div class="footer-col">
+      <h4>Помощь</h4>
+      <a href="#">Как пополнить</a><a href="#">Где найти UID</a>
+      <a href="#">Способы оплаты</a><a href="#">Возврат средств</a>
+      <a href="#">Связаться с нами</a>
+    </div>
+    <div class="footer-col">
+      <h4>О нас</h4>
+      <a href="#">О компании</a><a href="#">Партнёрам</a>
+      <a href="#">Пользовательское соглашение</a><a href="#">Политика конфиденциальности</a>
+    </div>
+  </div>
+  <div class="footer-bottom">© 2026 GamePay.ru. Все права защищены. Не является официальным партнёром игровых компаний.</div>
+</footer>
+
+<!-- ===== SUCCESS MODAL ===== -->
+<div class="modal-overlay" id="successModal">
+  <div class="modal">
+    <div class="status-icon">✅</div>
+    <h3>Заказ оформлен!</h3>
+    <p>1980 Кристаллов для Genshin Impact<br>UID: 712345678 · Сервер: Europe</p>
+    <div class="progress-bar"><div class="fill" style="width:100%"></div></div>
+    <p style="font-size:13px;color:var(--green)">Пополнение выполнено за 3 минуты 42 секунды</p>
+    <button class="btn-close" onclick="document.getElementById('successModal').classList.remove('show')">Отлично!</button>
+  </div>
+</div>
+
+<!-- ===== LOGIN MODAL ===== -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal" style="text-align:left">
+    <h3 style="text-align:center">👋 Добро пожаловать</h3>
+    <p style="text-align:center;color:var(--text2)">Войдите, чтобы отслеживать заказы и получать бонусы</p>
+    <input type="email" placeholder="Email" style="width:100%;padding:12px;background:var(--bg3);color:#fff;border-radius:8px;margin-bottom:12px;font-size:14px">
+    <input type="password" placeholder="Пароль" style="width:100%;padding:12px;background:var(--bg3);color:#fff;border-radius:8px;margin-bottom:16px;font-size:14px">
+    <button class="btn-buy" style="margin-top:0">Войти</button>
+    <p style="text-align:center;margin-top:16px;font-size:13px;color:var(--text2)">Нет аккаунта? <a href="#" style="color:var(--accent2)">Зарегистрироваться</a></p>
+    <button style="display:block;margin:12px auto 0;background:none;color:var(--text3);font-size:13px" onclick="document.getElementById('loginModal').classList.remove('show')">Продолжить без входа</button>
+  </div>
+</div>
+
+<script>
+// ===== Data =====
+const games = [
+  {name:'Genshin Impact',icon:'✨',discount:'-28%',uid:true,color:'#6366f1'},
+  {name:'Honkai: Star Rail',icon:'🚂',discount:'-25%',uid:true,color:'#06b6d4'},
+  {name:'PUBG Mobile',icon:'🔫',discount:'-22%',uid:true,color:'#f59e0b'},
+  {name:'Mobile Legends',icon:'⚔️',discount:'-30%',uid:true,color:'#ef4444'},
+  {name:'Free Fire',icon:'🔥',discount:'-20%',uid:true,color:'#f97316'},
+  {name:'Wuthering Waves',icon:'🌊',discount:'-25%',uid:true,color:'#8b5cf6'},
+  {name:'Call of Duty Mobile',icon:'🎯',discount:'-18%',uid:true,color:'#64748b'},
+  {name:'Clash Royale',icon:'👑',discount:'-15%',uid:false,color:'#fbbf24'},
+  {name:'Brawl Stars',icon:'💥',discount:'-22%',uid:false,color:'#ec4899'},
+  {name:'Zenless Zone Zero',icon:'⚡',discount:'-25%',uid:true,color:'#22c55e'},
+  {name:'Minecraft',icon:'⛏️',discount:'-10%',uid:false,color:'#78716c'},
+  {name:'Honor of Kings',icon:'🏯',discount:'-20%',uid:true,color:'#dc2626'},
+];
+
+const denoms = [
+  {crystals:'60 Кристаллов',orig:'149 ₽',price:'119 ₽',saved:'-20%'},
+  {crystals:'300 Кристаллов',orig:'749 ₽',price:'559 ₽',saved:'-25%'},
+  {crystals:'980 Кристаллов',orig:'1 790 ₽',price:'1 329 ₽',saved:'-26%'},
+  {crystals:'1980 Кристаллов',orig:'3 590 ₽',price:'2 585 ₽',saved:'-28%',popular:true},
+  {crystals:'3280 Кристаллов',orig:'5 390 ₽',price:'3 879 ₽',saved:'-28%'},
+  {crystals:'6480 Кристаллов',orig:'10 790 ₽',price:'7 449 ₽',saved:'-31%'},
+];
+
+const reviews = [
+  {stars:5,text:'Пополнил Геншин за 4 минуты! Цена реально ниже, чем в игре. Рекомендую!',user:'Алексей',avatar:'А'},
+  {stars:5,text:'Пользуюсь уже полгода, ни разу не подводили. Поддержка отвечает быстро в Telegram.',user:'Дмитрий',avatar:'Д'},
+  {stars:5,text:'Очень удобно платить через ЮMoney. Раньше мучился с VPN и картами, теперь всё просто.',user:'Екатерина',avatar:'Е'},
+  {stars:4,text:'Цены хорошие, но хотелось бы больше игр. Пока только самое популярное.',user:'Максим',avatar:'М'},
+  {stars:5,text:'Первый раз боялся, но всё прошло отлично. Получил скидку 15% как новый игрок!',user:'Ольга',avatar:'О'},
+];
+
+const faqs = [
+  {q:'Как быстро придёт валюта после оплаты?',a:'В 95% случаев — от 3 до 10 минут. Если заказ задерживается более 15 минут, обратитесь в поддержку через Telegram.'},
+  {q:'Нужно ли передавать пароль от аккаунта?',a:'Нет! Требуется только UID и сервер — пароль никогда не запрашивается. Ваш аккаунт в полной безопасности.'},
+  {q:'Какие способы оплаты вы принимаете?',a:'Мы принимаем банковские карты МИР/Visa/Mastercard (через ЮKassa), ЮMoney, Сбербанк Онлайн, СБП и USDT (TRC20).'},
+  {q:'Что делать, если валюта не пришла?',a:'Проверьте правильность UID и сервера. Если всё верно, напишите в поддержку — мы проверим заказ и вернём деньги при необходимости.'},
+  {q:'Можно ли вернуть деньги?',a:'Да, если валюта не была зачислена по нашей вине или при ошибке в заказе — мы вернём средства в течение 24 часов.'},
+  {q:'Как получить скидку для постоянных клиентов?',a:'Зарегистрируйтесь и совершайте покупки. При достижении 10 000 ₽ вы получаете 3% скидку (Gold), при 50 000 ₽ — 7% (Diamond).'},
+];
+
+// ===== Render Functions =====
+function renderGames(filter=''){
+  const grid = document.getElementById('gameGrid');
+  const filtered = games.filter(g=>g.name.toLowerCase().includes(filter.toLowerCase()));
+  grid.innerHTML = filtered.map(g=>`
+    <div class="game-card" style="--c:${g.color}" onclick="scrollToDemo()">
+      <div class="icon" style="background:${g.color}22">${g.icon}</div>
+      <div class="name">${g.name}</div>
+      <div class="discount">${g.discount}</div>
+      ${g.uid ? '<div style="font-size:11px;color:var(--green);margin-top:4px">⚡ UID пополнение</div>' : ''}
+    </div>
+  `).join('');
+}
+function filterGames(val){renderGames(val)}
+
+function renderDenoms(){
+  document.getElementById('denomGrid').innerHTML = denoms.map((d,i)=>`
+    <div class="denom-card${d.popular?' selected':''}" onclick="selectDenom(this)">
+      <div class="crystals">${d.crystals}${d.popular?' ⭐':''}</div>
+      <div class="orig">${d.orig}</div>
+      <div class="price">${d.price}</div>
+      <div class="saved">Экономия ${d.saved}</div>
+    </div>
+  `).join('');
+}
+function selectDenom(el){
+  document.querySelectorAll('.denom-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function renderReviews(){
+  document.getElementById('reviewCards').innerHTML = reviews.map(r=>`
+    <div class="review-card">
+      <div class="stars">${'⭐'.repeat(r.stars)}</div>
+      <div class="text">"${r.text}"</div>
+      <div class="user">
+        <div class="avatar">${r.avatar}</div>
+        <div class="uname">${r.user}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderFaq(){
+  document.getElementById('faqList').innerHTML = faqs.map((f,i)=>`
+    <div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q">${f.q} <span>▾</span></div>
+      <div class="faq-a">${f.a}</div>
+    </div>
+  `).join('');
+}
+
+function showSuccess(){
+  document.getElementById('successModal').classList.add('show');
+}
+
+function copyPromo(){
+  navigator.clipboard.writeText('WELCOME15').then(()=>{
+    const el = document.querySelector('.promo-code');
+    el.textContent = 'СКОПИРОВАНО ✅';
+    setTimeout(()=>{el.textContent='WELCOME15'},2000);
+  });
+}
+
+function scrollToDemo(){
+  document.getElementById('topup-demo').scrollIntoView({behavior:'smooth'});
+}
+
+function switchLang(lang, btn){
+  document.querySelectorAll('.lang-switch button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  // Prototype: just visual toggle
+}
+
+// ===== Init =====
+renderGames();
+renderDenoms();
+renderReviews();
+renderFaq();
+
+// ===== Intersection Observer for animation =====
+const observer = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting) e.target.style.opacity='1';
+  });
+},{threshold:0.1});
+document.querySelectorAll('.game-card,.vip-card,.payment-item').forEach(el=>{
+  observer.observe(el);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-CN">
+
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=5, viewport-fit=cover" />
+    <title>RangerAI - 游侠出海 AI 中台</title>
+    <meta name="description" content="RangerAI 是游侠出海团队的 AI 中台协作工具，提供智能对话、知识管理、工作流自动化、KOL 管理等一站式解决方案。" />
+    <meta name="keywords" content="RangerAI, AI 中台, 游侠出海, 智能对话, 知识管理, 工作流自动化, KOL 管理, OpenClaw" />
+    <meta name="author" content="游侠出海 Voyage" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#09090b" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="RangerAI" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="RangerAI - 游侠出海 AI 中台" />
+    <meta property="og:description" content="智能对话、知识管理、工作流自动化、KOL 管理 — 一站式 AI 协作平台" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://ranger.voyage/" />
+    <meta property="og:site_name" content="RangerAI" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:locale:alternate" content="zh_TW" />
+    <meta property="og:locale:alternate" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="RangerAI - 游侠出海 AI 中台" />
+    <meta name="twitter:description" content="智能对话、知识管理、工作流自动化、KOL 管理 — 一站式 AI 协作平台" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://ranger.voyage/" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "RangerAI",
+      "url": "https://ranger.voyage/",
+      "description": "游侠出海团队的 AI 中台协作工具，提供智能对话、知识管理、工作流自动化等功能",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "游侠出海 Voyage"
+      }
+    }
+    </script>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+
+  <body>
+    <div id="root">
+      <!-- Inline loading skeleton — shown before React hydrates, zero JS dependency -->
+      <style>
+        #app-shell {
+          display: flex;
+          height: 100vh;
+          background: #09090b;
+          font-family: Inter, system-ui, sans-serif;
+        }
+        #app-shell-sidebar {
+          width: 260px;
+          background: #111113;
+          border-right: 1px solid #27272a;
+          display: flex;
+          flex-direction: column;
+          padding: 16px 12px;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+        #app-shell-sidebar .logo {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 4px 16px;
+          color: #fff;
+          font-size: 15px;
+          font-weight: 600;
+        }
+        #app-shell-sidebar .logo svg {
+          width: 24px; height: 24px;
+          color: #7c3aed;
+        }
+        .skel {
+          background: linear-gradient(90deg, #27272a 25%, #3f3f46 50%, #27272a 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.4s infinite;
+          border-radius: 6px;
+        }
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        #app-shell-main {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-end;
+          padding: 24px;
+          gap: 16px;
+        }
+        #app-shell-spinner {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          color: #71717a;
+          font-size: 13px;
+        }
+        #app-shell-spinner .ring {
+          width: 32px; height: 32px;
+          border: 2px solid #27272a;
+          border-top-color: #7c3aed;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #app-shell-input {
+          width: 100%;
+          max-width: 680px;
+          height: 52px;
+          border: 1px solid #27272a;
+          border-radius: 12px;
+        }
+        @media (max-width: 768px) {
+          #app-shell-sidebar { display: none; }
+          #app-shell-main { padding: 16px; }
+        }
+      </style>
+      <div id="app-shell">
+        <div id="app-shell-sidebar">
+          <div class="logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+            RangerAI
+          </div>
+          <div class="skel" style="height:32px;margin-bottom:4px"></div>
+          <div class="skel" style="height:28px;opacity:.7"></div>
+          <div class="skel" style="height:28px;opacity:.5"></div>
+          <div class="skel" style="height:28px;opacity:.3"></div>
+        </div>
+        <div id="app-shell-main">
+          <div id="app-shell-spinner">
+            <div class="ring"></div>
+            <span>正在加载…</span>
+          </div>
+          <div class="skel" id="app-shell-input"></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+
+</html>

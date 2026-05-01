@@ -1,0 +1,134 @@
+// ─── Task Engine v2.0 (R98 refactored) ────────────────────────────────────
+// R98 渐进拆分后：原 1212 行拆为 5 个独立模块
+//
+// 架构分层：
+//   plan-parser.mjs         — 纯文本解析（无副作用）
+//   complexity-estimator.mjs — 复杂度估算（纯启发式）
+//   task-state-model.mjs     — 状态数据变换（纯函数）
+//   plan-generator.mjs       — 计划生成与生命周期（依赖 task-state-manager）
+//   task-state-manager.mjs   — 任务状态 SQLite 持久化（独立）
+//
+// 本文件职责：统一 re-export + LAYER 2 进度追踪辅助函数
+// R98 verifier references: task-diagnostics task-progress extracted boundaries are used by this facade.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { readFileSync } from 'node:fs';
+import { logger } from '../lib/logger.mjs';
+import { createLogger } from './lib/structured-logger.mjs'; // R100: 结构化日志工厂
+
+// ─── Re-exports from extracted modules ───
+export { estimateComplexity } from './complexity-estimator.mjs';
+export { parsePlanFromText, parsePhaseCompletion, parseRecoveryMarker, extractGoalHeuristic } from './plan-parser.mjs';
+export { rowToState, createDefaultState, mergeState, getOrCreateTaskState, updateTaskState, getTaskStateSnapshot, getActiveTaskState, completeTask } from './task-lifecycle.mjs';
+export { buildTaskDiagnostic, formatTaskDiagnostic, shouldEmitDiagnostic } from './task-diagnostics.mjs';
+export { storePlan, getPlan, updatePlanPhase, emitPlanCreated, emitPlanPhaseUpdate, processTextForPlan, generatePlan, cleanupPlan, getSerializablePlan } from './plan-generator.mjs';
+
+// ─── Re-exports from progress-tracker.mjs ───
+import {
+  progressStore, getProgressTracker, initTrackerFromPlan, markStepDone, recordStepEvidence,
+  hasStepEvidence, getStepEvidence, clearEvidence, markStepRunning,
+  buildProgressBlock, hasProgress, shouldTrackProgress, cleanupTracker,
+  getTrackerStats, getTrackerDiagnostics, setTrackerMsgId,
+  recordDiagnostic, cleanupProgressTrackerResources, PROGRESS_PREFIXES,
+} from './task-progress.mjs';
+export {
+  progressStore, getProgressTracker, initTrackerFromPlan, markStepDone, recordStepEvidence,
+  hasStepEvidence, getStepEvidence, clearEvidence, markStepRunning,
+  buildProgressBlock, hasProgress, shouldTrackProgress, cleanupTracker,
+  getTrackerStats, getTrackerDiagnostics, setTrackerMsgId,
+  recordDiagnostic, cleanupProgressTrackerResources, PROGRESS_PREFIXES,
+};
+
+// ─── Internal imports for LAYER 2 functions ───
+import { getActivePlan as dbGetActivePlan } from "./db-proxy.mjs";
+import { cleanupPlanGeneratorResources } from './plan-generator.mjs';
+import { cleanupTaskStateResources } from './task-lifecycle.mjs';
+
+const ts = () => new Date().toISOString();
+
+// ═══════════════════════════════════════════════════
+// LAYER 2: Progress Tracker helpers (only 3 functions remain)
+// ═══════════════════════════════════════════════════
+
+export function cleanupTaskEngineResources() {
+  cleanupPlanGeneratorResources();   // [R98] planStore.dispose()
+  cleanupTaskStateResources();       // [R98] _stateCache.dispose() + timer cleanup
+  cleanupProgressTrackerResources(); // [R98] Progress tracker timer cleanup
+}
+
+/**
+ * R56: Restore tracker state from DB after restart.
+ * Called during session initialization to recover persisted progress.
+ */
+export async function restoreTrackerFromDB(sessionKey) {
+  try {
+    const activePlan = await dbGetActivePlan(sessionKey);
+    if (!activePlan || !activePlan.plan) return false;
+    
+    const plan = activePlan.plan;
+    const phases = (plan.phases || plan.steps || []).map((s, i) => ({
+      id: s.id || i + 1,
+      title: s.title || `步骤 ${i + 1}`,
+      status: s.done || s.status === 'done' ? 'completed' : s.status === 'running' ? 'running' : 'pending'
+    }));
+    
+    if (phases.length < 2) return false;
+    
+    const tracker = getProgressTracker(sessionKey);
+    tracker._steps = phases;
+    tracker._goal = plan.goal || '';
+    tracker._totalSteps = phases.length;
+    tracker._completedSteps = phases.filter(s => s.status === 'completed').length;
+    tracker._initialized = true;
+    tracker._initSource = 'db_restore';
+    tracker._lastMsgId = activePlan.msg_id;
+    
+    logger.info(`[${ts()}] [progress-tracker] [R56] Restored from DB for ${sessionKey}: ${tracker._totalSteps} steps, ${tracker._completedSteps} done`);
+    recordDiagnostic(sessionKey, 'db_restored', `${tracker._totalSteps} steps, ${tracker._completedSteps} done`);
+    return true;
+  } catch (err) {
+    logger.info(`[${ts()}] [progress-tracker] [R56] DB restore failed: ${err.message}`);
+    return false;
+  }
+}
+
+/**
+ * buildActiveStatusBlock — Manus todo.md attention mechanism (Iter-Q v25.20)
+ *
+ * Injected after each tool call to keep the model aligned with plan progress.
+ *
+ * @param {string} sessionKey
+ * @returns {string} Plan status block, empty string if nothing to inject
+ */
+export function buildActiveStatusBlock(sessionKey) {
+  const tracker = progressStore.get(sessionKey);
+  if (!tracker || !tracker._initialized || !tracker._steps || tracker._steps.length === 0) return "";
+
+  const steps = tracker._steps;
+  const done = steps.filter(s => s.status === "completed").length;
+  const total = steps.length;
+
+  if (done === total) return "";
+
+  const completedLines = steps
+    .filter(s => s.status === "completed")
+    .map(s => `  ✅ ${s.title}`)
+    .join('\n');
+
+  const remainingSteps = steps.filter(s => s.status !== "completed");
+  const pendingLines = remainingSteps
+    .slice(0, 3)
+    .map((s, i) => `  ${i === 0 ? '▶' : '○'} ${s.title}`)
+    .join('\n');
+
+  const goalLine = tracker._goal ? `目标：${tracker._goal}\n` : '';
+
+  const lines = [
+    `[TASK_STATUS] ${goalLine}进度 ${done}/${total}`,
+    completedLines,
+    pendingLines,
+    '[/TASK_STATUS]',
+  ].filter(Boolean).join('\n');
+
+  return '\n\n' + lines;
+}

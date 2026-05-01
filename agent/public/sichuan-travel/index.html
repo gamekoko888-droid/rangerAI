@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>四川旅游攻略 | 天府之国 · 探索之旅</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --red: #c0392b;
+    --gold: #d4a017;
+    --dark: #1a1a2e;
+    --card-bg: #ffffff;
+    --text: #2c3e50;
+    --light-bg: #f8f4ef;
+    --green: #27ae60;
+    --blue: #2980b9;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    background: var(--light-bg);
+    color: var(--text);
+  }
+
+  /* ===== NAV ===== */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+    background: rgba(26, 26, 46, 0.95);
+    backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 5%; height: 60px;
+  }
+  .nav-logo { color: var(--gold); font-size: 1.2rem; font-weight: 700; letter-spacing: 2px; }
+  .nav-links { display: flex; gap: 24px; }
+  .nav-links a {
+    color: rgba(255,255,255,0.8); text-decoration: none;
+    font-size: 0.9rem; transition: color .3s;
+  }
+  .nav-links a:hover { color: var(--gold); }
+  .nav-toggle { display: none; cursor: pointer; background: none; border: none; }
+  .nav-toggle span { display: block; width: 24px; height: 2px; background: white; margin: 5px 0; transition: .3s; }
+
+  /* ===== HERO ===== */
+  .hero {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #533483 100%);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden; padding-top: 60px;
+  }
+  .hero-bg-art {
+    position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  }
+  /* 装饰山峰SVG背景 */
+  .hero-bg-art::before {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0; height: 60%;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 400'%3E%3Cpolygon points='0,400 200,100 400,250 600,50 800,200 1000,80 1200,180 1440,60 1440,400' fill='rgba(255,255,255,0.03)'/%3E%3Cpolygon points='0,400 150,200 350,300 550,120 750,260 950,140 1150,220 1350,100 1440,160 1440,400' fill='rgba(255,255,255,0.04)'/%3E%3C/svg%3E") no-repeat bottom / cover;
+  }
+  .hero-particles {
+    position: absolute; inset: 0;
+  }
+  .particle {
+    position: absolute; border-radius: 50%; background: rgba(212,160,23,0.3);
+    animation: float linear infinite;
+  }
+
+  @keyframes float {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
+  }
+
+  .hero-content {
+    position: relative; z-index: 2;
+    text-align: center; padding: 0 20px; max-width: 900px;
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(212,160,23,0.2);
+    border: 1px solid rgba(212,160,23,0.5);
+    color: var(--gold);
+    padding: 6px 20px; border-radius: 20px;
+    font-size: 0.85rem; letter-spacing: 3px;
+    margin-bottom: 24px;
+  }
+  .hero-title {
+    font-size: clamp(2.8rem, 8vw, 6rem);
+    color: white; font-weight: 900;
+    line-height: 1.1; margin-bottom: 12px;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .hero-title span { color: var(--gold); }
+  .hero-subtitle {
+    font-size: clamp(1rem, 2.5vw, 1.4rem);
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 16px; letter-spacing: 4px;
+  }
+  .hero-desc {
+    font-size: 1rem; color: rgba(255,255,255,0.6);
+    max-width: 500px; margin: 0 auto 40px; line-height: 1.8;
+  }
+  .hero-stats {
+    display: flex; gap: 40px; justify-content: center; flex-wrap: wrap;
+    margin-bottom: 48px;
+  }
+  .hero-stat { text-align: center; }
+  .hero-stat .num {
+    font-size: 2rem; font-weight: 800; color: var(--gold); display: block;
+  }
+  .hero-stat .label { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+  .hero-btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--red), #e74c3c);
+    color: white; padding: 14px 36px; border-radius: 50px;
+    text-decoration: none; font-weight: 700; font-size: 1rem;
+    transition: transform .3s, box-shadow .3s;
+    box-shadow: 0 4px 20px rgba(192,57,43,0.4);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(192,57,43,0.5); }
+  .btn-secondary {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white; padding: 14px 36px; border-radius: 50px;
+    text-decoration: none; font-weight: 600; font-size: 1rem;
+    transition: .3s; backdrop-filter: blur(4px);
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.2); }
+
+  .scroll-hint {
+    position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.4); font-size: 0.8rem; text-align: center;
+    animation: bounce 2s infinite;
+  }
+  .scroll-hint::after {
+    content: '↓'; display: block; font-size: 1.2rem; margin-top: 4px;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(8px); }
+  }
+
+  /* ===== SECTION COMMON ===== */
+  section { padding: 80px 5%; }
+  .section-header { text-align: center; margin-bottom: 56px; }
+  .section-tag {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--red), var(--gold));
+    color: white; padding: 4px 16px; border-radius: 12px;
+    font-size: 0.75rem; letter-spacing: 2px; margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    color: var(--dark); font-weight: 800; margin-bottom: 12px;
+  }
+  .section-desc { color: #666; font-size: 1rem; max-width: 500px; margin: 0 auto; line-height: 1.7; }
+
+  /* ===== SPOTS ===== */
+  #spots { background: white; }
+  .spots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 28px; max-width: 1200px; margin: 0 auto;
+  }
+  .spot-card {
+    border-radius: 20px; overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    transition: transform .3s, box-shadow .3s;
+    background: white; cursor: pointer;
+  }
+  .spot-card:hover { transform: translateY(-8px); box-shadow: 0 16px 48px rgba(0,0,0,0.15); }
+  .spot-img {
+    height: 220px; position: relative; overflow: hidden;
+  }
+  .spot-img-inner {
+    width: 100%; height: 100%; transition: transform .5s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 5rem;
+  }
+  .spot-card:hover .spot-img-inner { transform: scale(1.08); }
+  .spot-badge {
+    position: absolute; top: 16px; left: 16px;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+    color: white; padding: 4px 12px; border-radius: 20px;
+    font-size: 0.75rem;
+  }
+  .spot-badge.hot { background: rgba(192,57,43,0.8); }
+  .spot-badge.new { background: rgba(39,174,96,0.8); }
+  .spot-rating {
+    position: absolute; top: 16px; right: 16px;
+    background: rgba(212,160,23,0.9);
+    color: white; padding: 4px 10px; border-radius: 20px;
+    font-size: 0.8rem; font-weight: 700;
+  }
+  .spot-body { padding: 20px; }
+  .spot-name { font-size: 1.2rem; font-weight: 700; color: var(--dark); margin-bottom: 6px; }
+  .spot-loc { font-size: 0.82rem; color: #999; margin-bottom: 10px; }
+  .spot-loc::before { content: '📍 '; }
+  .spot-desc { font-size: 0.9rem; color: #555; line-height: 1.7; margin-bottom: 14px; }
+  .spot-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .spot-tag {
+    background: #f0f4ff; color: var(--blue);
+    padding: 3px 10px; border-radius: 10px; font-size: 0.75rem;
+  }
+  .spot-info { display: flex; justify-content: space-between; padding-top: 14px; border-top: 1px solid #f0f0f0; }
+  .spot-info-item { text-align: center; }
+  .spot-info-item .val { font-weight: 700; color: var(--red); font-size: 0.95rem; }
+  .spot-info-item .key { font-size: 0.72rem; color: #aaa; margin-top: 2px; }
+
+  /* ===== FOOD ===== */
+  #food { background: var(--light-bg); }
+  .food-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 24px; max-width: 1200px; margin: 0 auto;
+  }
+  .food-card {
+    background: white; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+    transition: .3s;
+  }
+  .food-card:hover { transform: translateY(-4px); box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
+  .food-emoji-box {
+    height: 140px; display: flex; align-items: center; justify-content: center;
+    font-size: 4.5rem; position: relative;
+  }
+  .food-spicy {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 0.8rem; color: var(--red); font-weight: 700;
+  }
+  .food-body { padding: 18px; }
+  .food-name { font-size: 1.1rem; font-weight: 700; color: var(--dark); margin-bottom: 6px; }
+  .food-type { font-size: 0.78rem; color: #999; margin-bottom: 8px; }
+  .food-desc { font-size: 0.88rem; color: #555; line-height: 1.6; margin-bottom: 12px; }
+  .food-recommend {
+    background: #fff8e6; border-left: 3px solid var(--gold);
+    padding: 8px 12px; border-radius: 0 8px 8px 0;
+    font-size: 0.8rem; color: #7a5900;
+  }
+
+  /* ===== TRANSPORT ===== */
+  #transport { background: var(--dark); }
+  #transport .section-title { color: white; }
+  #transport .section-desc { color: rgba(255,255,255,0.5); }
+  .transport-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px; max-width: 1100px; margin: 0 auto;
+  }
+  .transport-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px; padding: 32px;
+    transition: .3s; backdrop-filter: blur(4px);
+  }
+  .transport-card:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(212,160,23,0.4);
+    transform: translateY(-4px);
+  }
+  .transport-icon { font-size: 2.8rem; margin-bottom: 16px; }
+  .transport-name { font-size: 1.2rem; font-weight: 700; color: white; margin-bottom: 8px; }
+  .transport-tag {
+    display: inline-block; background: rgba(212,160,23,0.2);
+    color: var(--gold); padding: 2px 12px; border-radius: 10px;
+    font-size: 0.75rem; margin-bottom: 16px;
+  }
+  .transport-list { list-style: none; }
+  .transport-list li {
+    color: rgba(255,255,255,0.65); font-size: 0.88rem;
+    padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: flex-start; gap: 8px; line-height: 1.5;
+  }
+  .transport-list li::before { content: '›'; color: var(--gold); flex-shrink: 0; margin-top: 1px; }
+
+  /* ===== ROUTES ===== */
+  #routes { background: white; }
+  .routes-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 28px; max-width: 1100px; margin: 0 auto;
+  }
+  .route-card {
+    border: 2px solid #f0f0f0; border-radius: 20px; padding: 28px;
+    transition: .3s; position: relative; overflow: hidden;
+  }
+  .route-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  }
+  .route-card.r1::before { background: linear-gradient(90deg, var(--red), var(--gold)); }
+  .route-card.r2::before { background: linear-gradient(90deg, var(--blue), #27ae60); }
+  .route-card.r3::before { background: linear-gradient(90deg, #9b59b6, #e91e63); }
+  .route-card:hover { border-color: var(--gold); box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
+  .route-label {
+    display: inline-block; background: #f8f4ef;
+    color: #666; padding: 4px 14px; border-radius: 20px;
+    font-size: 0.78rem; margin-bottom: 14px;
+  }
+  .route-title { font-size: 1.25rem; font-weight: 800; color: var(--dark); margin-bottom: 8px; }
+  .route-days {
+    display: inline-block; background: var(--red);
+    color: white; padding: 2px 12px; border-radius: 10px;
+    font-size: 0.8rem; font-weight: 700; margin-bottom: 16px;
+  }
+  .route-stops {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin-bottom: 16px;
+  }
+  .route-stop {
+    background: #f0f4ff; color: var(--blue);
+    padding: 4px 12px; border-radius: 20px; font-size: 0.82rem;
+  }
+  .route-arrow { color: #ccc; font-size: 0.9rem; }
+  .route-highlights { font-size: 0.85rem; color: #666; line-height: 1.8; }
+  .route-highlights strong { color: var(--red); }
+  .route-budget {
+    margin-top: 16px; padding-top: 16px; border-top: 1px solid #f0f0f0;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .route-budget .price { font-size: 1.3rem; font-weight: 800; color: var(--red); }
+  .route-budget .price-note { font-size: 0.78rem; color: #aaa; }
+
+  /* ===== TIPS ===== */
+  #tips { background: linear-gradient(135deg, #f8f4ef, #fff); }
+  .tips-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px; max-width: 1100px; margin: 0 auto;
+  }
+  .tip-card {
+    background: white; border-radius: 16px; padding: 28px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+    transition: .3s; text-align: center;
+  }
+  .tip-card:hover { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(0,0,0,0.1); }
+  .tip-icon { font-size: 2.8rem; margin-bottom: 16px; }
+  .tip-title { font-size: 1rem; font-weight: 700; color: var(--dark); margin-bottom: 10px; }
+  .tip-content { font-size: 0.85rem; color: #555; line-height: 1.8; }
+  .tip-highlight { color: var(--red); font-weight: 600; }
+
+  /* ===== SEASON ===== */
+  #season { background: var(--dark); padding: 60px 5%; }
+  .season-title-wrap { text-align: center; margin-bottom: 48px; }
+  .season-title-wrap h2 { font-size: 2rem; color: white; font-weight: 800; }
+  .season-title-wrap p { color: rgba(255,255,255,0.5); margin-top: 8px; }
+  .season-bars {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 16px; max-width: 900px; margin: 0 auto;
+  }
+  .season-bar { text-align: center; }
+  .season-bar-fill {
+    height: 120px; border-radius: 12px; display: flex; align-items: flex-end;
+    justify-content: center; padding-bottom: 12px; transition: .5s;
+  }
+  .season-bar-fill span { color: white; font-weight: 700; font-size: 0.9rem; }
+  .sb-spring { background: linear-gradient(180deg, rgba(39,174,96,0.8), rgba(39,174,96,0.3)); height: 90px; }
+  .sb-summer { background: linear-gradient(180deg, rgba(231,76,60,0.9), rgba(231,76,60,0.4)); height: 120px; }
+  .sb-autumn { background: linear-gradient(180deg, rgba(212,160,23,0.9), rgba(212,160,23,0.4)); height: 110px; }
+  .sb-winter { background: linear-gradient(180deg, rgba(52,152,219,0.8), rgba(52,152,219,0.3)); height: 70px; }
+  .season-name { color: white; font-weight: 700; margin-top: 12px; font-size: 1rem; }
+  .season-months { color: rgba(255,255,255,0.4); font-size: 0.78rem; margin-top: 4px; }
+  .season-note { color: rgba(255,255,255,0.6); font-size: 0.82rem; margin-top: 8px; line-height: 1.6; }
+
+  /* ===== FOOTER ===== */
+  footer {
+    background: #0d0d1a; color: rgba(255,255,255,0.4);
+    text-align: center; padding: 40px 5%;
+    font-size: 0.85rem; line-height: 2;
+  }
+  footer .footer-logo { color: var(--gold); font-size: 1.3rem; font-weight: 800; margin-bottom: 12px; }
+  footer a { color: rgba(255,255,255,0.5); text-decoration: none; }
+
+  /* ===== BACK TO TOP ===== */
+  #back-top {
+    position: fixed; bottom: 30px; right: 30px; z-index: 999;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--red); color: white;
+    border: none; cursor: pointer; font-size: 1.2rem;
+    box-shadow: 0 4px 16px rgba(192,57,43,0.4);
+    display: none; align-items: center; justify-content: center;
+    transition: .3s;
+  }
+  #back-top:hover { transform: translateY(-2px); }
+  #back-top.show { display: flex; }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    nav { padding: 0 4%; }
+    .nav-links { display: none; flex-direction: column; position: absolute; top: 60px; left: 0; right: 0; background: rgba(26,26,46,0.98); padding: 16px 5%; gap: 16px; }
+    .nav-links.open { display: flex; }
+    .nav-toggle { display: block; }
+
+    section { padding: 60px 4%; }
+    .hero-stats { gap: 24px; }
+    .hero-btns { flex-direction: column; align-items: center; }
+    .season-bars { grid-template-columns: repeat(2, 1fr); }
+    .spots-grid, .food-grid { grid-template-columns: 1fr; }
+    .transport-grid { grid-template-columns: 1fr; }
+    .routes-grid { grid-template-columns: 1fr; }
+    .tips-grid { grid-template-columns: repeat(2, 1fr); }
+    #back-top { bottom: 20px; right: 16px; }
+  }
+  @media (max-width: 480px) {
+    .tips-grid { grid-template-columns: 1fr; }
+    .hero-badge { font-size: 0.75rem; letter-spacing: 1px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">🐼 天府四川</div>
+  <div class="nav-links" id="navLinks">
+    <a href="#spots">景点</a>
+    <a href="#food">美食</a>
+    <a href="#transport">交通</a>
+    <a href="#routes">路线</a>
+    <a href="#tips">攻略</a>
+  </div>
+  <button class="nav-toggle" id="navToggle" aria-label="菜单">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-bg-art"></div>
+  <div class="hero-particles" id="particles"></div>
+  <div class="hero-content">
+    <div class="hero-badge">✦ 2025 旅游攻略 ✦</div>
+    <h1 class="hero-title">探索<span>天府之国</span></h1>
+    <p class="hero-subtitle">四 川 · 山 河 壮 美 · 人 文 深 厚</p>
+    <p class="hero-desc">从成都繁华街巷到九寨沟仙境湖泊，从峨眉金顶云海到稻城亚丁雪峰，四川以无与伦比的自然风光与浓郁的巴蜀文化，等待你的到来。</p>
+    <div class="hero-stats">
+      <div class="hero-stat"><span class="num">8</span><span class="label">世界遗产</span></div>
+      <div class="hero-stat"><span class="num">180+</span><span class="label">4A/5A景区</span></div>
+      <div class="hero-stat"><span class="num">3.5亿</span><span class="label">年度游客</span></div>
+      <div class="hero-stat"><span class="num">1600+</span><span class="label">种特色美食</span></div>
+    </div>
+    <div class="hero-btns">
+      <a href="#spots" class="btn-primary">开始探索 →</a>
+      <a href="#routes" class="btn-secondary">查看路线</a>
+    </div>
+  </div>
+  <div class="scroll-hint">向下滚动</div>
+</section>
+
+<!-- SPOTS -->
+<section id="spots">
+  <div class="section-header">
+    <div class="section-tag">必游景点</div>
+    <h2 class="section-title">四川十大经典景区</h2>
+    <p class="section-desc">从自然奇观到人文古迹，每一处都是难忘的旅行记忆</p>
+  </div>
+  <div class="spots-grid">
+
+    <div class="spot-card">
+      <div class="spot-img" style="background: linear-gradient(135deg,#1a6b3a,#2d9e6b);">
+        <div class="spot-img-inner">🏔️</div>
+        <div class="spot-badge hot">🔥 最热门</div>
+        <div class="spot-rating">★ 4.9</div>
+      </div>
+      <div class="spot-body">
+        <div class="spot-name">九寨沟</div>
+        <div class="spot-loc">阿坝藏族羌族自治州 · 九寨沟县</div>
+        <p class="spot-desc">世界自然遗产，以五彩斑斓的湖泊、瀑布和雪山著称。五花海、珍珠滩瀑布、诺日朗瀑布是必打卡景点，秋季色彩最为惊艳。</p>
+        <div class="spot-tags">
+          <span class="spot-tag">世界遗产</span>
+          <span class="spot-tag">湖泊群</span>
+          <span class="spot-tag">秋季最美</span>
+        </div>
+        <div class="spot-info">
+          <div class="spot-info-item"><div class="val">¥169</div><div class="key">旺季门票</div></div>
+          <div class="spot-info-item"><div class="val">海拔2000m</div><div class="key">景区高度</div></div>
+          <div class="spot-info-item"><div class="val">2天</div><div class="key">建议时长</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <div class="spot-img" style="background: linear-gradient(135deg,#4a3728,#7a5c47);">
+        <div class="spot-img-inner">🛕</div>
+        <div class="spot-badge hot">🔥 世界遗产</div>
+        <div class="spot-rating">★ 4.8</div>
+      </div>
+      <div class="spot-body">
+        <div class="spot-name">峨眉山</div>
+        <div class="spot-loc">乐山市 · 峨眉山市</div>
+        <p class="spot-desc">四大佛教名山之一，金顶海拔3077米可观云海、日出与佛光。十方普贤金像巍然矗立，灵猴群聚成趣，是自然与佛教文化完美融合的圣地。</p>
+        <div class="spot-tags">
+          <span class="spot-tag">佛教圣地</span>
+          <span class="spot-tag">云海日出</span>
+          <span class="spot-tag">野生猴群</span>
+        </div>
+        <div class="spot-info">
+          <div class="spot-info-item"><div class="val">¥185</div><div class="key">门票价格</div></div>
+          <div class="spot-info-item"><div class="val">海拔3077m</div><div class="key">金顶高度</div></div>
+          <div class="spot-info-item"><div class="val">2天</div><div class="key">建议时长</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <div class="spot-img" style="background: linear-gradient(135deg,#2c4a8f,#4a7ec4);">
+        <div class="spot-img-inner">🗿</div>
+        <div class="spot-badge hot">🔥 世界之最</div>
+        <div class="spot-rating">★ 4.8</div>
+      </div>
+      <div class="spot-body">
+        <div class="spot-name">乐山大佛</div>
+        <div class="spot-loc">乐山市 · 峨眉山市</div>
+        <p class="spot-desc">世界最大的摩崖石刻佛像，高71米，建于唐代。背山面水，气势恢宏。与峨眉山同列世界遗产，可乘船从江面仰望，壮观震撼。</p>
+        <div class="spot-tags">
+          <span class="spot-tag">世界遗产</span>
+          <span class="spot-tag">唐代石刻</span>
+          <span class="spot-tag">船游视角</span>
+        </div>
+        <div class="spot-info">
+          <div class="spot-info-item"><div class="val">¥90</div><div class="key">门票价格</div></div>
+          <div class="spot-info-item"><div class="val">71m高</div><div class="key">佛像高度</div></div>
+          <div class="spot-info-item"><div class="val">半天</div><div class="key">建议时长</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <div class="spot-img" style="background: linear-gradient(135deg,#1e4a6b,#2980b9);">
+        <div class="spot-img-inner">🏔️</div>
+        <div class="spot-badge hot">🔥 天空之城</div>
+        <div class="spot-rating">★ 4.9</div>
+      </div>
+      <div class="spot-body">
+        <div class="spot-name">稻城亚丁</div>
+        <div class="spot-loc">甘孜藏族自治州 · 稻城县</div>
+        <p class="spot-desc">被称为"最后的香格里拉"，三座神山仙乃日、央迈勇、夏诺多吉雪峰巍峨壮丽，牛奶海、五色海如梦似幻，是摄影爱好者的天堂。</p>
+        <div class="spot-tags">
+          <span class="spot-tag">高原秘境</span>
+          <span class="spot-tag">三神山</span>
+          <span class="spot-tag">摄影圣地</span>
+        </div>
+        <div class="spot-info">
+          <div class="spot-info-item"><div class="val">¥270</div><div class="key">门票价格</div></div>
+          <div class="spot-info-item"><div class="val">海拔4000m</div><div class="key">景区高度</div></div>
+          <div class="spot-info-item"><div class="val">3天</div><div class="key">建议时长</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <div class="spot-img" style="background: linear-gradient(135deg,#1b5e2e,#388e3c);">
+        <div class="spot-img-inner">🐼</div>
+        <div class="spot-badge">国宝圣地</div>
+        <div class="spot-rating">★ 4.8</div>
+      </div>
+      <div class="spot-body">
+        <div class="spot-name">成都大熊猫基地</div>
+        <div class="spot-loc">成都市 · 成华区</div>
+        <p class="spot-desc">全球最大的大熊猫繁育研究基地，近距离与100余只大熊猫亲密互动。早晨9点前是最佳观赏时间，熊猫们活跃且愉快。</p>
+        <div class="spot-tags">
+          <span class="spot-tag">国宝圣地</span>
+          <span class="spot-tag">亲子首选</span>
+          <span class="spot-tag">早晨最佳</span>
+        </div>
+        <div class="spot-info">
+          <div class="spot-info-item"><div class="val">¥55</div><div class="key">门票价格</div></div>
+          <div class="spot-info-item"><div class="val">100+只</div><div class="key">熊猫数量</div></div>
+          <div class="spot-info-item"><div class="val">半天</div><div class="key">建议时长</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <div class="spot-img" style="background: linear-gradient(135deg,#6a3a1e,#b87044);">
+        <div class="spot-img-inner">🏘️</div>
+        <div class="spot-badge new">🌟 文化必游</div>
+        <div class="spot-rating">★ 4.7</div>
+      </div>
+      <div class="spot-body">
+        <div class="spot-name">宽窄巷子 · 锦里</div>
+        <div class="spot-loc">成都市 · 青羊区</div>
+        <p class="spot-desc">成都最具代表性的历史街区。宽窄巷子保留清代建筑风貌，锦里古街再现汉唐风情。这里聚集了成都最多的特色小吃与文创手工艺。</p>
+        <div class="spot-tags">
+          <span class="spot-tag">历史文化</span>
+          <span class="spot-tag">小吃聚集</span>
+          <span class="spot-tag">夜游打卡</span>
+        </div>
+        <div class="spot-info">
+          <div class="spot-info-item"><div class="val">免费</div><div class="key">门票</div></div>
+          <div class="spot-info-item"><div class="val">清代</div><div class="key">建筑年代</div></div>
+          <div class="spot-info-item"><div class="val">2-3小时</div><div class="key">建议时长</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <div class="spot-img" style="background: linear-gradient(135deg,#2d6b4a,#3d8e65);">
+        <div class="spot-img-inner">💧</div>
+        <div class="spot-badge hot">🔥 世界遗产</div>
+        <div class="spot-rating">★ 4.8</div>
+      </div>
+      <div class="spot-body">
+        <div class="spot-name">都江堰 · 青城山</div>
+        <div class="spot-loc">成都市 · 都江堰市</div>
+        <p class="spot-desc">都江堰是2200年历史的水利工程奇迹，至今仍在灌溉天府之国。青城山是道教发源地之一，竹海幽深，古庙清幽，可驱车成都出发当天往返。</p>
+        <div class="spot-tags">
+          <span class="spot-tag">世界遗产</span>
+          <span class="spot-tag">道教圣地</span>
+          <span class="spot-tag">成都周边</span>
+        </div>
+        <div class="spot-info">
+          <div class="spot-info-item"><div class="val">¥60+90</div><div class="key">两处门票</div></div>
+          <div class="spot-info-item"><div class="val">1小时车程</div><div class="key">距成都</div></div>
+          <div class="spot-info-item"><div class="val">1天</div><div class="key">建议时长</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot-card">
+      <div class="spot-img" style="background: linear-gradient(135deg,#1a4a7a,#2060a0);">
+        <div class="spot-img-inner">🏔️</div>
+        <div class="spot-badge new">🌟 川西秘境</div>
+        <div class="spot-rating">★ 4.8</div>
+      </div>
+      <div class="spot-body">
+        <div class="spot-name">黄龙风景区</div>
+        <div class="spot-loc">阿坝藏族羌族自治州 · 松潘县</div>
+        <p class="spot-desc">世界自然遗产，以五彩池群闻名，被誉为"人间瑶池"。蓝绿相间的彩池如宝石点缀山间，配合雪山与古寺，美不胜收，需备充足体力。</p>
+        <div class="spot-tags">
+          <span class="spot-tag">世界遗产</span>
+          <span class="spot-tag">五彩池群</span>
+          <span class="spot-tag">高海拔</span>
+        </div>
+        <div class="spot-info">
+          <div class="spot-info-item"><div class="val">¥200</div><div class="key">门票价格</div></div>
+          <div class="spot-info-item"><div class="val">海拔3553m</div><div class="key">入口高度</div></div>
+          <div class="spot-info-item"><div class="val">1天</div><div class="key">建议时长</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- FOOD -->
+<section id="food">
+  <div class="section-header">
+    <div class="section-tag">舌尖美味</div>
+    <h2 class="section-title">四川必吃十大美食</h2>
+    <p class="section-desc">麻辣鲜香的川味，让每一口都是惊喜</p>
+  </div>
+  <div class="food-grid">
+
+    <div class="food-card">
+      <div class="food-emoji-box" style="background:linear-gradient(135deg,#3d0000,#8b0000);">
+        🍲
+        <div class="food-spicy">🌶️🌶️🌶️ 极辣</div>
+      </div>
+      <div class="food-body">
+        <div class="food-name">成都火锅</div>
+        <div class="food-type">热菜 · 集体享用</div>
+        <p class="food-desc">以牛油红汤底为灵魂，麻辣鲜香，沸腾翻滚。毛肚、鸭血、黄喉是经典涮品，九宫格分区，辣度自选。</p>
+        <div class="food-recommend">🏪 推荐：大龙燚、巴奴毛肚、小龙坎</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-emoji-box" style="background:linear-gradient(135deg,#4a2800,#a05a2c);">
+        🥩
+        <div class="food-spicy">🌶️🌶️ 中辣</div>
+      </div>
+      <div class="food-body">
+        <div class="food-name">夫妻肺片</div>
+        <div class="food-type">凉拌 · 经典名菜</div>
+        <p class="food-desc">牛肉、牛杂切薄片，淋上香辣调料，麻辣鲜香、软嫩入味。名字来源于郭朝华夫妻的街头摊位，是成都最具代表性的凉拌菜。</p>
+        <div class="food-recommend">🏪 推荐：龙抄手、夫妻肺片老字号</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-emoji-box" style="background:linear-gradient(135deg,#1a3a1a,#2d6b2d);">
+        🥗
+        <div class="food-spicy">🌶️🌶️ 中辣</div>
+      </div>
+      <div class="food-body">
+        <div class="food-name">宫保鸡丁</div>
+        <div class="food-type">热菜 · 官府菜</div>
+        <p class="food-desc">选用嫩鸡肉配花生米、干辣椒，以清末官员丁宝桢命名，麻辣鲜香、口感丰富。已被列为中国十大名菜之一。</p>
+        <div class="food-recommend">🏪 推荐：川香园、饕林餐厅太古里店</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-emoji-box" style="background:linear-gradient(135deg,#2a2000,#6b5000);">
+        🍜
+        <div class="food-spicy">🌶️ 微辣</div>
+      </div>
+      <div class="food-body">
+        <div class="food-name">担担面</div>
+        <div class="food-type">面食 · 成都经典</div>
+        <p class="food-desc">面条细薄筋道，搭配特制麻辣调料与碎肉臊子，酥香咸鲜。旧时小贩挑着担子沿街叫卖，是成都最具烟火气的小吃。</p>
+        <div class="food-recommend">🏪 推荐：洞子口张老二凉粉旁担担面摊</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-emoji-box" style="background:linear-gradient(135deg,#1a0a30,#5a1a7a);">
+        🫙
+        <div class="food-spicy">🌶️🌶️ 中辣</div>
+      </div>
+      <div class="food-body">
+        <div class="food-name">钵钵鸡</div>
+        <div class="food-type">小吃 · 清代传承</div>
+        <p class="food-desc">清代流传至今的传统小吃，瓦罐中红汤翻腾，竹签穿着鸡肉和各式食材，藤椒油调味，麻辣爽口，越吃越香。</p>
+        <div class="food-recommend">🏪 推荐：成都各步行街串串摊位</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-emoji-box" style="background:linear-gradient(135deg,#1e3a1e,#2d5a2d);">
+        🍡
+        <div class="food-spicy">🌶️🌶️ 中辣</div>
+      </div>
+      <div class="food-body">
+        <div class="food-name">串串香</div>
+        <div class="food-type">小吃 · 四川特色</div>
+        <p class="food-desc">被称为"小火锅"，竹签穿各类食材在麻辣锅底涮煮，按签计费，价格亲民，是四川人最爱的夜宵选择之一。</p>
+        <div class="food-recommend">🏪 推荐：玉林串串香、百年串串</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-emoji-box" style="background:linear-gradient(135deg,#2a1a00,#7a5000);">
+        🥟
+        <div class="food-spicy">🌶️ 微辣</div>
+      </div>
+      <div class="food-body">
+        <div class="food-name">龙抄手</div>
+        <div class="food-type">小吃 · 百年老店</div>
+        <p class="food-desc">成都最著名的抄手（馄饨），皮薄馅嫩，汤底清香。龙抄手始创于1941年，是成都小吃的标志性存在，原汤、红油、清汤三种口味可选。</p>
+        <div class="food-recommend">🏪 推荐：龙抄手春熙路总店</div>
+      </div>
+    </div>
+
+    <div class="food-card">
+      <div class="food-emoji-box" style="background:linear-gradient(135deg,#0a2a1a,#1a6b3a);">
+        🍺
+        <div class="food-spicy">🌶️🌶️🌶️ 极辣</div>
+      </div>
+      <div class="food-body">
+        <div class="food-name">双流兔头</div>
+        <div class="food-type">卤味 · 成都特色</div>
+        <p class="food-desc">成都人消暑下酒必点，骨多肉少但越啃越香。麻辣和五香两种口味，双流兔头最为正宗，是外地游客必尝的猎奇美食。</p>
+        <div class="food-recommend">🏪 推荐：双流老字号兔头店</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRANSPORT -->
+<section id="transport">
+  <div class="section-header">
+    <div class="section-tag">出行指南</div>
+    <h2 class="section-title">交通全攻略</h2>
+    <p class="section-desc">抵达四川的多种方式，以及景区间的高效出行方案</p>
+  </div>
+  <div class="transport-grid">
+
+    <div class="transport-card">
+      <div class="transport-icon">✈️</div>
+      <div class="transport-name">飞机入川</div>
+      <div class="transport-tag">最快捷</div>
+      <ul class="transport-list">
+        <li>成都双流国际机场（CTU）：距市区16km，地铁10号线直达市区</li>
+        <li>成都天府国际机场（TFU）：2021年启用，与双流分工运营</li>
+        <li>九黄机场：服务九寨沟、黄龙，距景区约55km需转车</li>
+        <li>乐山机场：方便前往乐山大佛和峨眉山</li>
+        <li>稻城亚丁机场：高原机场，需提前预订，运营班次有限</li>
+      </ul>
+    </div>
+
+    <div class="transport-card">
+      <div class="transport-icon">🚄</div>
+      <div class="transport-name">高铁动车</div>
+      <div class="transport-tag">舒适性价比</div>
+      <ul class="transport-list">
+        <li>成都东站、成都站是主要高铁枢纽</li>
+        <li>成都→乐山（峨眉山）：高铁约50分钟，票价¥50-80</li>
+        <li>成都→重庆：高铁约75分钟，票价¥175</li>
+        <li>九寨沟方向：乘高铁至黄龙九寨站，再转景区直通车</li>
+        <li>直通车票约¥28/人，行程约50分钟</li>
+      </ul>
+    </div>
+
+    <div class="transport-card">
+      <div class="transport-icon">🚌</div>
+      <div class="transport-name">长途巴士</div>
+      <div class="transport-tag">实惠之选</div>
+      <ul class="transport-list">
+        <li>成都→九寨沟：约9小时，票价¥100-150，每日多班次</li>
+        <li>成都→稻城亚丁：约10-12小时，需提前一天出发</li>
+        <li>景区直通车：各大游客中心或线上平台均可预订</li>
+        <li>建议选择正规旅游大巴，安全保障更佳</li>
+        <li>多人出行推荐包车，价格更灵活，可自由安排行程</li>
+      </ul>
+    </div>
+
+    <div class="transport-card">
+      <div class="transport-icon">🚇</div>
+      <div class="transport-name">成都市内</div>
+      <div class="transport-tag">地铁+打车</div>
+      <ul class="transport-list">
+        <li>地铁网络发达，10条线路覆盖主要景点</li>
+        <li>大熊猫基地：地铁3号线牛市口站转公交</li>
+        <li>宽窄巷子：地铁4号线宽窄巷子站直达</li>
+        <li>武侯祠/锦里：地铁3号线武侯祠站</li>
+        <li>打车：滴滴/曹操出行，市区15-20元起，高峰期注意拥堵</li>
+      </ul>
+    </div>
+
+    <div class="transport-card">
+      <div class="transport-icon">🚗</div>
+      <div class="transport-name">自驾游</div>
+      <div class="transport-tag">自由度最高</div>
+      <ul class="transport-list">
+        <li>川西大环线：成都→都江堰→松潘→九寨沟→若尔盖→回成都</li>
+        <li>稻城亚丁线：成都→康定→理塘→稻城，全程约800km</li>
+        <li>部分路段海拔高，需备好氧气罐，缓慢行驶</li>
+        <li>高山路段注意天气变化，避免夜间行驶</li>
+        <li>九寨沟景区内禁止自驾，统一乘坐观光大巴</li>
+      </ul>
+    </div>
+
+    <div class="transport-card">
+      <div class="transport-icon">⚠️</div>
+      <div class="transport-name">高原注意事项</div>
+      <div class="transport-tag">安全第一</div>
+      <ul class="transport-list">
+        <li>稻城亚丁/黄龙/九寨沟海拔2000-5000m，注意高原反应</li>
+        <li>到达后休息半天，避免剧烈运动，多喝热水</li>
+        <li>备好高原安（丹参）、葡萄糖、红景天等</li>
+        <li>九寨沟景区提供吸氧服务，如不适立即就医</li>
+        <li>心脑血管疾病患者请提前咨询医生</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<!-- ROUTES -->
+<section id="routes">
+  <div class="section-header">
+    <div class="section-tag">精选路线</div>
+    <h2 class="section-title">三条经典旅游路线</h2>
+    <p class="section-desc">根据时间和喜好，选择最适合你的四川之旅</p>
+  </div>
+  <div class="routes-grid">
+
+    <div class="route-card r1">
+      <div class="route-label">🏙️ 城市文化线</div>
+      <div class="route-title">成都精华·熊猫文化游</div>
+      <div class="route-days">4天3晚</div>
+      <div class="route-stops">
+        <span class="route-stop">天府机场</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">熊猫基地</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">宽窄巷子</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">都江堰</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">峨眉乐山</span>
+      </div>
+      <p class="route-highlights">
+        <strong>Day 1</strong> 抵达成都，锦里夜游品小吃<br>
+        <strong>Day 2</strong> 早9点熊猫基地，下午宽窄巷子、武侯祠<br>
+        <strong>Day 3</strong> 都江堰+青城山，感受世界遗产<br>
+        <strong>Day 4</strong> 峨眉山金顶云海，傍晚乐山大佛船游
+      </p>
+      <div class="route-budget">
+        <div>
+          <div class="price">¥2,500起</div>
+          <div class="price-note">人均预算（不含机票）</div>
+        </div>
+        <div style="color:#27ae60;font-size:0.85rem;font-weight:600;">⭐ 新手推荐</div>
+      </div>
+    </div>
+
+    <div class="route-card r2">
+      <div class="route-label">🏔️ 自然奇观线</div>
+      <div class="route-title">九寨黄龙·童话世界游</div>
+      <div class="route-days">7天6晚</div>
+      <div class="route-stops">
+        <span class="route-stop">成都</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">松潘</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">黄龙</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">九寨沟</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">若尔盖</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">成都</span>
+      </div>
+      <p class="route-highlights">
+        <strong>Day 1-2</strong> 成都出发，高铁+直通车抵达黄龙<br>
+        <strong>Day 3</strong> 黄龙五彩池一日深度游<br>
+        <strong>Day 4-5</strong> 九寨沟两日探索，五花海、珍珠滩<br>
+        <strong>Day 6</strong> 若尔盖草原、花湖自驾返回<br>
+        <strong>Day 7</strong> 成都市区游，晚班返程
+      </p>
+      <div class="route-budget">
+        <div>
+          <div class="price">¥4,500起</div>
+          <div class="price-note">人均预算（不含机票）</div>
+        </div>
+        <div style="color:#2980b9;font-size:0.85rem;font-weight:600;">📸 摄影必选</div>
+      </div>
+    </div>
+
+    <div class="route-card r3">
+      <div class="route-label">🌌 极致秘境线</div>
+      <div class="route-title">川西大环线·极地探险</div>
+      <div class="route-days">10天9晚</div>
+      <div class="route-stops">
+        <span class="route-stop">成都</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">康定</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">理塘</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">稻城亚丁</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">色达</span>
+        <span class="route-arrow">→</span>
+        <span class="route-stop">成都</span>
+      </div>
+      <p class="route-highlights">
+        <strong>Day 1-2</strong> 成都出发，自驾至康定，木格措湖<br>
+        <strong>Day 3-4</strong> 新都桥→理塘→稻城亚丁深度2日游<br>
+        <strong>Day 5-6</strong> 亚丁三神山徒步，牛奶海五色海<br>
+        <strong>Day 7-8</strong> 色达喇荣寺，壮观红房子<br>
+        <strong>Day 9-10</strong> 若尔盖→九曲黄河第一湾→成都
+      </p>
+      <div class="route-budget">
+        <div>
+          <div class="price">¥8,000起</div>
+          <div class="price-note">人均预算（不含机票）</div>
+        </div>
+        <div style="color:#9b59b6;font-size:0.85rem;font-weight:600;">🌟 深度探险</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- SEASON -->
+<section id="season">
+  <div class="season-title-wrap">
+    <h2>最佳旅游季节</h2>
+    <p>了解四川各季节的旅游特色，选择最适合的出发时间</p>
+  </div>
+  <div class="season-bars">
+    <div class="season-bar">
+      <div class="season-bar-fill sb-spring"><span>推荐</span></div>
+      <div class="season-name">春季</div>
+      <div class="season-months">3月 — 5月</div>
+      <p class="season-note">成都樱花盛开，都江堰踏青，气温适中，人流适中</p>
+    </div>
+    <div class="season-bar">
+      <div class="season-bar-fill sb-summer"><span>最佳</span></div>
+      <div class="season-name">夏季</div>
+      <div class="season-months">6月 — 8月</div>
+      <p class="season-note">九寨沟水量最丰沛，稻城高原花开，是旺季高峰</p>
+    </div>
+    <div class="season-bar">
+      <div class="season-bar-fill sb-autumn"><span>推荐</span></div>
+      <div class="season-name">秋季</div>
+      <div class="season-months">9月 — 11月</div>
+      <p class="season-note">九寨沟秋色绝美，黄龙水量饱满，颜色最为迷人</p>
+    </div>
+    <div class="season-bar">
+      <div class="season-bar-fill sb-winter"><span>淡季</span></div>
+      <div class="season-name">冬季</div>
+      <div class="season-months">12月 — 2月</div>
+      <p class="season-note">峨眉山雪景壮观，人少价低，适合错峰旅游</p>
+    </div>
+  </div>
+</section>
+
+<!-- TIPS -->
+<section id="tips">
+  <div class="section-header">
+    <div class="section-tag">旅行贴士</div>
+    <h2 class="section-title">实用旅行攻略</h2>
+    <p class="section-desc">出发前必知的重要信息，让旅途更顺畅</p>
+  </div>
+  <div class="tips-grid">
+    <div class="tip-card">
+      <div class="tip-icon">🎫</div>
+      <div class="tip-title">提前预订门票</div>
+      <p class="tip-content">九寨沟、稻城亚丁等热门景区每日限流，<span class="tip-highlight">旺季必须提前15-30天</span>在官方小程序或OTA平台预订，现场无法购票。</p>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">🌡️</div>
+      <div class="tip-title">天气与穿搭</div>
+      <p class="tip-content">成都盆地湿润多云，<span class="tip-highlight">四季温差不大但空气湿冷</span>。高原地区昼夜温差可达20℃，夏季也需备厚外套和防晒霜。</p>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">🏔️</div>
+      <div class="tip-title">高反应对策</div>
+      <p class="tip-content">前往稻城亚丁、黄龙等高海拔景区，<span class="tip-highlight">提前1周口服红景天</span>，到达后多休息少运动，携带便携氧气罐以备不时之需。</p>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">💰</div>
+      <div class="tip-title">预算参考</div>
+      <p class="tip-content">成都本地游5天预算约<span class="tip-highlight">¥1500-3000</span>，川西大环线10天约¥5000-8000（自驾，不含机票）。住宿可选青旅控制成本。</p>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">📱</div>
+      <div class="tip-title">必备APP</div>
+      <p class="tip-content"><span class="tip-highlight">微信/支付宝</span>付款；<span class="tip-highlight">高德地图</span>导航；<span class="tip-highlight">携程/同程</span>订票；<span class="tip-highlight">小红书</span>找攻略；景区官方小程序购票。</p>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">🐼</div>
+      <div class="tip-title">熊猫基地技巧</div>
+      <p class="tip-content">建议<span class="tip-highlight">早上8:30前入园</span>，此时熊猫活动量最大、最可爱。平日人少，节假日需提前30分钟以上排队等候。</p>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">🍜</div>
+      <div class="tip-title">美食踩雷避坑</div>
+      <p class="tip-content">避开景区内餐厅，多选<span class="tip-highlight">当地巷子里的苍蝇馆子</span>，价格实惠味道正宗。锦里宽窄巷子内美食价格偏高，适合尝鲜打卡。</p>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">🛡️</div>
+      <div class="tip-title">安全注意</div>
+      <p class="tip-content">四川整体安全，成都是<span class="tip-highlight">中国最安全的旅游城市之一</span>。高原自驾注意路况，保留紧急联系人，购买旅行保险是明智之举。</p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">🐼 天府四川旅游攻略</div>
+  <p>景点 · 美食 · 交通 · 路线 · 贴士 · 一站全知</p>
+  <p style="margin-top:8px;">数据来源：各景区官网、携程旅行、大众点评 · 信息仅供参考，请以官方最新公告为准</p>
+  <p style="margin-top:16px; color: rgba(255,255,255,0.25);">© 2025 四川旅游信息 · 祝旅途愉快 🌺</p>
+</footer>
+
+<!-- BACK TO TOP -->
+<button id="back-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<script>
+  // Nav toggle
+  document.getElementById('navToggle').addEventListener('click', function() {
+    document.getElementById('navLinks').classList.toggle('open');
+  });
+
+  // Back to top
+  window.addEventListener('scroll', function() {
+    var btn = document.getElementById('back-top');
+    if (window.scrollY > 400) btn.classList.add('show');
+    else btn.classList.remove('show');
+  });
+
+  // Particles
+  var container = document.getElementById('particles');
+  for (var i = 0; i < 20; i++) {
+    var p = document.createElement('div');
+    p.className = 'particle';
+    var size = Math.random() * 6 + 3;
+    p.style.cssText = [
+      'width:' + size + 'px',
+      'height:' + size + 'px',
+      'left:' + Math.random() * 100 + '%',
+      'animation-duration:' + (Math.random() * 10 + 8) + 's',
+      'animation-delay:' + Math.random() * 8 + 's'
+    ].join(';');
+    container.appendChild(p);
+  }
+
+  // Smooth scroll for nav links
+  document.querySelectorAll('a[href^="#"]').forEach(function(a) {
+    a.addEventListener('click', function(e) {
+      e.preventDefault();
+      var target = document.querySelector(this.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('navLinks').classList.remove('open');
+    });
+  });
+</script>
+</body>
+</html>

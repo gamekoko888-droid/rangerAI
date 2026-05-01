@@ -1,0 +1,49 @@
+{
+  "name": "rangerai-agent",
+  "version": "1.0.0",
+  "imports": {
+    "#shared/*": "./shared/*.mjs"
+  },
+  "type": "module",
+  "description": "RangerAI WebSocket Agent Backend with Smart Routing",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test tests/knowledge-injector.test.mjs tests/segmenter.test.mjs tests/workflow-scheduler.test.mjs && npx vitest run tests/auth.test.mjs tests/bootstrap.test.mjs tests/db-connectivity.test.mjs tests/e2e-health.test.mjs tests/http-routes.test.mjs tests/logger.test.mjs tests/metrics-collector.test.mjs tests/startup-check.test.mjs tests/ws-connection.test.mjs tests/ws-server.test.mjs tests/api-integration.test.mjs",
+    "test:native": "node --test --test-force-exit tests/knowledge-injector.test.mjs tests/segmenter.test.mjs tests/stream-processor.test.mjs tests/format-utils.test.mjs tests/workflow-scheduler.test.mjs tests/knowledge-module.test.mjs tests/planner-contract.test.mjs tests/failure-recovery.test.mjs tests/event-schema.test.mjs tests/ctxmgr-smoke.test.mjs tests/db-health.test.mjs tests/circuit-breaker-smoke.mjs tests/handle-parallel-wave-smoke.mjs tests/sub-agent-orchestrator-smoke.mjs tests/task-workspace-smoke.mjs",
+    "test:vitest": "npx vitest run",
+    "test:smoke": "bash smoke-test.sh",
+    "test:integration": "node --test tests/integration/*.integration.test.mjs",
+    "ci-gate": "bash ci-gate.sh",
+    "test:e2e": "node --test --test-timeout=120000 tests/e2e-task-flow.test.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.24.0",
+    "ali-oss": "^6.23.0",
+    "better-sqlite3": "^12.6.2",
+    "busboy": "^1.6.0",
+    "cors": "^2.8.6",
+    "dingtalk-stream": "^2.1.4",
+    "gpt-tokenizer": "^3.4.0",
+    "helmet": "^8.1.0",
+    "mammoth": "^1.11.0",
+    "mysql2": "^3.19.0",
+    "node-cron": "^4.2.1",
+    "openai": "^4.80.0",
+    "pdf-parse": "^2.4.5",
+    "puppeteer-core": "^24.37.5",
+    "redis": "^5.11.0",
+    "tesseract.js": "^5.1.1",
+    "ws": "^8.16.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6",
+    "zod-to-json-schema": "^3.25.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.4"
+  }
+}

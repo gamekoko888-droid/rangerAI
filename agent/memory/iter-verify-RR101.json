@@ -1,0 +1,9 @@
+{
+  "round": "R101",
+  "timestamp": "2026-04-30T16:04:50Z",
+  "version": "iter-verify-v2",
+  "total_pass": 11,
+  "total_fail": 1,
+  "verdict": "FAIL",
+  "checks": [{"round":"R101","id":"V1","desc":"tsconfig.json 存在","expected":"true","actual":"true","status":"PASS"},{"round":"R101","id":"V2","desc":"typescript 已安装","expected":"true","actual":"true","status":"PASS"},{"round":"R101","id":"V3","desc":".ts 文件数","expected":">=1","actual":"4","status":"PASS"},{"round":"R101","id":"V4","desc":"package.json 含 typecheck 脚本","expected":"true","actual":"true","status":"PASS"},{"round":"R101","id":"V5","desc":".d.ts 声明文件数","expected":">=2","actual":"2","status":"PASS"},{"round":"R101","id":"V6","desc":"pre-push hook 含 typecheck","expected":">=1","actual":"4","status":"PASS"},{"round":"R101","id":"V7","desc":"tsconfig strict=true","expected":">=1","actual":"1","status":"PASS"},{"round":"HEALTH","id":"TESTS","desc":"测试失败数","expected":"0","actual":"0","status":"PASS"},{"round":"HEALTH","id":"SYNTAX","desc":"语法错误数","expected":"0","actual":"0","status":"PASS"},{"round":"HEALTH","id":"SERVICE","desc":"rangerai-ws 状态","expected":"active","actual":"active","status":"PASS"},{"round":"HEALTH","id":"HTTP","desc":"ranger.voyage HTTP","expected":"200","actual":"200","status":"PASS"},{"round":"HEALTH","id":"DEAD_CODE","desc":"死代码模块数","expected":"0","actual":"102","status":"FAIL"}]
+}

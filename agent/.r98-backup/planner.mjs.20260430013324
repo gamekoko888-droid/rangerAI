@@ -1,0 +1,1672 @@
+import { sendToMain } from "./ipc-utils.mjs";
+import { recordHintAdoption, updateHintAdoptionActualTools, getHintAdoptionStats } from './hint-system.mjs';
+import { ensureDb, persistPlanToDb, loadPlanFromDb, markPlanCompletedInDb, finalizePlanInDb, getPlanDbModule } from './plan-persistence.mjs';
+import { _r42FormatPlanPayload, R8_PLAN_JSON_SCHEMA, TASK_TYPE_STEP_GUIDANCE, buildPlanSystemPrompt, REPLAN_SYSTEM_PROMPT, normalizePlanStepContract, parseR8PlanOutput } from './plan-formatter.mjs';
+// planner.mjs — Structured Planner Module (Agent Loop Architecture)
+// Responsibilities:
+//   1. Generate structured plans from user goals
+//   2. Update plans based on execution progress
+//   3. Persist plans via event-stream
+//   4. Rebuild plans from event replay
+//
+// This module is the SINGLE SOURCE OF TRUTH for plan state.
+// task-engine.mjs retains progress rendering but no longer owns plan generation.
+//
+// [R8-Task3] Upgraded to enforce JSON Schema output with plan_version + reflection fields.
+//            Old text parsing retained as fallback for backward compatibility.
+// [R8-Task4] DB persistence: _planCache writes are mirrored to task_plans table.
+//            rebuildPlanFromEvents now checks DB first for faster recovery.
+
+import { invokeLLM as _rawInvokeLLM } from "./llm-bridge.mjs";
+import { diagnoseFailure } from "./failure-recovery.mjs"; // [Iter-66] failure classification
+import { hasStepEvidence } from "./task-engine.mjs"; // [R76-PhaseA] evidence gate for hard closed-loop
+import { TTLMap } from './lib/ttl-map.mjs'; // [R95] TTL-based memory-safe Map
+
+// R31-T1: Retry wrapper for planner LLM calls (max 2 retries, 2s interval)
+
+// [R67-PROGRESS] Send plan progress to frontend via IPC
+function _sendPlanProgress(taskId, plan, trigger) {
+  try {
+    if (!plan || !plan.steps) return;
+    const steps = plan.steps.map((s, i) => ({
+      id: String(parseInt(s.id) || (i + 1)),
+      title: s.title || s.description || ('Step ' + (i + 1)),
+      status: s.status || 'pending'
+    }));
+    const doneCount = steps.filter(s => s.status === 'done').length;
+    const activeStep = steps.find(s => s.status === 'doing' || s.status === 'active');
+    const currentStep = activeStep ? parseInt(activeStep.id) : (doneCount + 1);
+    const totalSteps = steps.length;
+    const allDone = steps.every(s => s.status === 'done' || s.status === 'skipped');
+    sendToMain(taskId, {
+      type: "plan_progress",
+      planId: taskId,
+      goal: plan.goal || '',
+      currentStep,
+      totalSteps,
+      steps,
+      status: allDone ? 'completed' : 'in_progress',
+      trigger
+    });
+  } catch (e) {
+    // non-fatal: don't break planner if IPC fails
+  }
+}
+
+async function invokeLLM(params) {
+  const MAX_RETRIES = 2;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await _rawInvokeLLM(params);
+    } catch (err) {
+      if (attempt < MAX_RETRIES) {
+        logger.warn(`[R31-T1] [planner] LLM attempt ${attempt + 1} failed: ${err.message}, retrying in 2s...`);
+        await new Promise(r => setTimeout(r, 2000));
+      } else {
+        logger.error(`[R31-T1] [planner] LLM all ${MAX_RETRIES + 1} attempts failed: ${err.message}`);
+        throw err;
+      }
+    }
+  }
+}
+import { emitEvent, getEvents, EVENT_TYPES } from "./event-stream.mjs";
+import { logger } from "../lib/logger.mjs";
+
+// [R22-T1a] Web task family classification
+import { classifyWebTaskFamily, checkMissedBrowserOpportunity } from "./web-task-family.mjs";
+
+// ─── Plan Schema ───────────────────────────────────────────
+
+/**
+ * @typedef {Object} PlanStep
+ * @property {string} id          - Unique step ID (e.g., "1", "2", "3")
+ * @property {string} title       - Human-readable step description
+ * @property {"pending"|"doing"|"done"|"failed"|"blocked"|"retrying"|"skipped"} status
+ * @property {string[]} [tools]   - Expected tools for this step
+ * @property {string} [rationale] - [R8] Why this step is needed
+ * @property {string} [output]    - Summary of step output (filled after completion)
+ * @property {string} [blockReason] - Why this step is blocked (if status=blocked)
+ */
+
+/**
+ * @typedef {Object} StructuredPlan
+ * @property {number} plan_version    - [R8] Plan schema version (increments on replan)
+ * @property {string} reflection      - [R8] Planner's reasoning about the task
+ * @property {string} goal            - User's high-level objective
+ * @property {PlanStep[]} steps       - Ordered list of steps
+ * @property {string} currentStepId   - ID of the step currently being executed
+ * @property {string[]} doneCriteria  - Conditions that define task completion
+ * @property {string[]} notes         - Planner observations / caveats
+ * @property {boolean} needsReplan    - Whether the plan needs revision
+ * @property {number} version         - Internal plan version (increments on each update)
+ * @property {number} createdAt       - Timestamp of initial plan creation
+ * @property {number} updatedAt       - Timestamp of last update
+ */
+
+// ─── In-Memory Plan Cache (R95: migrated to TTLMap) ──────────────────────────────────
+// Key: taskId → StructuredPlan
+const _planCache = new TTLMap(100, 2 * 60 * 60 * 1000, 5 * 60 * 1000);
+const _externalPlanKeys = new TTLMap(100, 2 * 60 * 60 * 1000, 5 * 60 * 1000); // [R10-Task1] Track plans from registerExternalPlan
+
+// [R9-Task2] Session key cache: taskId → sessionKey
+// Needed by markStep* functions to call persistPlanToDb without requiring sessionKey param
+const _sessionKeyCache = new TTLMap(500, 60 * 60 * 1000, 5 * 60 * 1000);
+
+/**
+ * [R9-Task2] Helper: persist plan progress to DB after step status changes.
+ * Uses cached sessionKey. Non-blocking, fire-and-forget.
+ * @param {string} taskId
+ * @param {string} trigger - What caused the persist (e.g., 'markStepDone', 'markStepFailed')
+ */
+function persistProgress(taskId, trigger) {
+  const plan = _planCache.get(taskId);
+  if (!plan) return;
+  const sessionKey = _sessionKeyCache.get(taskId) || taskId.replace(/^msg-/, 'task-');
+  const doneCount = plan.steps.filter(s => s.status === 'done').length;
+  const failedCount = plan.steps.filter(s => s.status === 'failed').length;
+  const skippedCount = plan.steps.filter(s => s.status === 'skipped').length;
+  // steps_completed = done count (R9 口径: only 'done' counts as completed; failed/skipped tracked separately)
+  logger.info(`[${ts()}] [R9-db] progress persisted: task=${taskId} trigger=${trigger} done=${doneCount} failed=${failedCount} skipped=${skippedCount} total=${plan.steps.length}`);
+  persistPlanToDb(taskId, sessionKey, plan);
+}
+
+// ─── [R8-Task3] Enhanced JSON Schema ───────────────────────
+
+/**
+ * Generate a new structured plan for a task.
+ *
+ * @param {string} taskId
+ * @param {string} sessionKey
+ * @param {string} userGoal - The user's message / objective
+ * @param {Object} context - Additional context (recentEvents, conversationSummary, etc.)
+ * @returns {Promise<StructuredPlan|null>}
+ */
+export async function generatePlan(taskId, sessionKey, userGoal, context = {}) {
+  const { recentEvents = [], conversationSummary = '', taskState = null, taskType = 'reasoning' } = context;
+
+  // Check if we already have a valid plan that doesn't need replanning
+  const existingPlan = _planCache.get(taskId);
+  // [R10-Task1] If existing plan came from registerExternalPlan, DON'T early-return.
+  // Let planner's own LLM path generate a higher-quality structured plan with plan_version/reflection/rationale.
+  const isExternalPlan = _externalPlanKeys.has(taskId);
+  if (existingPlan && !existingPlan.needsReplan && !isExternalPlan && existingPlan.steps.some(s => s.status === 'pending' || s.status === 'doing')) {
+    logger.info(`[${ts()}] [planner] Existing plan v${existingPlan.version} still valid for task ${taskId}`);
+    // [R24-T1] Classify web task family even on early return (fixes webTaskCount=0 bug)
+    try {
+      const wtc = classifyWebTaskFamily(userGoal, taskType, existingPlan.steps);
+      existingPlan.taskFamily = wtc.taskFamily;
+      existingPlan.routingReason = wtc.routingReason;
+      existingPlan.selectedPrimaryTool = wtc.selectedPrimaryTool;
+      if (wtc.taskFamily !== 'non_web') {
+        logger.info(`[${ts()}] [R24-T1] Web task detected on early-return: family=${wtc.taskFamily} tool=${wtc.selectedPrimaryTool}`);
+        emitEvent(sessionKey, taskId, 'web_task_routing', wtc);
+      }
+    } catch (wtErr) {
+      logger.warn(`[${ts()}] [R24-T1] Web task classification failed on early-return (non-fatal): ${wtErr.message}`);
+    }
+    return existingPlan;
+  }
+  if (isExternalPlan) {
+    logger.info(`[${ts()}] [R10-Task1] External plan detected for ${taskId}, upgrading via LLM path`);
+    _externalPlanKeys.delete(taskId); // consume the flag so replan doesn't re-trigger
+  }
+
+  // Build context for LLM
+  const contextParts = [];
+  if (conversationSummary) {
+    contextParts.push(`[Conversation Context]\n${conversationSummary}`);
+  }
+  if (recentEvents.length > 0) {
+    const eventSummary = recentEvents.slice(-10).map(e =>
+      `- ${e.event_type}: ${typeof e.payload === 'string' ? e.payload.substring(0, 200) : JSON.stringify(e.payload).substring(0, 200)}`
+    ).join('\n');
+    contextParts.push(`[Recent Events]\n${eventSummary}`);
+  }
+  if (taskState) {
+    contextParts.push(`[Current Task State]\n${JSON.stringify(taskState, null, 2)}`);
+  }
+
+  const userPrompt = contextParts.length > 0
+    ? `Goal: ${userGoal}\n\n${contextParts.join('\n\n')}`
+    : `Goal: ${userGoal}`;
+
+  try {
+    // [R8-Task3] Use enhanced JSON schema with plan_version + reflection
+    // [Iter-67] Multi-model architecture: GPT-5.5 for planning (high reasoning quality), V4 Pro for execution (cost-efficient)
+    // GPT-5.5 produces better task decomposition, risk assessment, and validation steps
+    const _r43PlannerModel = 'openai/gpt-5.5'; // Iter-67: GPT-5.5 primary planner
+    const _r43FallbackModel = 'deepseek/deepseek-v4-pro'; // Iter-67: V4 Pro fallback
+    let response;
+    try {
+      response = await invokeLLM({
+        messages: [
+          { role: 'system', content: buildPlanSystemPrompt(taskType) },
+          { role: 'user', content: userPrompt }
+        ],
+        model: _r43PlannerModel,
+        maxTokens: 4000,
+        response_format: {
+          type: 'json_schema',
+          json_schema: R8_PLAN_JSON_SCHEMA
+        }
+      });
+    } catch (_plannerPrimaryErr) {
+      logger.warn();
+      response = await invokeLLM({
+        messages: [
+          { role: 'system', content: buildPlanSystemPrompt(taskType) },
+          { role: 'user', content: userPrompt }
+        ],
+        model: _r43FallbackModel,
+        maxTokens: 4000,
+        response_format: {
+          type: 'json_schema',
+          json_schema: R8_PLAN_JSON_SCHEMA
+        }
+      });
+    }
+    // [R43-T1] Emit model_route event for planner
+    try {
+      emitEvent(sessionKey, taskId, EVENT_TYPES.MODEL_ROUTE, {
+        role: 'planner',
+        model: _r43PlannerModel,
+        provider: _r43PlannerModel.startsWith('openai/') ? 'openai' : 'deepseek',
+        category: taskType || 'planning',
+        thinking: 'low',
+        confidence: 1.0,
+        reason: 'Iter-67: Planner uses GPT-5.5 (multi-model architecture)',
+      });
+    } catch (_e43mr) { /* non-fatal */ }
+
+    const content = response?.choices?.[0]?.message?.content;
+    if (!content) {
+      logger.warn(`[${ts()}] [planner] LLM returned empty response`);
+      return null;
+    }
+
+    // [R8-Task3] Parse with multi-layer fallback
+    const { plan, method } = parseR8PlanOutput(content, existingPlan);
+
+    // [R9-plan] Log schema path hit for main-path validation
+    if (method === 'r8_json_schema' || method === 'r8_json_partial') {
+      logger.info(`[${ts()}] [R9-plan] generatePlan schema path hit: method=${method}`);
+      const hasVersion = plan?.plan_version !== undefined;
+      const hasReflection = plan?.reflection !== undefined;
+      const hasRationale = plan?.steps?.every(s => s.rationale !== undefined) || false;
+      logger.info(`[${ts()}] [R9-plan] schema validation: plan_version=${hasVersion}(${plan?.plan_version}) reflection=${hasReflection} allRationale=${hasRationale}`);
+      if (hasVersion && hasReflection && hasRationale) {
+        logger.info(`[${ts()}] [R9-plan] schema validation ok`);
+      } else {
+        logger.warn(`[${ts()}] [R9-plan] schema validation partial — missing fields`);
+      }
+    } else {
+      logger.info(`[${ts()}] [R9-plan] generatePlan non-schema path: method=${method}`);
+    }
+
+    if (!plan) {
+      logger.warn(`[${ts()}] [R8-planner] All parse methods failed, using fallback plan`);
+      const fallbackPlan = normalizePlanStepContract(createFallbackPlan(taskId, userGoal, existingPlan));
+      _planCache.set(taskId, fallbackPlan);
+      persistPlanToDb(taskId, sessionKey, fallbackPlan); // [R8-Task4]
+      emitEvent(sessionKey, taskId, EVENT_TYPES.PLAN_UPDATE, {
+        plan: fallbackPlan,
+        version: fallbackPlan.version,
+        trigger: 'fallback'
+      });
+      // [R24-T1] Classify web task family on fallback path
+      try {
+        const wtc = classifyWebTaskFamily(userGoal, taskType, fallbackPlan.steps);
+        fallbackPlan.taskFamily = wtc.taskFamily;
+        fallbackPlan.routingReason = wtc.routingReason;
+        fallbackPlan.selectedPrimaryTool = wtc.selectedPrimaryTool;
+        if (wtc.taskFamily !== 'non_web') {
+          logger.info(`[${ts()}] [R24-T1] Web task detected on fallback: family=${wtc.taskFamily} tool=${wtc.selectedPrimaryTool}`);
+          emitEvent(sessionKey, taskId, 'web_task_routing', wtc);
+        }
+      } catch (wtErr) {
+        logger.warn(`[${ts()}] [R24-T1] Web task classification failed on fallback (non-fatal): ${wtErr.message}`);
+      }
+      return fallbackPlan;
+    }
+
+    // [L4-PR2] Normalize parallel/failure fields for strict-schema and legacy/fallback plans.
+    normalizePlanStepContract(plan);
+
+    // [R22-T1a] Classify web task family and attach to plan
+    let webTaskClassification = { taskFamily: 'non_web', routingReason: '', selectedPrimaryTool: 'none' };
+    try {
+      webTaskClassification = classifyWebTaskFamily(userGoal, taskType, plan.steps);
+      plan.taskFamily = webTaskClassification.taskFamily;
+      plan.routingReason = webTaskClassification.routingReason;
+      plan.selectedPrimaryTool = webTaskClassification.selectedPrimaryTool;
+      if (webTaskClassification.taskFamily !== 'non_web') {
+        logger.info(`[${ts()}] [R22-T1a] Web task detected: family=${webTaskClassification.taskFamily} tool=${webTaskClassification.selectedPrimaryTool}`);
+        // Emit routing event for persistence
+        emitEvent(sessionKey, taskId, 'web_task_routing', webTaskClassification);
+        // [R37-T3] Inject browser into plan steps when web task requires browser
+        if (webTaskClassification.selectedPrimaryTool === 'browser' && plan.steps && plan.steps.length > 0) {
+          let browserInjected = false;
+          for (const step of plan.steps) {
+            const tools = step.tools || [];
+            const hasWebTool = tools.some(t => /web_fetch|web_search|browser|curl|fetch/i.test(t));
+            const hasBrowser = tools.some(t => /browser/i.test(t));
+            if (hasWebTool && !hasBrowser) {
+              step.tools = [...tools, 'browser'];
+              browserInjected = true;
+            }
+            // Also inject browser for steps that mention web/page/site in title
+            if (!hasBrowser && /web|page|site|url|browse|navigate|visit|open|check|verify|extract|scrape/i.test(step.title || '')) {
+              if (!step.tools) step.tools = [];
+              if (!step.tools.includes('browser')) {
+                step.tools.push('browser');
+                browserInjected = true;
+              }
+            }
+          }
+          if (browserInjected) {
+            logger.info(`[${ts()}] [R37-T3] Injected browser tool into plan steps for web task family=${webTaskClassification.taskFamily}`);
+          }
+        }
+      }
+    } catch (wtErr) {
+      logger.warn(`[${ts()}] [R22-T1a] Web task classification failed (non-fatal): ${wtErr.message}`);
+      plan.taskFamily = 'unknown';
+      plan.routingReason = '';
+      plan.selectedPrimaryTool = '';
+    }
+
+    // Enrich with metadata
+    plan.version = existingPlan ? existingPlan.version + 1 : 1;
+    plan.plan_version = plan.plan_version || plan.version;
+    plan.reflection = plan.reflection || '';
+    plan.createdAt = existingPlan ? existingPlan.createdAt : Date.now();
+    plan.updatedAt = Date.now();
+
+    // Validate
+    if (!plan.steps || plan.steps.length === 0) {
+      logger.warn(`[${ts()}] [planner] LLM produced plan with no steps`);
+      return null;
+    }
+
+    // [R6-Task2] Log step count quality metric
+    const guidance = TASK_TYPE_STEP_GUIDANCE[taskType] || TASK_TYPE_STEP_GUIDANCE.reasoning;
+    if (plan.steps.length < guidance.min && taskType !== 'chat') {
+      logger.warn(`[${ts()}] [R6-plan-quality] Plan has ${plan.steps.length} steps but taskType=${taskType} expects min=${guidance.min}. Consider replanning.`);
+    }
+    logger.info(`[${ts()}] [R6-plan-quality] taskType=${taskType} steps=${plan.steps.length} expected=${guidance.min}-${guidance.max} tools=${plan.steps.map(s => (s.tools||[]).join(',')).join('|')}`);
+
+    // [R8-Task3] Log R8-specific fields
+    logger.info(`[${ts()}] [R8-planner] JSON plan v${plan.plan_version}: ${plan.steps.length} steps, method=${method}`);
+    logger.info(`[${ts()}] [R8-planner] reflection: "${(plan.reflection || '').substring(0, 120)}"`);
+
+    // Cache
+    _planCache.set(taskId, plan);
+    _sendPlanProgress(taskId, plan || fallbackPlan, "plan_generated");
+    _sessionKeyCache.set(taskId, sessionKey); // [R9-Task2]
+    persistPlanToDb(taskId, sessionKey, plan); // [R8-Task4]
+
+    // [R25-T5] Generate structured numbered planText (Manus-style)
+    const planText = plan.steps
+      .map((s, i) => `${i + 1}. ${s.title || s.description || 'Step ' + (i + 1)}`)
+      .join('\n');
+    plan.planText = planText;
+    logger.info(`[${ts()}] [R25-T5] Structured planText generated: ${plan.steps.length} steps`);
+
+    // [方案A] Infer taskPhase for each step based on tools array
+    // This enables smartRouteByPhase() to pick the right model per step
+    // Inference logic (priority order): coding → sysadmin → review → summary → qa → planning
+    try {
+      const _TOOL_CODE_SIGNALS = new Set(['write', 'exec', 'shell', 'file_write', 'edit_file', 'shell_exec', 'code_exec']);
+      const _TOOL_SYSADMIN_SIGNALS = new Set(['shell', 'shell_exec', 'inspect', 'systemctl', 'docker', 'journalctl']);
+      const _TOOL_READ_SIGNALS = new Set(['read', 'inspect', 'grep', 'cat', 'head', 'tail', 'wc', 'ls']);
+      const _TOOL_WEB_SIGNALS = new Set(['web_search', 'web_fetch', 'browser']);
+      for (const step of plan.steps) {
+        const tools = (step.tools || []).map(t => t.toLowerCase());
+        const hasCode = tools.some(t => _TOOL_CODE_SIGNALS.has(t));
+        const hasSysadmin = tools.some(t => _TOOL_SYSADMIN_SIGNALS.has(t));
+        const hasReadOnly = tools.every(t => _TOOL_READ_SIGNALS.has(t) || t === 'none' || t === 'inspect');
+        const hasWeb = tools.some(t => _TOOL_WEB_SIGNALS.has(t));
+        const titleLower = (step.title || '').toLowerCase();
+        if (hasCode) {
+          step.taskPhase = 'coding';
+        } else if (hasSysadmin) {
+          step.taskPhase = 'sysadmin';
+        } else if (hasWeb || /search|research|find|look up|retrieve/i.test(titleLower)) {
+          step.taskPhase = 'review';
+        } else if (hasReadOnly && /review|check|verif|audit|analyz|inspect/i.test(titleLower)) {
+          step.taskPhase = 'review';
+        } else if (/summary|summariz|总结|汇总|report/i.test(titleLower)) {
+          step.taskPhase = 'summary';
+        } else if (tools.includes('none') || tools.length === 0) {
+          step.taskPhase = 'planning';
+        } else {
+          step.taskPhase = 'review';  // default: non-coding steps go to lighter model
+        }
+      }
+      // [Iter-67] Force last step to be validation phase (GPT-5.5)
+      // This ensures every plan ends with a quality gate using the strongest model
+      const lastStep = plan.steps[plan.steps.length - 1];
+      if (lastStep) {
+        const lastTitle = (lastStep.title || '').toLowerCase();
+        if (/verif|validat|confirm|review|check|report|summar|总结|验收|确认/.test(lastTitle)) {
+          lastStep.taskPhase = 'validation';
+        } else {
+          // Even if the planner didn't generate a validation step title, mark the last step
+          // so it at least gets the stronger model for final output
+          lastStep.taskPhase = 'validation';
+          logger.info(`[${ts()}] [Iter-67] Forced last step ${lastStep.id} to validation phase (was: ${lastStep.taskPhase})`);
+        }
+      }
+      // [R70] Set reviewPolicy defaults if not already set by GPT
+      for (const step of plan.steps) {
+        if (!step.reviewPolicy) {
+          if (step.taskPhase === 'coding' || step.taskPhase === 'sysadmin') {
+            step.reviewPolicy = step.critical ? 'gpt_review' : 'auto_pass';
+          } else if (step.taskPhase === 'validation') {
+            step.reviewPolicy = 'gpt_review';
+          } else {
+            step.reviewPolicy = step.critical ? 'gpt_review' : 'auto_pass';
+          }
+        }
+        // Ensure last step always gets gpt_review
+        if (step === plan.steps[plan.steps.length - 1]) {
+          step.reviewPolicy = 'gpt_review';
+        }
+      }
+      const phaseSummary = plan.steps.map(s => `${s.id}:${s.taskPhase}(${s.reviewPolicy})`).join(', ');
+      logger.info(`[${ts()}] [方案A] Step phases annotated: ${phaseSummary}`);
+    } catch (_phaseErr) {
+      logger.warn(`[${ts()}] [方案A] Phase annotation failed (non-fatal): ${_phaseErr.message}`);
+    }
+
+    // Emit plan_update event
+    emitEvent(sessionKey, taskId, EVENT_TYPES.PLAN_UPDATE, _r42FormatPlanPayload(plan, {
+      planText,
+      version: plan.version,
+      plan_version: plan.plan_version,
+      trigger: existingPlan ? 'replan' : 'initial',
+      method,
+      taskId
+    }));
+
+    // [R9-plan] Log plan registered with version
+    logger.info(`[${ts()}] [R9-plan] plan registered version=${plan.plan_version} steps=${plan.steps.length} method=${method}`);
+        // [R19-T1] Record hint adoption baseline
+    try {
+      const guidance = TASK_TYPE_STEP_GUIDANCE[taskType] || TASK_TYPE_STEP_GUIDANCE.reasoning;
+      const suggestedToolsFromHint = [];
+      const hintStr = guidance.hint || '';
+      // Extract tool names from hint text: [tool_name] or "Use tools like x, y, z"
+      const bracketTools = hintStr.match(/\[([a-z_]+)\]/g);
+      if (bracketTools) bracketTools.forEach(t => suggestedToolsFromHint.push(t.replace(/[\[\]]/g, '')));
+      const useToolsMatch = hintStr.match(/Use tools like ([a-z_, ]+)/i);
+      if (useToolsMatch) useToolsMatch[1].split(',').forEach(t => { const tt = t.trim(); if (tt) suggestedToolsFromHint.push(tt); });
+      // Also extract from plan steps
+      const planTools = [...new Set(plan.steps.flatMap(s => s.tools || []))];
+      recordHintAdoption({
+        taskId, sessionKey, taskType,
+        hintText: hintStr.substring(0, 500),
+        suggestedTools: suggestedToolsFromHint.length > 0 ? suggestedToolsFromHint : planTools,
+      });
+    } catch (hintErr) {
+      logger.warn(`[${ts()}] [R19-T1] hint recording failed (non-fatal): ${hintErr.message}`);
+    }
+    logger.info(`[${ts()}] [planner] Plan v${plan.version} generated: ${plan.steps.length} steps, goal="${plan.goal.substring(0, 80)}"`);
+    return plan;
+
+  } catch (err) {
+    logger.error(`[${ts()}] [planner] Plan generation failed: ${err.message}`);
+    // R31-T1: Emit plan_generation_failed event for observability
+    try {
+      emitEvent(sessionKey, taskId, 'plan_generation_failed', {
+        failureReason: err.message,
+        fallbackUsed: true,
+        timestamp: Date.now()
+      });
+    } catch (_evtErr) { /* non-fatal */ }
+    // Fallback: create a minimal single-step plan
+    const fallbackPlan = createFallbackPlan(taskId, userGoal, existingPlan);
+    _planCache.set(taskId, fallbackPlan);
+    persistPlanToDb(taskId, sessionKey, fallbackPlan); // [R8-Task4]
+    emitEvent(sessionKey, taskId, EVENT_TYPES.PLAN_UPDATE, {
+      plan: fallbackPlan,
+      version: fallbackPlan.version,
+      trigger: 'fallback'
+    });
+    return fallbackPlan;
+  }
+}
+
+/**
+ * Replan: update an existing plan based on new observations.
+ *
+ * @param {string} taskId
+ * @param {string} sessionKey
+ * @param {string} reason - Why replanning is needed
+ * @param {Object} context - { recentObservations, errors, newInfo }
+ * @returns {Promise<StructuredPlan|null>}
+ */
+export async function replan(taskId, sessionKey, reason, context = {}) {
+  const currentPlan = _planCache.get(taskId);
+  if (!currentPlan) {
+    logger.warn(`[${ts()}] [planner] Cannot replan — no existing plan for task ${taskId}`);
+    return null;
+  }
+
+  const { recentObservations = [], errors = [], newInfo = '' } = context;
+
+  const observationSummary = recentObservations.map((o, i) =>
+    `${i + 1}. [${o.type || 'observation'}] ${typeof o.content === 'string' ? o.content.substring(0, 300) : JSON.stringify(o.content).substring(0, 300)}`
+  ).join('\n');
+
+  const errorSummary = errors.map(e =>
+    `- Error: ${typeof e === 'string' ? e : e.message || JSON.stringify(e)}`
+  ).join('\n');
+
+  const userPrompt = [
+    `Goal: ${currentPlan.goal}`,
+    `\nPrevious plan_version: ${currentPlan.plan_version || currentPlan.version || 1}`,
+    `\nCurrent Plan (v${currentPlan.version}):`,
+    JSON.stringify(currentPlan.steps, null, 2),
+    `\nReason for replanning: ${reason}`,
+    observationSummary ? `\nRecent Observations:\n${observationSummary}` : '',
+    errorSummary ? `\nErrors:\n${errorSummary}` : '',
+    newInfo ? `\nNew Information:\n${newInfo}` : ''
+  ].filter(Boolean).join('\n');
+
+  try {
+    // [R8-Task3] Use enhanced JSON schema for replan too
+    const response = await invokeLLM({
+      messages: [
+        { role: 'system', content: REPLAN_SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt }
+      ],
+      response_format: {
+        type: 'json_schema',
+        json_schema: R8_PLAN_JSON_SCHEMA
+      }
+    });
+
+    const content = response?.choices?.[0]?.message?.content;
+    if (!content) return currentPlan;
+
+    // [R8-Task3] Parse with fallback
+    const { plan: newPlan, method } = parseR8PlanOutput(content, currentPlan);
+
+    if (!newPlan) {
+      logger.warn(`[${ts()}] [R8-planner] Replan parse failed, keeping current plan`);
+      return currentPlan;
+    }
+
+    newPlan.version = currentPlan.version + 1;
+    // [R11-T5] Force plan_version to always increment (LLM may return same or lower value)
+    const prevPlanVersion = currentPlan.plan_version || currentPlan.version || 1;
+    if (!newPlan.plan_version || newPlan.plan_version <= prevPlanVersion) {
+      newPlan.plan_version = prevPlanVersion + 1;
+      logger.info(`[${ts()}] [R11-T5] replan: forced plan_version ${prevPlanVersion} \u2192 ${newPlan.plan_version}`);
+    }
+    newPlan.reflection = newPlan.reflection || `Replan due to: ${reason.substring(0, 100)}`;
+    newPlan.createdAt = currentPlan.createdAt;
+    newPlan.updatedAt = Date.now();
+    newPlan.needsReplan = false;
+
+    _planCache.set(taskId, newPlan);
+    _sessionKeyCache.set(taskId, sessionKey); // [R9-Task2]
+    persistPlanToDb(taskId, sessionKey, newPlan); // [R8-Task4]
+    // [R9-db] Log replan persist
+    logger.info(`[${ts()}] [R9-db] replan persisted version=${newPlan.plan_version}`);
+
+    emitEvent(sessionKey, taskId, EVENT_TYPES.PLAN_UPDATE, {
+      plan: newPlan,
+      version: newPlan.version,
+      plan_version: newPlan.plan_version,
+      trigger: 'replan',
+      reason,
+      method
+    });
+
+    // [R8-Task3] Log replan with R8 fields
+    logger.info(`[${ts()}] [R8-planner] Replan v${newPlan.plan_version}: ${newPlan.steps.length} steps, method=${method}`);
+    logger.info(`[${ts()}] [R8-planner] replan reflection: "${(newPlan.reflection || '').substring(0, 120)}"`);
+    logger.info(`[${ts()}] [planner] Replanned v${newPlan.version}: ${newPlan.steps.length} steps, reason="${reason}"`);
+    return newPlan;
+
+  } catch (err) {
+    logger.error(`[${ts()}] [planner] Replan failed: ${err.message}`);
+    return currentPlan;
+  }
+}
+
+// ─── Plan State Management ─────────────────────────────────
+
+/**
+ * Advance the current step to "doing" status.
+ */
+export function markStepDoing(taskId, stepId) {
+  const plan = _planCache.get(taskId);
+  if (!plan) return null;
+
+  const step = plan.steps.find(s => s.id === stepId);
+  if (step && step.status === 'pending') {
+    step.status = 'doing';
+    plan.currentStepId = stepId;
+    plan.updatedAt = Date.now();
+    logger.info(`[${ts()}] [planner] Step ${stepId} → doing: "${step.title}"`);
+    persistProgress(taskId, 'markStepDoing'); // [R9-Task2]
+    // [R71] Send plan_progress on step_doing so frontend shows real-time step transitions
+    _sendPlanProgress(taskId, plan, "step_doing");
+    // [R38-T3] Emit plan_update on step status change for observability
+    try {
+      const _sk38 = _sessionKeyCache.get(taskId) || taskId.replace(/^msg-/, 'task-');
+      emitEvent(_sk38, taskId, EVENT_TYPES.PLAN_UPDATE, _r42FormatPlanPayload(plan, {
+        version: plan.version, plan_version: plan.plan_version || plan.version,
+        trigger: 'step_doing', stepId, taskId
+      }));
+    } catch (_e38) { /* non-fatal */ }
+  }
+  return plan;
+}
+
+/**
+ * Mark a step as done with optional output summary.
+ */
+export function markStepDone(taskId, stepId, output = '') {
+  const plan = _planCache.get(taskId);
+  if (!plan) return null;
+
+  const step = plan.steps.find(s => s.id === stepId);
+  if (step) {
+    // [R76-PhaseA] Hard evidence gate: step cannot be 'done' without verifiable evidence.
+    // Resolve sessionKey from cache (used by progress-tracker evidence store).
+    const _r76_sk = _sessionKeyCache.get(taskId) || taskId.replace(/^msg-/, 'task-');
+    const _r76_hasEvidence = hasStepEvidence(_r76_sk, stepId);
+    if (!_r76_hasEvidence) {
+      step.status = 'needs_verification';
+      if (output) step.output = output;
+      plan.updatedAt = Date.now();
+      logger.info(`[${ts()}] [R76] Step ${stepId} → needs_verification (no evidence) for ${taskId}`);
+      persistProgress(taskId, 'markStepDone_needs_verification');
+      _sendPlanProgress(taskId, plan, "step_needs_verification");
+      try {
+        const _sk38v = _sessionKeyCache.get(taskId) || taskId.replace(/^msg-/, 'task-');
+        emitEvent(_sk38v, taskId, EVENT_TYPES.PLAN_UPDATE, _r42FormatPlanPayload(plan, {
+          version: plan.version, plan_version: plan.plan_version || plan.version,
+          trigger: 'step_needs_verification', stepId, taskId
+        }));
+      } catch (_e38v) { /* non-fatal */ }
+      return plan;
+    }
+    step.status = 'done';
+    if (output) step.output = output;
+    plan.updatedAt = Date.now();
+
+    // Auto-advance currentStepId to next pending step
+    // [R10-FIX-2] Also check for 'doing' steps (in case a step was already marked doing)
+    const nextPending = plan.steps.find(s => s.status === 'pending' || s.status === 'doing' || s.status === 'retrying');
+    if (nextPending) {
+      plan.currentStepId = nextPending.id;
+    } else {
+      // [R10-FIX-2] All steps done — set currentStepId to null to prevent
+      // getCurrentStep() from returning a completed step, which causes infinite loops
+      plan.currentStepId = null;
+      logger.info(`[${ts()}] [planner] All steps done — currentStepId set to null`);
+      // [R43-T2] Emit plan_completed event when all steps are done
+      try {
+        const _sk43pc = _sessionKeyCache.get(taskId) || taskId.replace(/^msg-/, 'task-');
+        const _planStartTime = plan.createdAt || plan.startedAt || 0;
+        const _planDuration = _planStartTime ? Date.now() - _planStartTime : 0;
+        const _doneCount = plan.steps.filter(s => s.status === 'done').length;
+        const _failedCount = plan.steps.filter(s => s.status === 'failed').length;
+        const _successRate = plan.steps.length > 0 ? _doneCount / plan.steps.length : 0;
+        emitEvent(_sk43pc, taskId, EVENT_TYPES.PLAN_COMPLETED, {
+          planId: taskId,
+          totalSteps: plan.steps.length,
+          doneSteps: _doneCount,
+          failedSteps: _failedCount,
+          duration: _planDuration,
+          successRate: Math.round(_successRate * 100) / 100,
+          plan_version: plan.plan_version || plan.version || 1,
+          steps: plan.steps.map((s, i) => ({
+            id: parseInt(s.id) || (i + 1),
+            desc: s.title || s.description || 'Step ' + (i + 1),
+            status: s.status,
+            tools: s.tools || []
+          }))
+        });
+        logger.info(`[${ts()}] [R43-T2] plan_completed emitted: planId=${taskId} steps=${plan.steps.length} successRate=${_successRate}`);
+      } catch (_e43pc) {
+        logger.info(`[${ts()}] [R43-T2] plan_completed emit error: ${_e43pc.message}`);
+      }
+    }
+
+    logger.info(`[${ts()}] [planner] Step ${stepId} → done: "${step.title}" | output: ${(output || '').substring(0, 100)}`);
+    persistProgress(taskId, 'markStepDone'); // [R9-Task2]
+    _sendPlanProgress(taskId, plan, "step_done");
+    // [R38-T3] Emit plan_update on step completion
+    try {
+      const _sk38d = _sessionKeyCache.get(taskId) || taskId.replace(/^msg-/, 'task-');
+      emitEvent(_sk38d, taskId, EVENT_TYPES.PLAN_UPDATE, _r42FormatPlanPayload(plan, {
+        version: plan.version, plan_version: plan.plan_version || plan.version,
+        trigger: 'step_done', stepId, output: (output || '').substring(0, 200), taskId
+      }));
+    } catch (_e38d) { /* non-fatal */ }
+    // [R19-T1] Track actual tools used for hint adoption
+    try {
+      const fullPlan = _planCache.get(taskId);
+      if (fullPlan) {
+        const allActualTools = [...new Set(fullPlan.steps.filter(s => s.status === 'done').flatMap(s => s.tools || []))];
+        updateHintAdoptionActualTools(taskId, allActualTools);
+      }
+    } catch (hintErr) { /* non-fatal */ }
+
+  }
+  return plan;
+}
+
+/**
+ * Mark a step as blocked.
+ */
+export function markStepBlocked(taskId, stepId, reason = '') {
+  const plan = _planCache.get(taskId);
+  if (!plan) return null;
+
+  const step = plan.steps.find(s => s.id === stepId);
+  if (step) {
+    step.status = 'blocked';
+    step.blockReason = reason;
+    plan.updatedAt = Date.now();
+    plan.needsReplan = true;
+    logger.info(`[${ts()}] [planner] Step ${stepId} → blocked: "${step.title}" reason: ${reason}`);
+    persistProgress(taskId, 'markStepBlocked'); // [R9-Task2]
+    _sendPlanProgress(taskId, plan, "step_blocked");
+  }
+  return plan;
+}
+
+/**
+ * [R5-Task1] Mark a step as failed with error details.
+ * Unlike blocked (external constraint), failed means the tool execution returned an error.
+ */
+export function markStepFailed(taskId, stepId, errorMsg = '') {
+  const plan = _planCache.get(taskId);
+  if (!plan) return null;
+  const step = plan.steps.find(s => s.id === stepId);
+  if (step) {
+    step.status = 'failed';
+    step.blockReason = errorMsg;
+    step.output = `FAILED: ${errorMsg.substring(0, 200)}`;
+    plan.updatedAt = Date.now();
+    plan.needsReplan = true;
+    // Auto-advance currentStepId to next pending step (skip the failed one)
+    const nextPending = plan.steps.find(s => s.status === 'pending');
+    if (nextPending) {
+      plan.currentStepId = nextPending.id;
+    }
+    logger.info(`[${ts()}] [planner] Step ${stepId} \u2192 failed: "${step.title}" error: ${errorMsg.substring(0, 150)}`);
+    persistProgress(taskId, 'markStepFailed'); // [R9-Task2]
+    _sendPlanProgress(taskId, plan, "step_failed");
+    // [R38-T3] Emit plan_update on step failure
+    try {
+      const _sk38f = _sessionKeyCache.get(taskId) || taskId.replace(/^msg-/, 'task-');
+      emitEvent(_sk38f, taskId, EVENT_TYPES.PLAN_UPDATE, _r42FormatPlanPayload(plan, {
+        version: plan.version, plan_version: plan.plan_version || plan.version,
+        trigger: 'step_failed', stepId, taskId
+      }));
+    } catch (_e38f) { /* non-fatal */ }
+  }
+  return plan;
+}
+/**
+ * [R5-Task2] Mark a step as retrying.
+ */
+export function markStepRetrying(taskId, stepId) {
+  const plan = _planCache.get(taskId);
+  if (!plan) return null;
+  const step = plan.steps.find(s => s.id === stepId);
+  if (step) {
+    step.status = 'retrying';
+    plan.updatedAt = Date.now();
+    logger.info(`[${ts()}] [planner] Step ${stepId} \u2192 retrying: "${step.title}"`);
+    persistProgress(taskId, 'markStepRetrying'); // [R9-Task2]
+  }
+  return plan;
+}
+/**
+ * [R5-Task1] Enriched replan triggered by tool failure.
+ * Calls the existing replan() with full failure context.
+ * Returns the new plan with recovery steps.
+ */
+export async function replanOnFailure(taskId, sessionKey, failedStepId, toolName, errorMsg) {
+  const plan = _planCache.get(taskId);
+  if (!plan) {
+    logger.warn(`[${ts()}] [planner] replanOnFailure: no plan for ${taskId}`);
+    return null;
+  }
+  // Build enriched context
+  const completedSteps = plan.steps
+    .filter(s => s.status === 'done')
+    .map(s => `${s.id}: ${s.title} (${s.output || 'completed'})`)
+    .join('\n');
+  const failedStep = plan.steps.find(s => s.id === failedStepId);
+  const failedStepDesc = failedStep ? failedStep.title : 'unknown step';
+  // [Iter-66] Diagnose failure for structured recovery strategy
+  const diagnosis = diagnoseFailure(errorMsg, toolName, { attempts: 0 });
+  const recoveryHint = diagnosis.recovery.action;
+  const reason = `Tool "${toolName}" failed at step ${failedStepId} ("${failedStepDesc}"): ${errorMsg.substring(0, 300)}`;
+  logger.info(`[${ts()}] [R5-replan] replan triggered: taskId=${taskId} failedStep=${failedStepId} tool=${toolName} error=${errorMsg.substring(0, 150)} recoveryHint=${recoveryHint}`);
+  const newPlan = await replan(taskId, sessionKey, reason, {
+    errors: [{ tool: toolName, error: errorMsg, stepId: failedStepId, failureType: diagnosis.failureType, recoveryAction: diagnosis.recovery.action }],
+    recentObservations: [],
+    newInfo: `Failed step: ${failedStepId} (${failedStepDesc})\nTool: ${toolName}\nError: ${errorMsg}\nFailure type: ${diagnosis.failureType}\nRecovery: ${recoveryHint}\nCompleted steps:\n${completedSteps}`,
+  });
+  if (newPlan) {
+    // [R11-T5] Force plan_version increment if LLM didn't do it correctly
+    if (newPlan.plan_version <= (plan.plan_version || plan.version || 1)) {
+      const oldVersion = plan.plan_version || plan.version || 1;
+      newPlan.plan_version = oldVersion + 1;
+      logger.info(`[${ts()}] [R11-T5] Forced plan_version increment: ${oldVersion} \u2192 ${newPlan.plan_version}`);
+    }
+    logger.info(`[${ts()}] [R5-replan] Plan v${newPlan.plan_version} generated: ${newPlan.steps.length} steps, recovery from step ${failedStepId}`);
+    // Count new steps added by replan
+    const newSteps = newPlan.steps.filter(s => s.status === 'pending');
+    logger.info(`[${ts()}] [R5-replan] registered replan steps: ${newSteps.length} new pending steps, currentStepId=${newPlan.currentStepId}`);
+  } else {
+    logger.warn(`[${ts()}] [R5-replan] replan failed to produce new plan for ${taskId}`);
+  }
+  return newPlan;
+}
+/**
+ * Flag the plan for replanning (e.g., after unexpected errors).
+ */
+export function requestReplan(taskId, reason = '') {
+  const plan = _planCache.get(taskId);
+  if (!plan) return;
+  plan.needsReplan = true;
+  plan.notes.push(`Replan requested: ${reason}`);
+  plan.updatedAt = Date.now();
+  logger.info(`[${ts()}] [planner] Replan requested for task ${taskId}: ${reason}`);
+}
+
+/**
+ * Check if the plan is complete (all steps done or skipped).
+ */
+export function isPlanComplete(taskId) {
+  const plan = _planCache.get(taskId);
+  if (!plan) return false;
+  return plan.steps.every(s => s.status === 'done' || s.status === 'skipped' || s.status === 'failed' || s.status === 'blocked');
+}
+
+/**
+ * [Iter-65] Validate plan completion with contract checks.
+ * Goes beyond isPlanComplete() by verifying:
+ * 1. All steps have terminal status
+ * 2. Completed steps have output (for tool steps)
+ * 3. doneCriteria items are programmatically assessed
+ *
+ * @returns {{ valid: boolean, status: string, issues: string[], missingCriteria: string[] }}
+ */
+export function validatePlanCompletion(taskId) {
+  const plan = _planCache.get(taskId);
+  if (!plan) return { valid: false, status: 'no_plan', issues: ['Plan not found in cache'], missingCriteria: [] };
+
+  const issues = [];
+  const missingCriteria = [];
+
+  // 1. Step status check
+  const terminalStatuses = new Set(['done', 'skipped', 'failed', 'blocked']);
+  const nonTerminalSteps = plan.steps.filter(s => !terminalStatuses.has(s.status));
+  if (nonTerminalSteps.length > 0) {
+    for (const s of nonTerminalSteps) {
+      issues.push(`Step "${s.id}" is still "${s.status}"`);
+    }
+  }
+
+  // 2. Output check for completed/failed tool steps
+  for (const s of plan.steps) {
+    if (s.status === 'done' && !s.output && (s.tools || []).length > 0) {
+      issues.push(`Step "${s.id}" marked done but has no output`);
+    }
+    if (s.status === 'failed' && !s.blockReason) {
+      issues.push(`Step "${s.id}" marked failed but has no blockReason`);
+    }
+  }
+
+  // 3. doneCriteria assessment
+  const criteria = plan.doneCriteria || [];
+  if (criteria.length === 0) {
+    issues.push('Plan has no doneCriteria defined');
+  } else {
+    const allOutputs = plan.steps
+      .filter(s => s.output)
+      .map(s => s.output)
+      .join(' ');
+    const allTitles = plan.steps
+      .filter(s => s.status === 'done' || s.status === 'skipped')
+      .map(s => s.title)
+      .join(' ');
+
+    for (const criterion of criteria) {
+      const keywords = criterion.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      const matched = keywords.some(kw =>
+        allOutputs.toLowerCase().includes(kw) || allTitles.toLowerCase().includes(kw)
+      );
+      if (!matched) {
+        missingCriteria.push(criterion);
+      }
+    }
+  }
+
+  const valid = issues.length === 0 && missingCriteria.length === 0;
+  const status = issues.length === 0 ? 'valid' : 'invalid';
+
+  if (!valid) {
+    logger.info(`[${ts()}] [Iter-65] validatePlanCompletion ${taskId}: valid=${valid} issues=${issues.length} missingCriteria=${missingCriteria.length}`);
+  }
+
+  return { valid, status, issues, missingCriteria };
+}
+/**
+ * Get the current step that should be executed.
+ */
+export function getCurrentStep(taskId) {
+  const plan = _planCache.get(taskId);
+  if (!plan) return null;
+
+  // [L4-PR1] Dependency-aware step resolution:
+  // If currentStepId step has unresolved dependsOn, find next executable step instead.
+  const current = plan.steps.find(s => String(s.id) === String(plan.currentStepId));
+  if (!current) return null;
+
+  // If current step is already done/skipped, find next executable
+  if (current.status === 'done' || current.status === 'skipped' || current.status === 'failed') {
+    const done = new Set(plan.steps.filter(s => s.status === 'done' || s.status === 'skipped').map(s => String(s.id)));
+    const next = plan.steps.find(s => {
+      if (s.status !== 'pending' && s.status !== 'doing' && s.status !== 'retrying') return false;
+      const deps = (s.dependsOn || []).map(String);
+      return deps.every(d => done.has(d));
+    });
+    if (next) {
+      plan.currentStepId = String(next.id);
+      logger.info(`[${ts()}] [L4-PR1] getCurrentStep: advanced to dep-ready step ${next.id} (was done/skipped)`);
+    }
+    return next || null;
+  }
+
+  // Check if current step's dependencies are all satisfied
+  const doneSt = new Set(plan.steps.filter(s => s.status === 'done' || s.status === 'skipped').map(s => String(s.id)));
+  const deps = (current.dependsOn || []).map(String);
+  const blocked = deps.filter(d => !doneSt.has(d));
+  if (blocked.length > 0) {
+    // Current step is blocked — find a step that IS unblocked
+    const unblocked = plan.steps.find(s => {
+      if (String(s.id) === String(plan.currentStepId)) return false;
+      if (s.status !== 'pending' && s.status !== 'doing' && s.status !== 'retrying') return false;
+      const sdeps = (s.dependsOn || []).map(String);
+      return sdeps.every(d => doneSt.has(d));
+    });
+    if (unblocked) {
+      logger.info(`[${ts()}] [L4-PR1] getCurrentStep: step ${plan.currentStepId} blocked by [${blocked.join(',')}], redirecting to ${unblocked.id}`);
+      return unblocked;
+    }
+    // All remaining steps are blocked — return current anyway (will retry/replan)
+    logger.warn(`[${ts()}] [L4-PR1] getCurrentStep: step ${plan.currentStepId} blocked, no unblocked alternative`);
+  }
+
+  return current;
+}
+
+/**
+ * Get the full plan for a task.
+ */
+export function getPlan(taskId) {
+  return _planCache.get(taskId) || null;
+}
+
+/**
+ * Clear plan cache for a task (on task completion).
+ * [R8-Task4] Also marks the plan as completed in DB.
+ * [R10-Task4] Force-persist final steps_completed before marking completed,
+ * to prevent stale values from earlier persistProgress calls.
+ */
+export function clearPlan(taskId) {
+  const plan = _planCache.get(taskId);
+  if (plan) {
+    // [R10-Task4] Force final persist with accurate step counts BEFORE deleting from cache
+    const sessionKey = _sessionKeyCache.get(taskId) || taskId.replace(/^msg-/, 'task-');
+    const finalDone = plan.steps.filter(s => s.status === 'done' || s.status === 'skipped').length;
+    const totalSteps = plan.steps.length;
+    logger.info(`[${ts()}] [R10-Task4] clearPlan final persist: task=${taskId} done=${finalDone}/${totalSteps}`);
+    // Synchronous-ish: fire the final persist (it's async but we don't await — the UPDATE will race with markPlanCompletedInDb)
+    // To guarantee ordering, we combine both into a single DB call
+    finalizePlanInDb(taskId, plan, sessionKey);
+  }
+  _planCache.delete(taskId);
+  _externalPlanKeys.delete(taskId); // [R10-Task1] cleanup
+  _sessionKeyCache.delete(taskId); // [R9-Task2]
+  // [R10-Task4] markPlanCompletedInDb is now handled inside finalizePlanInDb
+  if (!plan) {
+    markPlanCompletedInDb(taskId); // fallback if plan was already gone from cache
+  }
+}
+
+/**
+ * [R3-Task1] Register an externally-generated plan into the planner cache.
+ * Used by context-injector to bridge task-engine plans into planner's _planCache
+ * so that getCurrentStep() and markStepDone() work for all callers.
+ *
+ * @param {string} taskId - Key to register under (msgId or taskId)
+ * @param {StructuredPlan} plan - Plan object with steps[], currentStepId, etc.
+ */
+export function registerExternalPlan(taskId, plan) {
+  if (!taskId || !plan || !plan.steps) return;
+  // Don't overwrite an existing plan from planner's own generatePlan
+  if (_planCache.has(taskId)) {
+    logger.info(`[${ts()}] [planner] registerExternalPlan: skipping ${taskId} (already cached)`);
+    return;
+  }
+  normalizePlanStepContract(plan);
+  _planCache.set(taskId, plan);
+    _sendPlanProgress(taskId, plan || fallbackPlan, "plan_generated");
+  _externalPlanKeys.set(taskId, true); // [R10-Task1] Mark as external so generatePlan will upgrade it
+  // [R8-Task4] Also persist externally registered plans to DB
+  const sessionKey = taskId.replace(/^msg-/, 'task-');
+  _sessionKeyCache.set(taskId, sessionKey); // [R9-Task2]
+  persistPlanToDb(taskId, sessionKey, plan);
+  logger.info(`[${ts()}] [planner] registerExternalPlan: registered ${plan.steps.length} steps for ${taskId} (marked external)`);
+}
+
+// ─── Plan Rebuild from Events ──────────────────────────────
+
+/**
+ * Rebuild a plan from event stream (for crash recovery / resumption).
+ * [R8-Task4] Now checks task_plans DB table FIRST for faster recovery,
+ * falls back to event stream scanning if DB lookup fails.
+ *
+ * @param {string} taskId
+ * @param {string} sessionKey
+ * @returns {Promise<StructuredPlan|null>}
+ */
+export async function rebuildPlanFromEvents(taskId, sessionKey) {
+  // [R8-Task4] Try DB first — O(1) lookup vs scanning event stream
+  try {
+    const dbPlan = await loadPlanFromDb(taskId);
+    if (dbPlan && dbPlan.steps && dbPlan.steps.length > 0) {
+      _planCache.set(taskId, dbPlan);
+      logger.info(`[${ts()}] [R8-Task4] Plan rebuilt from DB: v${dbPlan.plan_version || dbPlan.version}, ${dbPlan.steps.length} steps`);
+      return dbPlan;
+    }
+  } catch (dbErr) {
+    logger.warn(`[${ts()}] [R8-Task4] DB plan lookup failed, falling back to events: ${dbErr.message}`);
+  }
+
+  // Fallback: scan event stream
+  try {
+    const events = await getEvents(sessionKey, {
+      eventTypes: [EVENT_TYPES.PLAN_UPDATE],
+      limit: 50
+    });
+
+    if (!events || events.length === 0) {
+      logger.info(`[${ts()}] [planner] No plan events found for task ${taskId}`);
+      return null;
+    }
+
+    // Find the latest plan_update event
+    let latestPlan = null;
+    for (const event of events) {
+      try {
+        const payload = typeof event.payload === 'string' ? JSON.parse(event.payload) : event.payload;
+        if (payload?.plan) {
+          latestPlan = payload.plan;
+        }
+      } catch (_) { /* skip malformed events */ }
+    }
+
+    if (latestPlan) {
+      _planCache.set(taskId, latestPlan);
+      // [R8-Task4] Backfill DB with plan recovered from events
+      persistPlanToDb(taskId, sessionKey, latestPlan);
+      logger.info(`[${ts()}] [planner] Plan rebuilt from events: v${latestPlan.version}, ${latestPlan.steps.length} steps`);
+      return latestPlan;
+    }
+
+    return null;
+  } catch (err) {
+    logger.error(`[${ts()}] [planner] Plan rebuild failed: ${err.message}`);
+    return null;
+  }
+}
+
+// ─── Plan Rendering (for context injection) ────────────────
+
+/**
+ * Render the plan as a concise text block for context injection.
+ * This replaces the old task-engine.mjs plan text generation.
+ * [R8] Now includes plan_version and reflection.
+ * [R10-Task3] Injects [CURRENT_STEP_DIRECTIVE] BEFORE the plan overview,
+ * so the LLM sees the immediate execution instruction first.
+ */
+export function renderPlanForContext(taskId) {
+  const plan = _planCache.get(taskId);
+  if (!plan) return '';
+
+  const allLines = [];
+
+  // [R10-Task3] Current step directive — placed FIRST for LLM attention
+  const currentStep = plan.steps.find(s => s.id === plan.currentStepId);
+  if (currentStep && (currentStep.status === 'doing' || currentStep.status === 'pending')) {
+    const toolsStr = (currentStep.tools && currentStep.tools.length > 0) ? currentStep.tools.join(', ') : 'auto';
+    const doneSteps = plan.steps.filter(s => s.status === 'done').length;
+    allLines.push(`[CURRENT_STEP_DIRECTIVE]`);
+    allLines.push(`You MUST now execute step ${currentStep.id}: "${currentStep.title}"`);
+    allLines.push(`Required tools: ${toolsStr}`);
+    if (currentStep.rationale) {
+      allLines.push(`Rationale: ${currentStep.rationale}`);
+    }
+    allLines.push(`Progress: ${doneSteps}/${plan.steps.length} steps completed`);
+    // Show what comes after this step
+    const nextPending = plan.steps.find(s => s.status === 'pending' && s.id !== currentStep.id);
+    if (nextPending) {
+      allLines.push(`After this step: proceed to step ${nextPending.id} ("${nextPending.title}")`);
+    } else {
+      allLines.push(`After this step: plan complete — summarize results for user`);
+    }
+    allLines.push(`[/CURRENT_STEP_DIRECTIVE]`);
+    allLines.push(''); // blank line separator
+  }
+
+  // Plan overview (same as before)
+  const statusIcon = { pending: '○', doing: '▶', done: '✓', failed: '✘', blocked: '✗', retrying: '↻', skipped: '–' };
+  allLines.push(`[STRUCTURED_PLAN v${plan.plan_version || plan.version}]`);
+  allLines.push(`Goal: ${plan.goal}`);
+
+  // [R8] Include reflection if available
+  if (plan.reflection) {
+    allLines.push(`Reflection: ${plan.reflection.substring(0, 200)}`);
+  }
+
+  allLines.push(`Steps:`);
+
+  for (const step of plan.steps) {
+    const icon = statusIcon[step.status] || '?';
+    const current = step.id === plan.currentStepId ? ' ← CURRENT' : '';
+    const output = step.output ? ` (result: ${step.output.substring(0, 100)})` : '';
+    const blocked = step.blockReason ? ` [BLOCKED: ${step.blockReason}]` : '';
+    allLines.push(`  ${icon} ${step.id}. ${step.title}${output}${blocked}${current}`);
+  }
+
+  allLines.push(`Done Criteria: ${plan.doneCriteria.join('; ')}`);
+  if (plan.notes.length > 0) {
+    allLines.push(`Notes: ${plan.notes.slice(-3).join('; ')}`);
+  }
+  allLines.push(`[/STRUCTURED_PLAN]`);
+
+  return allLines.join('\n');
+}
+
+// ─── Fallback Plan ─────────────────────────────────────────
+
+function createFallbackPlan(taskId, userGoal, existingPlan) {
+  return {
+    plan_version: existingPlan ? (existingPlan.plan_version || existingPlan.version || 0) + 1 : 1,
+    reflection: 'Fallback plan: LLM plan generation failed, using single-step execution',
+    goal: userGoal.substring(0, 500),
+    steps: [
+      { id: '1', title: '分析用户需求并执行任务', status: 'pending', tools: ['auto'], rationale: 'Fallback single-step execution' }
+    ],
+    currentStepId: '1',
+    doneCriteria: ['用户目标已达成'],
+    notes: ['Fallback plan: LLM plan generation failed, using single-step execution'],
+    needsReplan: false,
+    version: existingPlan ? existingPlan.version + 1 : 1,
+    createdAt: existingPlan ? existingPlan.createdAt : Date.now(),
+    updatedAt: Date.now()
+  };
+}
+
+// ─── [R9-Task3] Crash Recovery ──────────────────────────────
+
+let _recoveryDone = false;
+// [R10-Task2] Track recovered plan keys so openclaw-handler can rebuild executors
+const _recoveredPlanKeys = new TTLMap(100, 2 * 60 * 60 * 1000, 5 * 60 * 1000); // msgId => { sessionKey, plan }
+
+/**
+ * [R9-Task3] Recover active plans from DB after process restart.
+ * Called once during worker startup or on first handleViaOpenClaw call.
+ * Loads all plans with status='active' from task_plans table back into _planCache.
+ * This enables step tracking to resume without losing progress.
+ *
+ * @returns {Promise<number>} Number of plans recovered
+ */
+export { getHintAdoptionStats };
+
+export async function recoverActivePlans() {
+  if (_recoveryDone) return 0;
+  _recoveryDone = true;
+  try {
+    if (!(await ensureDb())) {
+      logger.warn(`[${ts()}] [R9-recovery] DB not available, skipping recovery`);
+      return 0;
+    }
+    // Only recover plans that are still active (not completed/failed)
+    // and were updated within the last 24 hours (stale plans are ignored)
+    // Use SQLite-compatible date format (YYYY-MM-DD HH:MM:SS) to match stored format
+    const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const cutoff = cutoffDate.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+    const rows = await getPlanDbModule().query(
+      `SELECT msg_id, session_key, plan_json, plan_version, status FROM task_plans WHERE status = 'active' AND updated_at > ?`,
+      [cutoff]
+    );
+    if (!rows || rows.length === 0) {
+      logger.info(`[${ts()}] [R9-recovery] No active plans to recover`);
+      return 0;
+    }
+    let recovered = 0;
+    for (const row of rows) {
+      try {
+        if (_planCache.has(row.msg_id)) {
+          logger.info(`[${ts()}] [R9-recovery] skipping ${row.msg_id} (already in cache)`);
+          continue;
+        }
+        const plan = JSON.parse(row.plan_json);
+        if (!plan || !plan.steps || plan.steps.length === 0) continue;
+        // [R11-T3] Reset interrupted 'doing' steps to 'pending' (execution context lost on restart)
+        const doingStep = plan.steps.find(s => s.status === 'doing');
+        if (doingStep) {
+          doingStep.status = 'pending';
+          doingStep.output = '[R11] Reset after process restart — execution context lost';
+          logger.info(`[${ts()}] [R11-T3] Reset doing step ${doingStep.id} to pending for task=${row.msg_id}`);
+        }
+
+        _planCache.set(row.msg_id, plan);
+        _sessionKeyCache.set(row.msg_id, row.session_key);
+        // [R10-Task2] Store recovered plan info for executor rebuild
+        _recoveredPlanKeys.set(row.msg_id, { sessionKey: row.session_key, plan });
+
+        // [R11-T3] Persist the doing→pending reset back to DB
+        if (doingStep) {
+          try {
+            await getPlanDbModule().exec(
+              `UPDATE task_plans SET plan_json = ?, updated_at = datetime('now') WHERE msg_id = ?`,
+              [JSON.stringify(plan), row.msg_id]
+            );
+          } catch (_persistErr) {
+            logger.warn(`[${ts()}] [R11-T3] Failed to persist doing→pending reset: ${_persistErr.message}`);
+          }
+        }
+
+        const doneSteps = plan.steps.filter(s => s.status === 'done').length;
+        const currentStep = plan.steps.find(s => s.id === plan.currentStepId);
+        logger.info(`[${ts()}] [R9-recovery] recovered plan: task=${row.msg_id} v=${row.plan_version} steps=${doneSteps}/${plan.steps.length} current=${plan.currentStepId}(${currentStep?.title || 'unknown'})`);
+        logger.info(`[${ts()}] [R11-T3] Recovery state: doingReset=${!!doingStep} pendingSteps=${plan.steps.filter(s => s.status === 'pending').length}`);
+
+        recovered++;
+      } catch (parseErr) {
+        logger.warn(`[${ts()}] [R9-recovery] failed to parse plan for ${row.msg_id}: ${parseErr.message}`);
+      }
+    }
+    logger.info(`[${ts()}] [R9-recovery] recovery complete: ${recovered} plans restored from DB`);
+
+    // [R11-T4] Clean up orphan active records older than 24h
+    // This runs AFTER recovery so we don't accidentally clean up recoverable plans
+    try {
+      const staleResult = await getPlanDbModule().exec(
+        `UPDATE task_plans SET status = 'stale', updated_at = datetime('now') WHERE status = 'active' AND updated_at < ?`,
+        [cutoff]
+      );
+      const staleCount = staleResult?.changes || 0;
+      if (staleCount > 0) {
+        logger.info(`[${ts()}] [R11-T4] Cleaned ${staleCount} stale active records (>24h)`);
+      }
+    } catch (cleanErr) {
+      logger.warn(`[${ts()}] [R11-T4] Stale cleanup failed: ${cleanErr.message}`);
+    }
+
+    return recovered;
+  } catch (err) {
+    logger.error(`[${ts()}] [R9-recovery] recovery failed: ${err.message}`);
+    return 0;
+  }
+}
+
+/**
+ * [R9-Task3] Check if recovery has been performed.
+ * Used by openclaw-handler to trigger recovery on first call.
+ */
+export function isRecoveryDone() {
+  return _recoveryDone;
+}
+
+/**
+ * [R10-Task2] Get all recovered plans that need executor rebuild.
+ * Returns a Map of msgId => { sessionKey, plan }.
+ * After calling this, the caller should rebuild executors for each entry.
+ * Calling consumeRecoveredPlan(msgId) marks it as handled.
+ */
+export function getRecoveredPlans() {
+  return new Map(_recoveredPlanKeys);
+}
+
+/**
+ * [R10-Task2] Check if a specific task was recovered and needs executor rebuild.
+ * Returns the recovery info or null.
+ */
+export function getRecoveredPlan(msgId) {
+  return _recoveredPlanKeys.get(msgId) || null;
+}
+
+/**
+ * [R10-Task2] Consume (mark as handled) a recovered plan.
+ * Called after executor has been rebuilt for this task.
+ */
+export function consumeRecoveredPlan(msgId) {
+  const had = _recoveredPlanKeys.delete(msgId);
+  if (had) {
+    logger.info(`[${ts()}] [R10-Task2] consumed recovered plan: ${msgId}`);
+  }
+  return had;
+}
+
+// ─── [R12-T1] Cross-Session Recovery ────────────────────────────
+
+/**
+ * [R12-T1] Get all active (recoverable) plans for a given session.
+ * Used by the frontend RecoveryBanner to show resumable tasks.
+ * Returns array of { msgId, plan, sessionKey, pendingSteps, currentStep }.
+ */
+export function getActivePlansBySession(sessionKey) {
+  const results = [];
+  for (const [msgId, plan] of _planCache) {
+    const sk = _sessionKeyCache.get(msgId);
+    if (sk !== sessionKey) continue;
+    const pendingSteps = plan.steps.filter(s => s.status === 'pending');
+    const doneSteps = plan.steps.filter(s => s.status === 'done');
+    if (pendingSteps.length === 0) continue; // fully complete
+    const currentStep = plan.steps.find(s => s.id === plan.currentStepId);
+    results.push({
+      msgId,
+      totalSteps: plan.steps.length,
+      doneSteps: doneSteps.length,
+      pendingSteps: pendingSteps.length,
+      currentStep: currentStep ? { id: currentStep.id, title: currentStep.title, status: currentStep.status } : null,
+      goal: plan.goal || plan.steps[0]?.title || 'Unknown task',
+      version: plan.version || 1,
+    });
+  }
+  return results;
+}
+
+/**
+ * [R12-T1] Resume a recovered plan by re-injecting it into the executor pipeline.
+ * Called when user clicks "Continue" on RecoveryBanner.
+ * @param {string} msgId - The original task's msgId
+ * @returns {{ plan, sessionKey, currentStep } | null}
+ */
+export function getResumablePlan(msgId) {
+  const plan = _planCache.get(msgId);
+  const sessionKey = _sessionKeyCache.get(msgId);
+  if (!plan || !sessionKey) return null;
+  const pendingSteps = plan.steps.filter(s => s.status === 'pending');
+  if (pendingSteps.length === 0) return null;
+  // Find first pending step
+  const firstPending = pendingSteps[0];
+  // Set it as current
+  plan.currentStepId = firstPending.id;
+  return { plan, sessionKey, currentStep: firstPending };
+}
+
+// ─── [R12-T2] Plan Driving Metrics ───────────────────────────────
+
+const _planMetrics = new TTLMap(200, 60 * 60 * 1000, 5 * 60 * 1000); // taskId → { totalActions, injectedActions, followedActions, details[] }
+
+/**
+ * [R12-T2] Record that a plan step directive was injected into LLM context.
+ * Called from context-injector or openclaw-handler when plan block is injected.
+ */
+export function recordPlanInjection(taskId) {
+  if (!_planMetrics.has(taskId)) {
+    _planMetrics.set(taskId, { totalActions: 0, injectedActions: 0, followedActions: 0, details: [] });
+  }
+  const m = _planMetrics.get(taskId);
+  m.injectedActions++;
+  m.totalActions++;
+}
+
+/**
+ * [R12-T2] Record that an action was taken (tool call) and whether it followed the plan.
+ * @param {string} taskId
+ * @param {string} toolName - The tool that was actually called
+ * @param {string|null} currentStepId - The current plan step ID (null = no plan)
+ * @param {boolean} followed - Whether the tool matched the step's expectedTools
+ */
+export function recordActionFollowance(taskId, toolName, currentStepId, followed) {
+  if (!_planMetrics.has(taskId)) {
+    _planMetrics.set(taskId, { totalActions: 0, injectedActions: 0, followedActions: 0, details: [] });
+  }
+  const m = _planMetrics.get(taskId);
+  m.totalActions++;
+  if (followed) m.followedActions++;
+  m.details.push({ toolName, stepId: currentStepId, followed, ts: Date.now() });
+}
+
+/**
+ * [R12-T2] Record an action without plan (no plan was active).
+ */
+export function recordNoPlanAction(taskId) {
+  if (!_planMetrics.has(taskId)) {
+    _planMetrics.set(taskId, { totalActions: 0, injectedActions: 0, followedActions: 0, details: [] });
+  }
+  _planMetrics.get(taskId).totalActions++;
+}
+
+/**
+ * [R12-T2] Get plan driving metrics for a specific task.
+ */
+export function getTaskPlanMetrics(taskId) {
+  const m = _planMetrics.get(taskId);
+  if (!m) return null;
+  return {
+    taskId,
+    totalActions: m.totalActions,
+    injectedActions: m.injectedActions,
+    followedActions: m.followedActions,
+    plan_injection_rate: m.totalActions > 0 ? (m.injectedActions / m.totalActions).toFixed(3) : '0.000',
+    step_follow_rate: m.totalActions > 0 ? (m.followedActions / m.totalActions).toFixed(3) : '0.000',
+    details: m.details.slice(-20), // last 20 actions
+  };
+}
+
+/**
+ * [R12-T2] Get aggregated plan metrics across all tracked tasks.
+ * Exposed via /api/admin/plan-metrics.
+ */
+export function getAllPlanMetrics() {
+  const tasks = [];
+  let totalActions = 0, totalInjected = 0, totalFollowed = 0;
+  for (const [taskId, m] of _planMetrics) {
+    tasks.push({
+      taskId,
+      totalActions: m.totalActions,
+      injectedActions: m.injectedActions,
+      followedActions: m.followedActions,
+      plan_injection_rate: m.totalActions > 0 ? (m.injectedActions / m.totalActions).toFixed(3) : '0.000',
+      step_follow_rate: m.totalActions > 0 ? (m.followedActions / m.totalActions).toFixed(3) : '0.000',
+    });
+    totalActions += m.totalActions;
+    totalInjected += m.injectedActions;
+    totalFollowed += m.followedActions;
+  }
+  return {
+    aggregate: {
+      totalTasks: tasks.length,
+      totalActions,
+      totalInjected,
+      totalFollowed,
+      plan_injection_rate: totalActions > 0 ? (totalInjected / totalActions).toFixed(3) : '0.000',
+      step_follow_rate: totalActions > 0 ? (totalFollowed / totalActions).toFixed(3) : '0.000',
+    },
+    tasks: tasks.slice(-50), // last 50 tasks
+  };
+}
+
+// ─── LLM Bridge ─
+// invokeLLM is imported from ./llm-bridge.mjs at the top of this file.
+
+// ─── [L4] Parallel Scheduler ──────────────────────────────────────────────────
+
+/**
+ * [L4] Compute parallel execution batches using topological sort.
+ * Steps with no unresolved dependencies form a "wave" that can run concurrently.
+ *
+ * @param {string} taskId
+ * @returns {Array<Array<Object>>} Ordered list of batches; each batch is an array of steps to run in parallel.
+ *   Example: [[step1], [step2, step3], [step4]]
+ */
+export function getParallelBatches(taskId) {
+  const plan = _planCache.get(taskId);
+  if (!plan || !plan.steps) return [];
+
+  const steps = plan.steps;
+  const idToStep = new Map(steps.map(s => [String(s.id), s]));
+  const completed = new Set(steps.filter(s => s.status === 'done' || s.status === 'skipped').map(s => String(s.id)));
+  const pending = steps.filter(s => s.status === 'pending' || s.status === 'doing' || s.status === 'retrying');
+
+  const batches = [];
+  const dispatched = new Set([...completed]);
+
+  // Topological wave sort
+  let iterations = 0;
+  while (pending.length > 0 && iterations < 20) {
+    iterations++;
+    const wave = pending.filter(step => {
+      if (dispatched.has(String(step.id))) return false;
+      const deps = (step.dependsOn || []).map(String);
+      return deps.every(dep => dispatched.has(dep));
+    });
+    if (wave.length === 0) {
+      // Circular dependency or blocked — take next pending step as fallback
+      const blocked = pending.find(s => !dispatched.has(String(s.id)));
+      if (blocked) wave.push(blocked);
+      else break;
+    }
+    batches.push(wave);
+    wave.forEach(s => dispatched.add(String(s.id)));
+  }
+
+  if (batches.length > 0) {
+    const waveInfo = batches.map((b, i) => `w${i + 1}:[${b.map(s => s.id).join(',')}]`).join(' ');
+    logger.info(`[${ts()}] [L4-parallel] ${taskId} batches: ${waveInfo}`);
+  }
+
+  return batches;
+}
+
+/**
+ * [L4] Get the next parallel wave of steps ready to execute.
+ * Returns steps whose dependsOn are all satisfied.
+ *
+ * @param {string} taskId
+ * @returns {Array<Object>} Steps ready to run (may be multiple for parallel execution)
+ */
+export function getNextExecutableSteps(taskId) {
+  const batches = getParallelBatches(taskId);
+  return batches.length > 0 ? batches[0] : [];
+}
+
+/**
+ * [L4] Handle step failure with configurable recovery strategy.
+ * Reads step.onFailure to decide: retry | skip | replan | abort
+ *
+ * @param {string} taskId
+ * @param {string} sessionKey
+ * @param {string|number} stepId
+ * @param {string} toolName
+ * @param {string} errorMsg
+ * @returns {Promise<{action: string, plan?: Object}>}
+ */
+export async function handleStepFailure(taskId, sessionKey, stepId, toolName, errorMsg) {
+  const plan = _planCache.get(taskId);
+  if (!plan) return { action: 'abort' };
+
+  const step = plan.steps.find(s => String(s.id) === String(stepId));
+  if (!step) return { action: 'replan' };
+
+  const strategy = step.onFailure || 'replan';
+  const maxRetries = step.retryCount != null ? step.retryCount : 2;
+
+  logger.info(`[${ts()}] [L4-failure] step=${stepId} strategy=${strategy} tool=${toolName} retries_used=${step._retryCount || 0}/${maxRetries}`);
+
+  switch (strategy) {
+    case 'retry': {
+      const used = step._retryCount || 0;
+      if (used < maxRetries) {
+        step._retryCount = used + 1;
+        markStepRetrying(taskId, stepId);
+        logger.info(`[${ts()}] [L4-retry] step=${stepId} attempt=${step._retryCount}/${maxRetries}`);
+        return { action: 'retry', attempt: step._retryCount };
+      }
+      // Exhausted retries → fall through to replan
+      logger.info(`[${ts()}] [L4-retry] step=${stepId} retries exhausted → replan`);
+      markStepFailed(taskId, stepId, `Exhausted ${maxRetries} retries: ${errorMsg}`);
+      const newPlan = await replanOnFailure(taskId, sessionKey, stepId, toolName, errorMsg);
+      return { action: 'replan', plan: newPlan };
+    }
+
+    case 'skip': {
+      const s = plan.steps.find(ss => String(ss.id) === String(stepId));
+      if (s) { s.status = 'skipped'; s.output = `Skipped due to ${toolName} error: ${errorMsg.substring(0, 100)}`; }
+      // Advance to next step
+      const nextPending = plan.steps.find(ss => ss.status === 'pending');
+      if (nextPending) { plan.currentStepId = String(nextPending.id); nextPending.status = 'doing'; }
+      persistProgress(taskId, 'skip');
+      logger.info(`[${ts()}] [L4-skip] step=${stepId} skipped, next=${plan.currentStepId}`);
+      return { action: 'skip' };
+    }
+
+    case 'abort': {
+      markStepFailed(taskId, stepId, errorMsg);
+      logger.warn(`[${ts()}] [L4-abort] task=${taskId} step=${stepId} aborted: ${errorMsg.substring(0, 150)}`);
+      return { action: 'abort' };
+    }
+
+    case 'replan':
+    default: {
+      markStepFailed(taskId, stepId, errorMsg);
+      const newPlan = await replanOnFailure(taskId, sessionKey, stepId, toolName, errorMsg);
+      return { action: 'replan', plan: newPlan };
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// [R70] GPT Step Review — Called after step completion for quality gate
+// ═══════════════════════════════════════════════════════════════
+export async function reviewStepResult(step, executionSummary, taskContext, options = {}) {
+  // [R76-PhaseA] mustPass mode: for P0/critical steps, default to FAIL on ambiguity.
+  const _r76_mustPass = options.mustPass === true;
+  const REVIEW_MODEL = 'openai/gpt-5.5';
+  const MAX_SUMMARY_LEN = 2000;
+  const MAX_BRIEF_LEN = 500;
+
+  const truncatedSummary = (executionSummary || '').substring(0, MAX_SUMMARY_LEN);
+  const truncatedBrief = (step.taskBrief || '').substring(0, MAX_BRIEF_LEN);
+  const criteria = step.acceptanceCriteria || 'Step completed successfully';
+
+  const prompt = `You are a quality reviewer for an AI agent execution pipeline.
+
+TASK CONTEXT: ${(taskContext || '').substring(0, 300)}
+
+STEP: ${step.title || 'Unknown step'}
+TASK BRIEF: ${truncatedBrief}
+ACCEPTANCE CRITERIA: ${criteria}
+
+EXECUTION RESULT (last ${MAX_SUMMARY_LEN} chars):
+${truncatedSummary}
+
+Review whether the execution result meets the acceptance criteria.
+Be pragmatic: if the step achieved its core objective even with minor deviations, mark as pass.
+Only fail if the result clearly does NOT meet the criteria or has obvious errors.
+
+Output ONLY valid JSON (no markdown): { "pass": true/false, "feedback": "1-2 sentence explanation", "retryHint": "specific fix instruction if failed, empty string if passed" }`;
+
+  try {
+    const response = await invokeLLM({
+      messages: [
+        { role: 'system', content: 'You are a pragmatic quality reviewer. Output only valid JSON. Be strict on correctness but lenient on style.' },
+        { role: 'user', content: prompt }
+      ],
+      model: REVIEW_MODEL,
+      maxTokens: 300,
+    });
+
+    const text = response?.choices?.[0]?.message?.content || '{}';
+    // Parse JSON, handling potential markdown wrapping
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      logger.warn(`[R70-review] Could not parse JSON from GPT response: ${text.substring(0, 200)}`);
+      return { pass: !_r76_mustPass, feedback: `Review parse failed, ${_r76_mustPass ? 'BLOCKED' : 'auto-passing'}`, retryHint: '', blocked: _r76_mustPass };
+    }
+    const result = JSON.parse(jsonMatch[0]);
+    logger.info(`[R70-review] Step "${step.title}" review: pass=${result.pass} feedback="${(result.feedback || '').substring(0, 100)}"`);
+    // [R76-PhaseA] mustPass mode: ambiguous results default to FAIL
+    const _r76_defaultPass = _r76_mustPass ? false : true;
+    const _r76_pass = result.pass === true ? true : (result.pass === false ? false : _r76_defaultPass);
+    return {
+      pass: _r76_pass,
+      feedback: result.feedback || '',
+      retryHint: result.retryHint || '',
+      blocked: _r76_mustPass && !_r76_pass,
+    };
+  } catch (err) {
+    logger.warn(`[R70-review] GPT review failed (${_r76_mustPass ? 'BLOCKING' : 'auto-passing'}): ${err.message}`);
+    return { pass: !_r76_mustPass, feedback: `Review error: ${err.message}${_r76_mustPass ? ' (BLOCKED)' : ''}`, retryHint: '', blocked: _r76_mustPass };
+  }
+}
+
+export function cleanupPlannerResources() {
+  _planCache.dispose();
+  _externalPlanKeys.dispose();
+  _sessionKeyCache.dispose();
+  _recoveredPlanKeys.dispose();
+  _planMetrics.dispose();
+}

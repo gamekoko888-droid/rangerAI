@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>西藏 · 世界屋脊 — 神圣之旅</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Noto+Sans+SC:wght@300;400;500&display=swap');
+
+    :root {
+      --crimson: #8B1A1A;
+      --deep-red: #C0392B;
+      --gold: #D4A017;
+      --light-gold: #F0C040;
+      --dark-bg: #1A0A00;
+      --card-bg: #2D1200;
+      --text-light: #F5E6CC;
+      --text-gold: #E8C060;
+      --sky-blue: #4A90D9;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background-color: var(--dark-bg);
+      color: var(--text-light);
+      overflow-x: hidden;
+    }
+
+    /* ===== Tibetan Border Pattern ===== */
+    .tibet-border {
+      height: 8px;
+      background: repeating-linear-gradient(
+        90deg,
+        var(--gold) 0px, var(--gold) 10px,
+        var(--crimson) 10px, var(--crimson) 20px,
+        var(--light-gold) 20px, var(--light-gold) 30px,
+        var(--crimson) 30px, var(--crimson) 40px
+      );
+    }
+
+    /* ===== Hero Section ===== */
+    .hero {
+      position: relative;
+      height: 100vh;
+      min-height: 600px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background: url('https://images.unsplash.com/photo-1522093007474-d86e9bf7ba6f?w=1600&q=80') center/cover no-repeat;
+      filter: brightness(0.55);
+    }
+
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(26,10,0,0.3) 0%,
+        rgba(139,26,26,0.2) 40%,
+        rgba(26,10,0,0.85) 100%
+      );
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-size: 0.8rem;
+      letter-spacing: 0.4em;
+      padding: 0.4rem 1.5rem;
+      margin-bottom: 1.5rem;
+      text-transform: uppercase;
+    }
+
+    .hero-title {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(3rem, 8vw, 7rem);
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.1;
+      text-shadow: 0 4px 30px rgba(0,0,0,0.8);
+      margin-bottom: 0.5rem;
+    }
+
+    .hero-title span {
+      color: var(--light-gold);
+    }
+
+    .hero-subtitle {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(1rem, 3vw, 1.6rem);
+      color: var(--text-gold);
+      letter-spacing: 0.3em;
+      margin-bottom: 2rem;
+    }
+
+    .hero-desc {
+      max-width: 600px;
+      margin: 0 auto 2.5rem;
+      font-size: 1.05rem;
+      line-height: 1.9;
+      color: rgba(245,230,204,0.85);
+    }
+
+    .hero-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--crimson), var(--deep-red));
+      color: var(--light-gold);
+      text-decoration: none;
+      padding: 0.9rem 3rem;
+      font-size: 1rem;
+      letter-spacing: 0.2em;
+      border: 1px solid var(--gold);
+      transition: all 0.3s ease;
+    }
+
+    .hero-btn:hover {
+      background: linear-gradient(135deg, var(--gold), var(--light-gold));
+      color: var(--dark-bg);
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+      text-align: center;
+      animation: bounce 2s infinite;
+    }
+
+    .scroll-hint span {
+      display: block;
+      color: var(--gold);
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      margin-bottom: 0.5rem;
+    }
+
+    .scroll-hint::after {
+      content: '▼';
+      color: var(--gold);
+      font-size: 1rem;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(8px); }
+    }
+
+    /* ===== Nav ===== */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(26,10,0,0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(212,160,23,0.3);
+    }
+
+    .nav-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+
+    .nav-logo {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 1.2rem;
+      color: var(--light-gold);
+      letter-spacing: 0.1em;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-light);
+      text-decoration: none;
+      font-size: 0.9rem;
+      letter-spacing: 0.05em;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--light-gold); }
+
+    /* ===== Section Common ===== */
+    section {
+      padding: 5rem 2rem;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+
+    .section-label {
+      display: inline-block;
+      color: var(--gold);
+      font-size: 0.75rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 1rem;
+    }
+
+    .section-divider {
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--crimson), var(--gold));
+      margin: 0 auto;
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; }
+
+    /* ===== Stats Bar ===== */
+    .stats-bar {
+      background: linear-gradient(135deg, var(--crimson) 0%, #6B0F0F 100%);
+      padding: 2.5rem 2rem;
+    }
+
+    .stats-grid {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      text-align: center;
+    }
+
+    .stat-item {
+      padding: 1rem;
+      border-right: 1px solid rgba(240,192,64,0.3);
+    }
+
+    .stat-item:last-child { border-right: none; }
+
+    .stat-num {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: var(--light-gold);
+      line-height: 1;
+      margin-bottom: 0.4rem;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: rgba(245,230,204,0.75);
+      letter-spacing: 0.1em;
+    }
+
+    /* ===== Spots Grid ===== */
+    .spots-section {
+      background: var(--dark-bg);
+    }
+
+    .spots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 2rem;
+    }
+
+    .spot-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(212,160,23,0.2);
+      overflow: hidden;
+      transition: transform 0.3s, box-shadow 0.3s;
+      cursor: pointer;
+    }
+
+    .spot-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 20px 60px rgba(139,26,26,0.4);
+      border-color: rgba(212,160,23,0.5);
+    }
+
+    .spot-img-wrap {
+      position: relative;
+      height: 240px;
+      overflow: hidden;
+    }
+
+    .spot-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+
+    .spot-card:hover .spot-img-wrap img {
+      transform: scale(1.08);
+    }
+
+    .spot-tag {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      background: var(--crimson);
+      color: var(--light-gold);
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      padding: 0.25rem 0.7rem;
+    }
+
+    .spot-rating {
+      position: absolute;
+      bottom: 1rem;
+      right: 1rem;
+      background: rgba(0,0,0,0.7);
+      color: var(--gold);
+      font-size: 0.85rem;
+      padding: 0.2rem 0.6rem;
+      border: 1px solid var(--gold);
+    }
+
+    .spot-body {
+      padding: 1.5rem;
+    }
+
+    .spot-name {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--light-gold);
+      margin-bottom: 0.3rem;
+    }
+
+    .spot-name-en {
+      font-size: 0.75rem;
+      color: rgba(240,192,64,0.5);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .spot-desc {
+      font-size: 0.92rem;
+      line-height: 1.85;
+      color: rgba(245,230,204,0.8);
+      margin-bottom: 1.2rem;
+    }
+
+    .spot-meta {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.8rem;
+      color: var(--gold);
+      border-top: 1px solid rgba(212,160,23,0.2);
+      padding-top: 1rem;
+    }
+
+    .spot-meta span::before {
+      margin-right: 0.3rem;
+    }
+
+    /* ===== Featured Banner ===== */
+    .featured-banner {
+      position: relative;
+      height: 500px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+    }
+
+    .featured-banner-bg {
+      position: absolute;
+      inset: 0;
+      background: url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1600&q=80') center/cover no-repeat;
+      filter: brightness(0.45);
+    }
+
+    .featured-banner-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(26,10,0,0.9) 0%, rgba(26,10,0,0.2) 100%);
+    }
+
+    .featured-content {
+      position: relative;
+      z-index: 2;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 3rem;
+      max-width: 600px;
+    }
+
+    .featured-label {
+      color: var(--gold);
+      font-size: 0.75rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .featured-title {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.2;
+      margin-bottom: 1.2rem;
+    }
+
+    .featured-title em {
+      font-style: normal;
+      color: var(--light-gold);
+    }
+
+    .featured-text {
+      font-size: 1rem;
+      line-height: 1.9;
+      color: rgba(245,230,204,0.85);
+    }
+
+    /* ===== Culture Section ===== */
+    .culture-section {
+      background: linear-gradient(180deg, #1A0A00 0%, #0D0500 100%);
+    }
+
+    .culture-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+
+    .culture-img {
+      position: relative;
+      height: 420px;
+    }
+
+    .culture-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border: 2px solid rgba(212,160,23,0.3);
+    }
+
+    .culture-img::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      right: 10px;
+      bottom: 10px;
+      border: 1px solid rgba(212,160,23,0.2);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .culture-text h3 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 2rem;
+      color: var(--light-gold);
+      margin-bottom: 1.5rem;
+    }
+
+    .culture-text p {
+      font-size: 0.95rem;
+      line-height: 2;
+      color: rgba(245,230,204,0.8);
+      margin-bottom: 1.2rem;
+    }
+
+    .culture-list {
+      list-style: none;
+      margin-top: 1.5rem;
+    }
+
+    .culture-list li {
+      padding: 0.6rem 0;
+      border-bottom: 1px solid rgba(212,160,23,0.15);
+      font-size: 0.9rem;
+      color: var(--text-gold);
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .culture-list li::before {
+      content: '❋';
+      color: var(--crimson);
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    /* ===== Tips Section ===== */
+    .tips-section {
+      background: var(--card-bg);
+    }
+
+    .tips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .tip-card {
+      background: rgba(139,26,26,0.15);
+      border: 1px solid rgba(212,160,23,0.2);
+      padding: 2rem 1.5rem;
+      text-align: center;
+      transition: border-color 0.3s;
+    }
+
+    .tip-card:hover {
+      border-color: var(--gold);
+    }
+
+    .tip-icon {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .tip-title {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 1.1rem;
+      color: var(--light-gold);
+      margin-bottom: 0.8rem;
+    }
+
+    .tip-text {
+      font-size: 0.88rem;
+      line-height: 1.8;
+      color: rgba(245,230,204,0.75);
+    }
+
+    /* ===== Gallery ===== */
+    .gallery-section {
+      background: var(--dark-bg);
+      padding: 5rem 2rem;
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(2, 200px);
+      gap: 0.5rem;
+    }
+
+    .gallery-item {
+      overflow: hidden;
+      position: relative;
+    }
+
+    .gallery-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+
+    .gallery-item:hover img { transform: scale(1.1); }
+
+    .gallery-item:nth-child(1) {
+      grid-column: span 2;
+      grid-row: span 2;
+    }
+
+    .gallery-item::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(139,26,26,0.2);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .gallery-item:hover::after { opacity: 1; }
+
+    /* ===== Footer ===== */
+    footer {
+      background: #0D0500;
+      padding: 3rem 2rem 2rem;
+      text-align: center;
+      border-top: 1px solid rgba(212,160,23,0.2);
+    }
+
+    .footer-logo {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 1.8rem;
+      color: var(--light-gold);
+      margin-bottom: 1rem;
+    }
+
+    .footer-tagline {
+      color: rgba(245,230,204,0.5);
+      font-size: 0.9rem;
+      letter-spacing: 0.3em;
+      margin-bottom: 2rem;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: rgba(245,230,204,0.6);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--light-gold); }
+
+    .footer-copy {
+      font-size: 0.78rem;
+      color: rgba(245,230,204,0.3);
+    }
+
+    .om-symbol {
+      font-size: 2rem;
+      color: var(--gold);
+      opacity: 0.6;
+      margin: 1rem 0;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .culture-grid { grid-template-columns: 1fr; }
+      .gallery-grid {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: auto;
+      }
+      .gallery-item:nth-child(1) { grid-column: span 2; grid-row: span 1; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="tibet-border"></div>
+
+<!-- Navigation -->
+<nav>
+  <div class="nav-inner">
+    <div class="nav-logo">西藏 · Tibet</div>
+    <ul class="nav-links">
+      <li><a href="#spots">著名景点</a></li>
+      <li><a href="#culture">文化习俗</a></li>
+      <li><a href="#tips">旅行贴士</a></li>
+      <li><a href="#gallery">风光画廊</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-badge">世界屋脊 · Roof of the World</div>
+    <h1 class="hero-title">西<span>藏</span></h1>
+    <p class="hero-subtitle">在云端触摸神圣 · 与天地同行</p>
+    <p class="hero-desc">
+      平均海拔4000米以上，这片被雪山与蓝天眷顾的高原，
+      孕育了世界上最独特的文明。布达拉宫的金顶在阳光下闪耀，
+      玛尼石堆诉说着千年信仰，每一次呼吸都是与神灵的低语。
+    </p>
+    <a href="#spots" class="hero-btn">探索圣地</a>
+  </div>
+  <div class="scroll-hint"><span>向下滚动</span></div>
+</section>
+
+<!-- Stats -->
+<div class="stats-bar">
+  <div class="stats-grid">
+    <div class="stat-item">
+      <div class="stat-num">4,500<small style="font-size:1rem">m</small></div>
+      <div class="stat-label">平均海拔高度</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">8,848<small style="font-size:1rem">m</small></div>
+      <div class="stat-label">珠峰世界之巅</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">1,500<small style="font-size:1rem">年</small></div>
+      <div class="stat-label">布达拉宫历史</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">70+</div>
+      <div class="stat-label">自然保护区面积万km²</div>
+    </div>
+  </div>
+</div>
+
+<!-- Spots -->
+<section class="spots-section" id="spots">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-label">Sacred Destinations</div>
+      <h2 class="section-title">圣地揽胜 · 必游景点</h2>
+      <div class="section-divider"></div>
+    </div>
+
+    <div class="spots-grid">
+
+      <!-- 布达拉宫 -->
+      <div class="spot-card">
+        <div class="spot-img-wrap">
+          <img src="https://images.unsplash.com/photo-1529257414772-1960b7bea4eb?w=700&q=80" alt="布达拉宫" loading="lazy">
+          <div class="spot-tag">世界遗产</div>
+          <div class="spot-rating">★ 5.0</div>
+        </div>
+        <div class="spot-body">
+          <div class="spot-name">布达拉宫</div>
+          <div class="spot-name-en">Potala Palace</div>
+          <p class="spot-desc">
+            矗立于拉萨红山之上，这座宫殿式建筑群是藏传佛教的圣地，
+            也是历代达赖喇嘛的冬宫。白宫红宫交相辉映，
+            主楼高117米，共13层，宫殿、灵塔、庙宇相融一体，
+            堪称世界建筑史上的奇迹。每当清晨第一缕阳光洒落金顶，
+            那种震撼会让所有人屏住呼吸。
+          </p>
+          <div class="spot-meta">
+            <span>📍 拉萨市中心</span>
+            <span>🏛 海拔 3,700m</span>
+            <span>🎟 门票 200元</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 纳木错 -->
+      <div class="spot-card">
+        <div class="spot-img-wrap">
+          <img src="https://images.unsplash.com/photo-1617777938240-9a1d8e51a47d?w=700&q=80" alt="纳木错" loading="lazy">
+          <div class="spot-tag">圣湖</div>
+          <div class="spot-rating">★ 4.9</div>
+        </div>
+        <div class="spot-body">
+          <div class="spot-name">纳木错</div>
+          <div class="spot-name-en">Nam Co Lake</div>
+          <p class="spot-desc">
+            "天湖"纳木错是世界上海拔最高的大型湖泊，
+            湖面海拔4718米，面积1920平方公里。
+            湛蓝如镜的湖面倒映着念青唐古拉山的雪峰，
+            远处牧民的白色帐篷点缀其间，
+            在这里，天地之间只有圣洁的蓝与白。
+          </p>
+          <div class="spot-meta">
+            <span>📍 拉萨以北240km</span>
+            <span>🏔 海拔 4,718m</span>
+            <span>🎟 门票 120元</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 珠穆朗玛峰 -->
+      <div class="spot-card">
+        <div class="spot-img-wrap">
+          <img src="https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=700&q=80" alt="珠穆朗玛峰" loading="lazy">
+          <div class="spot-tag">世界之巅</div>
+          <div class="spot-rating">★ 5.0</div>
+        </div>
+        <div class="spot-body">
+          <div class="spot-name">珠穆朗玛峰</div>
+          <div class="spot-name-en">Mount Everest</div>
+          <p class="spot-desc">
+            海拔8848.86米，地球之巅，人类永恒的挑战与向往。
+            在西藏日喀则的珠峰大本营（海拔5200米），
+            你可以近距离仰望这位地球最高峰的真容。
+            日出时分，粉金色的晨光为峰顶镀上神圣光芒，
+            那一刻，你会明白为何称之为"天神之母"。
+          </p>
+          <div class="spot-meta">
+            <span>📍 日喀则定日县</span>
+            <span>⛰ 海拔 8,848m</span>
+            <span>🎟 门票 180元</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 大昭寺 -->
+      <div class="spot-card">
+        <div class="spot-img-wrap">
+          <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=700&q=80" alt="大昭寺" loading="lazy">
+          <div class="spot-tag">朝圣地</div>
+          <div class="spot-rating">★ 4.8</div>
+        </div>
+        <div class="spot-body">
+          <div class="spot-name">大昭寺</div>
+          <div class="spot-name-en">Jokhang Temple</div>
+          <p class="spot-desc">
+            建于公元647年的大昭寺是西藏最古老的佛教寺庙之一，
+            供奉着文成公主从长安带来的释迦牟尼12岁等身像。
+            寺前的八廓街是著名的转经道，每天无数信徒手持转经筒、
+            口诵六字真言，以五体投地的方式表达最虔诚的敬仰。
+          </p>
+          <div class="spot-meta">
+            <span>📍 拉萨老城区</span>
+            <span>🕌 建于 647年</span>
+            <span>🎟 门票 85元</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 雅鲁藏布大峡谷 -->
+      <div class="spot-card">
+        <div class="spot-img-wrap">
+          <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=700&q=80" alt="雅鲁藏布大峡谷" loading="lazy">
+          <div class="spot-tag">世界之最</div>
+          <div class="spot-rating">★ 4.9</div>
+        </div>
+        <div class="spot-body">
+          <div class="spot-name">雅鲁藏布大峡谷</div>
+          <div class="spot-name-en">Yarlung Tsangpo Canyon</div>
+          <p class="spot-desc">
+            世界上最深最长的大峡谷，最深处达6009米，
+            全长504公里。从雪山之巅到热带雨林，
+            大峡谷囊括了地球上几乎所有气候带，
+            被誉为"地球上最后的秘境"。
+            峡谷中的墨脱是中国最后一个通公路的县城。
+          </p>
+          <div class="spot-meta">
+            <span>📍 林芝市</span>
+            <span>🏞 深度 6,009m</span>
+            <span>🎟 门票 160元</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 色达 -->
+      <div class="spot-card">
+        <div class="spot-img-wrap">
+          <img src="https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=700&q=80" alt="羊卓雍措" loading="lazy">
+          <div class="spot-tag">圣湖三绝</div>
+          <div class="spot-rating">★ 4.8</div>
+        </div>
+        <div class="spot-body">
+          <div class="spot-name">羊卓雍措</div>
+          <div class="spot-name-en">Yamdrok Lake</div>
+          <p class="spot-desc">
+            西藏三大圣湖之一，从浪卡子县城远眺，
+            羊卓雍措如同天空洒落的一块翡翠，
+            随山势蜿蜒绵延，湖色在一天之内变幻无常，
+            从碧蓝到翠绿，从深紫到金黄，
+            被誉为"天上的仙湖"，神秘而绝美。
+          </p>
+          <div class="spot-meta">
+            <span>📍 山南市浪卡子</span>
+            <span>💧 海拔 4,441m</span>
+            <span>🎟 免费观光</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Featured Banner: Everest Sunrise -->
+<div class="featured-banner">
+  <div class="featured-banner-bg"></div>
+  <div class="featured-banner-overlay"></div>
+  <div class="featured-content" style="padding-left:5vw">
+    <div class="featured-label">Best Experience · 最佳体验</div>
+    <h2 class="featured-title">珠峰日出<em>·</em><br>天地初开</h2>
+    <p class="featured-text">
+      凌晨4点，顶着刺骨寒风等待在珠峰大本营。<br>
+      当第一缕金光触碰峰顶，世界最高处的那片红，<br>
+      足以抵偿一切跋山涉水的艰辛。<br>
+      这一刻，你站在离天空最近的地方。
+    </p>
+  </div>
+</div>
+
+<!-- Culture -->
+<section class="culture-section" id="culture">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-label">Culture & Tradition</div>
+      <h2 class="section-title">文化传承 · 信仰之地</h2>
+      <div class="section-divider"></div>
+    </div>
+
+    <div class="culture-grid">
+      <div class="culture-img">
+        <img src="https://images.unsplash.com/photo-1591018533816-b1beccaaef9a?w=800&q=80" alt="藏族文化" loading="lazy">
+      </div>
+      <div class="culture-text">
+        <h3>千年藏文明 · 精神的栖居</h3>
+        <p>
+          西藏文化是世界上最完整保存的文明形态之一。从公元7世纪松赞干布统一西藏，
+          建立吐蕃王朝，引入佛教，创制文字，西藏文明便在雪域高原上开始了它壮丽的旅程。
+        </p>
+        <p>
+          藏传佛教渗透于藏族人生活的每一个细节——晨起的酥油茶、
+          手中的转经筒、屋顶飘扬的经幡、路边的玛尼石堆——
+          信仰在这里不是宗教场所里的仪式，而是日常生活本身。
+        </p>
+        <ul class="culture-list">
+          <li>藏历新年（洛萨节）：盛大歌舞与宗教仪式</li>
+          <li>雪顿节：传统的晒佛节，万人空巷</li>
+          <li>转经与磕长头：信徒用身体丈量朝圣之路</li>
+          <li>酥油茶与糌粑：高原特色的待客之道</li>
+          <li>唐卡艺术：历经百年传承的宗教绘画</li>
+          <li>格萨尔史诗：世界上最长的英雄史诗</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tips -->
+<section class="tips-section" id="tips">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-label">Travel Tips</div>
+      <h2 class="section-title">旅行贴士 · 行前必知</h2>
+      <div class="section-divider"></div>
+    </div>
+
+    <div class="tips-grid">
+      <div class="tip-card">
+        <div class="tip-icon">📋</div>
+        <div class="tip-title">办理入藏证</div>
+        <p class="tip-text">前往西藏必须办理西藏旅游许可证（入藏证）。
+        外省居民需在出发前通过旅行社申请，
+        通常需要1-5个工作日，建议提前2周办理。</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">⛰️</div>
+        <div class="tip-title">高原反应防护</div>
+        <p class="tip-text">初到高原，务必放慢节奏，避免剧烈运动。
+        可提前服用红景天，备好葡萄糖和高原安。
+        通常3-5天后身体会逐渐适应高原环境。</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🌡️</div>
+        <div class="tip-title">最佳旅行季节</div>
+        <p class="tip-text">5月-10月为最佳旅游季节，天气晴朗，
+        视野开阔。7-8月雨季偶有泥石流风险，
+        但绿意盎然景色绝美。冬季寒冷但游客稀少，
+        别有禅意。</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🧥</div>
+        <div class="tip-title">穿着与装备</div>
+        <p class="tip-text">西藏日照强烈，昼夜温差大，即使夏季也需备羽绒服。
+        必备：防晒霜SPF50+、墨镜、保暖内衣、
+        防水外套及舒适的登山鞋。</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🙏</div>
+        <div class="tip-title">文化礼仪</div>
+        <p class="tip-text">进寺庙需脱帽、关闭手机，顺时针方向转经。
+        不可随意触摸宗教器物和佛像，
+        接受哈达时双手恭敬。尊重当地习俗，
+        拍照前征得同意。</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🍜</div>
+        <div class="tip-title">饮食建议</div>
+        <p class="tip-text">初到高原食欲可能降低，以清淡易消化为主。
+        必尝：酥油茶、糌粑、藏面、石锅鸡。
+        避免油腻食物，多补充水分，
+        少量多餐更适合高原环境。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Gallery -->
+<section class="gallery-section" id="gallery">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-label">Photo Gallery</div>
+      <h2 class="section-title">风光画廊 · 圣地写真</h2>
+      <div class="section-divider"></div>
+    </div>
+
+    <div class="gallery-grid">
+      <div class="gallery-item">
+        <img src="https://images.unsplash.com/photo-1529257414772-1960b7bea4eb?w=800&q=80" alt="布达拉宫全景" loading="lazy">
+      </div>
+      <div class="gallery-item">
+        <img src="https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=500&q=80" alt="珠峰雪景" loading="lazy">
+      </div>
+      <div class="gallery-item">
+        <img src="https://images.unsplash.com/photo-1617777938240-9a1d8e51a47d?w=500&q=80" alt="高原湖泊" loading="lazy">
+      </div>
+      <div class="gallery-item">
+        <img src="https://images.unsplash.com/photo-1591018533816-b1beccaaef9a?w=500&q=80" alt="藏族寺庙" loading="lazy">
+      </div>
+      <div class="gallery-item">
+        <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&q=80" alt="雪山日出" loading="lazy">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="tibet-border"></div>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-logo">西藏 · Tibet</div>
+  <div class="om-symbol">ༀ</div>
+  <p class="footer-tagline">世界屋脊 · 云端圣地 · 信仰之旅</p>
+  <div class="footer-links">
+    <a href="#spots">著名景点</a>
+    <a href="#culture">文化习俗</a>
+    <a href="#tips">旅行贴士</a>
+    <a href="#gallery">风光画廊</a>
+  </div>
+  <p class="footer-copy">愿每一位旅人，都能在这片圣土找到内心的平静 🏔</p>
+</footer>
+
+</body>
+</html>
