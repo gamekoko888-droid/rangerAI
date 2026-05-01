@@ -1,2 +1,0 @@
-Deploy protection E2E test - safe to delete
-Timestamp: 2026-05-01T22:50:00Z
