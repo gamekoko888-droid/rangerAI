@@ -825,6 +825,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const wasConnected = wsConnectedRef.current;
     wsConnectedRef.current = connected;
     useConnectionStore.getState().setWsConnected(connected);
+    useConnectionStore.getState().setRecoveryPhase(connected ? 'recovering_task' : 'reconnecting_ws', connected ? 'WebSocket 已恢复，正在恢复任务上下文...' : 'WebSocket 连接中断，正在重连...');
 
     if (!connected && wasConnected) {
       if (activeMsgIdRef.current && useMessageStore.getState().isStreaming) {
@@ -847,6 +848,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         console.log('[ChatStore] WS reconnected, stopping HTTP polling');
         stopPolling();
       }
+      useConnectionStore.getState().setRecoveryPhase('recovered', '连接已恢复，可继续对话');
       // Iter-AG: offline queue flush happens inside wsSend() via wsConnectedRef check
     }
   }, [startPolling, stopPolling, isPolling]);
@@ -854,10 +856,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const handleStateChange = useCallback((wsState: import('../hooks/useWebSocket').WsConnectionState) => {
     if (wsState === 'reconnecting') {
       useConnectionStore.getState().setWsReconnecting(true, 0);
+      useConnectionStore.getState().setRecoveryPhase('reconnecting_ws', '正在重连 WebSocket...');
     } else if (wsState === 'disconnected') {
       // If we were reconnecting and now disconnected, it means max attempts reached
       if (useConnectionStore.getState().wsReconnecting) {
         useConnectionStore.getState().setWsGaveUp(true);
+        useConnectionStore.getState().setRecoveryPhase('failed', '连接恢复失败，请手动重试');
       }
       useConnectionStore.getState().setWsReconnecting(false, 0);
     }
@@ -895,6 +899,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (reconnectAttempt > 0) {
       useConnectionStore.getState().setWsReconnecting(true, reconnectAttempt);
+      useConnectionStore.getState().setRecoveryPhase('reconnecting_ws', `正在重连 WebSocket（第 ${reconnectAttempt} 次）...`);
     }
   }, [reconnectAttempt]);
 

@@ -82,6 +82,12 @@
   - 验证: curl 调用返回 JSON 数组，包含 sessionKey, title, lastMessage, updatedAt
   - 约束: 只读接口，不改写入逻辑
 
+- [x] **R116** — 连接恢复阶段状态机增强
+  - 文件: `web/client/src/hooks/useChatStore.tsx`
+  - 目标: 将 WS 重连与恢复流程映射到 recoveryPhase（reconnecting_ws/recovering_task/recovered/failed）并携带用户可读 message
+  - 验证: 断网重连时 recoveryPhase 按阶段变化；重连失败进入 failed，恢复后进入 recovered
+  - 约束: 不改后端协议，不引入新依赖
+
 ---
 
 ## 任务格式规范
