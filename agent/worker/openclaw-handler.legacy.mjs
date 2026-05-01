@@ -68,7 +68,8 @@ async function recoverStepToolTracker(taskId, sessionKey, plan = null, source = 
 }
 import { recordPlanInjection, recordActionFollowance, recordNoPlanAction, getRecoveredPlans, consumeRecoveredPlan, reviewStepResult } from "./planner.mjs"; // [R12-T2] [R70]
 import { recordCompression } from "./observability.mjs"; // [R13-T3]
-import { getAnchors, saveContextCheckpoint } from "./context-buffer.mjs"; // [R13-T3] + [R14-T1]
+import { addAnchor, detectAnchorCandidate, getAnchors, saveContextCheckpoint } from "./context-buffer.mjs"; // [R13-T3] + [R14-T1] + [R106]
+import { getChatBySessionKey, getConversationHistory } from "./db-proxy.mjs"; // [R106]
 import { extractAssistantReplyFromJsonl } from "./jsonl-fallback.mjs";
 import { createToolOrchestrator } from "./tool-orchestrator.mjs";
 import { getContextManager, getUsageRatio, budgetToolResults } from "./context-window-manager.mjs";
@@ -175,6 +176,119 @@ import { handleFinishSuccess, handleFinishError } from "./gateway-event-handler.
 // Target: Move event handling to gateway-event-handler.mjs once ctx object pattern is validated
 // ─── Task session management extracted to task-session-manager.mjs (R68) ───
 const EXEC_TIMEOUT_MS = 10000;   // 10 second CPU timeout
+
+// ─── R106: Context bridge before Gateway reset ──────────────────────────────
+const R106_HISTORY_LIMIT = 160;
+const R106_RECENT_KEEP = 8;
+
+function normalizeR106Message(msg) {
+  const content = msg?.content ?? msg?.message ?? msg?.text ?? "";
+  if (!content || typeof content !== "string") return null;
+  return {
+    role: msg.role || msg.senderRole || msg.sender_role || "user",
+    content,
+    toolName: msg.toolName || msg.name || "",
+  };
+}
+
+async function loadR106History(sessionKey) {
+  const keys = [
+    sessionKey,
+    sessionKey?.replace(/^agent:main:/, ""),
+    sessionKey?.startsWith("agent:main:") ? sessionKey : `agent:main:${sessionKey}`,
+  ].filter(Boolean);
+
+  for (const key of keys) {
+    try {
+      const chat = await getChatBySessionKey(key);
+      if (!chat?.id) continue;
+      const rows = await getConversationHistory(chat.id, R106_HISTORY_LIMIT);
+      return (rows || []).map(normalizeR106Message).filter(Boolean);
+    } catch (err) {
+      logger.warn(`[R106] load history failed for ${key}: ${err.message}`);
+    }
+  }
+  return [];
+}
+
+function seedR106Anchors(sessionKey, messages) {
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    const candidate = detectAnchorCandidate(msg, {
+      isFirstMessage: i === 0 && msg.role === "user",
+      hasToolOutput: msg.role === "tool" || msg.role === "function",
+    });
+    if (candidate?.shouldAnchor) {
+      addAnchor(sessionKey, msg.content, candidate.reason, candidate.priority);
+    }
+
+    const hasArtifact = /(?:\/opt\/rangerai-agent|\/opt\/rangerai-web|https?:\/\/|[\w.-]+\.(?:mjs|ts|tsx|js|json|sql|md))/i.test(msg.content);
+    if (hasArtifact) {
+      addAnchor(sessionKey, msg.content, "artifact_or_path", 8);
+    }
+  }
+}
+
+async function buildR106ContextBridge({ sessionKey, msgId, userMessage, trigger }) {
+  const history = await loadR106History(sessionKey);
+  if (history.length === 0) return "";
+
+  seedR106Anchors(sessionKey, history);
+
+  const compact = await autoCompact(history, sessionKey, msgId, {
+    trigger: trigger || "gateway_reset",
+    usageRatio: null,
+  });
+
+  const anchors = getAnchors(sessionKey) || [];
+  const recent = history.slice(-R106_RECENT_KEEP);
+
+  let planBlock = "";
+  try {
+    const plan = getSerializablePlan(msgId);
+    if (plan) {
+      planBlock = `\n[ACTIVE_PLAN]\n${JSON.stringify(plan).slice(0, 6000)}\n[/ACTIVE_PLAN]`;
+    }
+  } catch (_) {}
+
+  let todoBlock = "";
+  try {
+    const todo = getSnapshot(msgId) || getSnapshot(sessionKey);
+    if (todo) {
+      todoBlock = `\n[ACTIVE_TODO]\n${JSON.stringify(todo).slice(0, 4000)}\n[/ACTIVE_TODO]`;
+    }
+  } catch (_) {}
+
+  const recentBlock = recent
+    .map(m => `[${m.role}] ${m.content.slice(0, 1200)}`)
+    .join("\n\n");
+
+  const summaryBlock = compact?.summary
+    ? compact.summary
+    : compact?.messages?.map(m => m.content).join("\n\n") || "";
+
+  return `[R106_CONTEXT_BRIDGE]
+\u8fd9\u662f Gateway session reset/\u538b\u7f29\u540e\u7684\u7eed\u822a\u4e0a\u4e0b\u6587\u3002\u8bf7\u57fa\u4e8e\u5b83\u7ee7\u7eed\u6267\u884c\uff0c\u4e0d\u8981\u5411\u7528\u6237\u89e3\u91ca\u672c\u6bb5\u5185\u5bb9\u3002
+
+[CURRENT_USER_MESSAGE]
+${userMessage}
+[/CURRENT_USER_MESSAGE]
+
+[COMPRESSED_HISTORY]
+${summaryBlock}
+[/COMPRESSED_HISTORY]
+
+[ANCHORS]
+${anchors.map(a => `[${a.reason}] ${a.content}`).join("\n")}
+[/ANCHORS]
+
+[RECENT_HOT_MESSAGES]
+${recentBlock}
+[/RECENT_HOT_MESSAGES]
+${planBlock}
+${todoBlock}
+[/R106_CONTEXT_BRIDGE]`;
+}
 
 let lastApiCallTime = 0;
 async function rateLimitedApiCall() {
@@ -374,7 +488,7 @@ function normalizeToolName(rawName) {
     }
   }
   updateStep(msgId, connectStepId, "completed", "已连接");
-  // ─── [R65] Proactive Gateway session token check ───
+  // ─── [R106] Proactive Gateway session token check + Context Bridge ───
   // If session has accumulated too many tokens, reset it proactively
   // This prevents the slow compaction (2+ minutes) that blocks task startup
   {
@@ -383,13 +497,33 @@ function normalizeToolName(rawName) {
       const sessionsList = await gateway.request("sessions.list", {});
       const currentSession = sessionsList?.sessions?.find(s => s.key === sessionKey || s.key === gatewaySessionKey);
       if (currentSession && currentSession.totalTokens > PROACTIVE_RESET_THRESHOLD) {
-        logger.info(`[R65] Proactive reset: session has ${currentSession.totalTokens} tokens, resetting...`);
-        sendEvent(msgId, { type: "thinking", content: "正在清理历史上下文..." });
+        logger.info(`[R106] Proactive reset requested: session has ${currentSession.totalTokens} tokens`);
+        sendEvent(msgId, { type: "thinking", content: "正在压缩历史上下文并保留关键节点..." });
+
+        let contextBridge = "";
+        try {
+          contextBridge = await buildR106ContextBridge({
+            sessionKey,
+            msgId,
+            userMessage,
+            trigger: "gateway_token_overflow",
+          });
+          logger.info(`[R106] Context bridge prepared: chars=${contextBridge.length}, tokens≈${estimateTokens(contextBridge)}`);
+        } catch (bridgeErr) {
+          logger.warn(`[R106] Context bridge build failed, reset will continue without bridge: ${bridgeErr.message}`);
+        }
+
         try {
           await gateway.resetSession(sessionKey);
-          logger.info(`[R65] Proactive reset complete`);
+          logger.info(`[R106] Proactive reset complete`);
+
+          if (contextBridge) {
+            const injected = await injectMessage(gatewaySessionKey, contextBridge, gateway);
+            logger.info(`[R106] Context bridge injected after reset: ${injected ? "ok" : "failed"}`);
+            if (ctxMgr) ctxMgr.recordCompression(estimateTokens(contextBridge));
+          }
         } catch (resetErr) {
-          logger.warn(`[R65] Proactive reset failed: ${resetErr.message}`);
+          logger.warn(`[R106] Proactive reset failed: ${resetErr.message}`);
         }
       }
     } catch (listErr) {
