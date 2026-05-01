@@ -100,6 +100,12 @@
   - 验证: 断线恢复时 timeline 出现 Recovery Trace 条目，含 sinceTs/lastChunkSeq/snapshotHash
   - 约束: 不改既有恢复逻辑分支，仅新增观测事件
 
+- [x] **R119** — RAG 可信度与冲突裁决
+  - 文件: `agent/worker/knowledge-module.mjs`
+  - 目标: 在排序前加入 source reliability、时效加分与冲突惩罚，提升检索结果可信性
+  - 验证: score 计算包含 reliability/freshness/conflictPenalty；排序仍为降序且稳定
+  - 约束: 不改 embedding 模型，不改现有输出结构主字段
+
 ---
 
 ## 任务格式规范
