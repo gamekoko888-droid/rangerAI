@@ -112,6 +112,18 @@ export async function getConversationHistory(chatId, limit = 50) {
   return dbRequest("getConversationHistory", [chatId, limit]);
 }
 
+
+/**
+ * Get paginated conversation summaries for a user.
+ * @param {string} userId
+ * @param {number} [limit=20]
+ * @param {number} [offset=0]
+ * @returns {Promise<Array<{sessionKey:string,title:string,lastMessage:string,updatedAt:string}>>}
+ */
+export async function getConversations(userId, limit = 20, offset = 0) {
+  return dbRequest("getConversations", [userId, limit, offset]);
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Diagnostics
 // ═══════════════════════════════════════════════════════════════

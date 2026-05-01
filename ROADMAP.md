@@ -76,7 +76,7 @@
   - 验证: 手动断开 WS → 页面显示 "连接中断，正在重连..." 而非崩溃
   - 约束: 不改后端逻辑
 
-- [ ] **R115** — 对话历史持久化查询 API
+- [x] **R115** — 对话历史持久化查询 API
   - 文件: `agent/api-server.mjs`, `agent/worker/db-proxy.mjs`
   - 目标: 添加 `GET /api/conversations?userId=xxx&limit=20` 分页查询历史对话
   - 验证: curl 调用返回 JSON 数组，包含 sessionKey, title, lastMessage, updatedAt

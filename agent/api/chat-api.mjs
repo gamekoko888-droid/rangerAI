@@ -189,6 +189,33 @@ export async function handleChatApi(req, res) {
       return true;
     }
 
+
+    // ─── GET /api/conversations?userId=xxx&limit=20&offset=0 ───
+    if (urlPath === '/api/conversations' && method === 'GET') {
+      if (!requireAuth(currentUser, res)) return true;
+      const params = new URLSearchParams(req.url.split('?')[1] || '');
+      const limit = Math.min(Math.max(parseInt(params.get('limit') || '20', 10) || 20, 1), 100);
+      const offset = Math.max(parseInt(params.get('offset') || '0', 10) || 0, 0);
+      const requestedUserId = params.get('userId') || currentUser.id;
+      const targetUserId = currentUser.role === 'admin' ? requestedUserId : currentUser.id;
+
+      const { query: dbQuery } = await import('../db-adapter.mjs');
+      const rows = await dbQuery(
+        `SELECT c.sessionKey as sessionKey, c.title as title, c.updatedAt as updatedAt,
+                COALESCE((
+                  SELECT m.content FROM messages m
+                  WHERE m.chatId = c.id AND m.role = 'assistant'
+                  ORDER BY m.createdAt DESC LIMIT 1
+                ), '') as lastMessage
+         FROM chats c
+         WHERE c.userId = ?
+         ORDER BY c.updatedAt DESC
+         LIMIT ? OFFSET ?`,
+        [targetUserId, limit, offset]
+      );
+      return json(res, 200, { conversations: rows || [], limit, offset, userId: targetUserId }), true;
+    }
+
     // ─── GET /api/chats ───
     if (urlPath === '/api/chats' && method === 'GET') {
       if (!requireAuth(currentUser, res)) return true;
