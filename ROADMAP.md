@@ -30,7 +30,7 @@
   - 验证: 模拟 Gateway 503 → Worker 重试 → 用户收到正常响应
   - 约束: 重试上限 1 次，超过后正常报错；不改 Gateway 本身
 
-- [ ] **R109** — 模型路由配置外置化
+- [x] **R109** — 模型路由配置外置化
   - 文件: `agent/worker/smart-router.mjs`（主修改）+ 新建 `agent/config/model-routing.json`
   - 参考: `docs/reference/smart-router-snapshot.mjs`（完整 734 行快照）
   - 目标: 将硬编码的 MODEL_MAP、THINKING_MAP、TOOL_MODEL、SAFE_FALLBACK_MODEL、phaseRoutes 抽取到 `agent/config/model-routing.json`，运行时读取

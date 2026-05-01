@@ -44,6 +44,34 @@ function getTaskStateDb() {
 import { TASK_PATTERNS, classifyTask as gatewayClassifyTask } from '../lib/routing-config.mjs';
 import { preClassify } from './llm-pre-classifier.mjs';
 
+// ─── [R109] External config loader ──────────────────────────────────────────
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+let _r109Config = null;
+function _loadR109Config() {
+  if (_r109Config !== null) return _r109Config;
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const configPath = join(__dirname, '..', 'config', 'model-routing.json');
+    const raw = readFileSync(configPath, 'utf-8');
+    _r109Config = JSON.parse(raw);
+    logger.info('[R109] Model routing loaded from config/model-routing.json');
+  } catch (e) {
+    logger.info();
+    _r109Config = false;  // false = tried and failed, don't retry
+  }
+  return _r109Config;
+}
+function _getR109(key, fallback) {
+  const cfg = _loadR109Config();
+  if (cfg && cfg[key] !== undefined) return cfg[key];
+  return fallback;
+}
+// ─── [R109] End config loader ───────────────────────────────────────────────
+
+
 // ─── Ranger 路由表（模型映射）──────────────────────────────────
 // P0 cost fix v2 (2026-04-14): 降低非必要任务的模型等级，压缩成本
 export const MODEL_MAP = {
@@ -63,6 +91,11 @@ export const MODEL_MAP = {
   image_generation: 'google/gemini-3.1-flash-image-preview',
 };
 
+
+// [R109] Override MODEL_MAP from external config if available
+const _r109ModelMap = _getR109('MODEL_MAP', null);
+if (_r109ModelMap) { Object.keys(_r109ModelMap).forEach(k => { MODEL_MAP[k] = _r109ModelMap[k]; }); }
+
 export const THINKING_MAP = {
   code:             'high',
   reasoning:        'high',
@@ -79,15 +112,27 @@ export const THINKING_MAP = {
 // 安全回退模型（当分类不确定时使用）
 // R64: mini models -> deepseek-v4-pro (OpenRouter), GPT models -> direct OpenAI API
 // 注意：TOOL_REQUIRING_TYPES 的任务（code/sysadmin）会被 TOOL_MODEL 覆盖，不受此影响
-const SAFE_FALLBACK_MODEL = 'deepseek/deepseek-v4-pro';  // R64: mini->V4Pro
+
+// [R109] Override THINKING_MAP from external config if available
+const _r109ThinkingMap = _getR109('THINKING_MAP', null);
+if (_r109ThinkingMap) { Object.keys(_r109ThinkingMap).forEach(k => { THINKING_MAP[k] = _r109ThinkingMap[k]; }); }
+
+let SAFE_FALLBACK_MODEL = 'deepseek/deepseek-v4-pro';  // R64: mini->V4Pro
 
 // 工具调用专用模型 — code/sysadmin 强制走 Claude（工具调用稳定性最佳）
-const TOOL_MODEL = 'deepseek/deepseek-v4-pro';
+let TOOL_MODEL = 'deepseek/deepseek-v4-pro';
 
 // 需要工具调用的任务类型 — 这些类型必须使用 Claude（工具调用最稳定）
 // 即使 LLM 分类器选了其他模型，也强制回退到 Claude
 // P0 cost fix v2 (2026-04-14): gaming 移除，不再强制走 Claude
 const TOOL_REQUIRING_TYPES = new Set(['code', 'sysadmin']);
+
+// [R109] Override SAFE_FALLBACK_MODEL and TOOL_MODEL from config
+const _r109Fb = _getR109('SAFE_FALLBACK_MODEL', null);
+if (_r109Fb) SAFE_FALLBACK_MODEL = _r109Fb;
+const _r109Tm = _getR109('TOOL_MODEL', null);
+if (_r109Tm) TOOL_MODEL = _r109Tm;
+
 
 // ─── TASK_PATTERNS（与 root smart-router.mjs classifyTask 完全一致）──────
 // TD-022: TASK_PATTERNS extracted to lib/routing-config.mjs (single source of truth)
@@ -712,6 +757,17 @@ export async function smartRouteByPhase(phase, content, attachments = [], userMo
       reason: 'phase:validation → gpt-5.5 (Iter-67: final quality gate, impact assessment)',
     },
   };
+
+
+  // [R109] Override phaseRoutes from external config
+  const _r109Phases = _getR109('phaseRoutes', null);
+  if (_r109Phases) {
+    Object.keys(_r109Phases).forEach(k => {
+      const pr = _r109Phases[k];
+      if (pr.model === '__TOOL_MODEL__') pr.model = TOOL_MODEL;
+      phaseRoutes[k] = pr;
+    });
+  }
 
   const route = phaseRoutes[phase];
   if (route) {

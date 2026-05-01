@@ -1,0 +1,80 @@
+{
+  "_comment": "R109: Externalized model routing configuration. Edit this file to change model assignments without modifying code.",
+  "_updated": "2026-05-01",
+
+  "MODEL_MAP": {
+    "code": "deepseek/deepseek-v4-pro",
+    "sysadmin": "deepseek/deepseek-v4-pro",
+    "reasoning": "openai/gpt-5.5",
+    "research": "openai/gpt-5.5",
+    "chinese_content": "openai/gpt-5.5",
+    "creative": "openai/gpt-5.5",
+    "chat": "deepseek/deepseek-v4-pro",
+    "translation": "deepseek/deepseek-v4-pro",
+    "gaming": "deepseek/deepseek-v4-pro",
+    "image_generation": "google/gemini-3.1-flash-image-preview"
+  },
+
+  "THINKING_MAP": {
+    "code": "high",
+    "reasoning": "high",
+    "sysadmin": "high",
+    "chinese_content": "high",
+    "research": "high",
+    "creative": "high",
+    "chat": "low",
+    "translation": "low",
+    "gaming": "medium",
+    "image_generation": "low"
+  },
+
+  "SAFE_FALLBACK_MODEL": "deepseek/deepseek-v4-pro",
+  "TOOL_MODEL": "deepseek/deepseek-v4-pro",
+
+  "TOOL_REQUIRING_TYPES": ["code", "sysadmin"],
+
+  "phaseRoutes": {
+    "planning": {
+      "model": "openai/gpt-5.5",
+      "thinking": "low",
+      "category": "planning",
+      "reason": "phase:planning → gpt-5.5 (plan generation, no tools needed)"
+    },
+    "coding": {
+      "model": "__TOOL_MODEL__",
+      "thinking": "high",
+      "category": "code",
+      "reason": "phase:coding → deepseek-v4-pro (tool-calling, cost-efficient)"
+    },
+    "sysadmin": {
+      "model": "__TOOL_MODEL__",
+      "thinking": "high",
+      "category": "sysadmin",
+      "reason": "phase:sysadmin → deepseek-v4-pro (tool-calling, cost-efficient)"
+    },
+    "review": {
+      "model": "openai/gpt-5.5",
+      "thinking": "medium",
+      "category": "reasoning",
+      "reason": "phase:review → gpt-5.5 (code review, no tools needed)"
+    },
+    "qa": {
+      "model": "deepseek/deepseek-v4-pro",
+      "thinking": "low",
+      "category": "chat",
+      "reason": "phase:qa → deepseek-v4-pro (Q&A / verification, lightweight)"
+    },
+    "summary": {
+      "model": "deepseek/deepseek-v4-pro",
+      "thinking": "low",
+      "category": "chat",
+      "reason": "phase:summary → deepseek-v4-pro (summarization, lightweight)"
+    },
+    "validation": {
+      "model": "openai/gpt-5.5",
+      "thinking": "high",
+      "category": "reasoning",
+      "reason": "phase:validation → gpt-5.5 (Iter-67: final quality gate, impact assessment)"
+    }
+  }
+}
