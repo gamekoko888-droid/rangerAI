@@ -32,7 +32,7 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
 
 ## Phase 1: Foundation (2 hours)
 
-- [ ] **Q1 — Persistent Workspace Manager** (~45 min)
+- [x] **Q1 — Persistent Workspace Manager** (~45 min)
   - Create `agent/worker/workspace-manager.mjs`
   - Manages `/opt/rangerai-agent/workspaces/{sessionKey}/` directories
   - Functions: `getOrCreateWorkspace(sessionKey)`, `listFiles(sessionKey)`, `cleanupStale(maxAgeMs=86400000)`

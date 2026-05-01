@@ -6,3 +6,5 @@
 ---
 
 <!-- Codex: append your entries below this line -->
+
+- 2026-05-01 Q1 completed: Added persistent workspace manager at `agent/worker/workspace-manager.mjs`; validated `getOrCreateWorkspace('test-123')` returns `/opt/rangerai-agent/workspaces/test-123`; deployed via webhook.
