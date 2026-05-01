@@ -106,6 +106,12 @@
   - 验证: score 计算包含 reliability/freshness/conflictPenalty；排序仍为降序且稳定
   - 约束: 不改 embedding 模型，不改现有输出结构主字段
 
+- [x] **R120** — 工具执行安全策略层
+  - 文件: `agent/worker/openclaw-handler.legacy.mjs`
+  - 目标: 对 exec/code 增加高风险命令 deny-list，命中后中止执行并返回可解释提示
+  - 验证: 触发危险命令时返回 policy_blocked 事件并给出用户可读拦截信息
+  - 约束: 不改工具协议字段，不引入新依赖
+
 ---
 
 ## 任务格式规范

@@ -176,6 +176,12 @@ import { handleFinishSuccess, handleFinishError } from "./gateway-event-handler.
 // Target: Move event handling to gateway-event-handler.mjs once ctx object pattern is validated
 // ─── Task session management extracted to task-session-manager.mjs (R68) ───
 const EXEC_TIMEOUT_MS = 10000;   // 10 second CPU timeout
+const POLICY_DENY_PATTERNS = [
+  { pattern: /\brm\s+-rf\s+\/(?!tmp|var\/tmp)/i, reason: "禁止删除根目录或系统路径" },
+  { pattern: /\b(?:mkfs|fdisk|parted|dd\s+if=.*\s+of=\/dev\/)/i, reason: "禁止磁盘破坏类命令" },
+  { pattern: /\b(?:shutdown|reboot|halt|poweroff)\b/i, reason: "禁止主机电源管理命令" },
+  { pattern: /:\(\)\s*\{\s*:\|:&\s*\};:/, reason: "禁止 fork bomb" },
+];
 
 // ─── R106: Context bridge before Gateway reset ──────────────────────────────
 const R106_HISTORY_LIMIT = 160;
@@ -2017,7 +2023,7 @@ function normalizeToolName(rawName) {
                 sendStep(msgId, "💻 代码执行中", "running", `语言: ${_codeLang} | 代码: ${String(_codeStr).substring(0, 60)}...`);
                 // [R38-T4] Start exec timeout timer
                 const _execKey = `${msgId}:${toolId}`;
-                const _execTimer = setTimeout(() => {
+                const _execTimer = setTimeout(async () => {
                   logger.warn(`[${ts()}] [R38-T4] EXEC TIMEOUT: ${_execKey} exceeded ${EXEC_TIMEOUT_MS}ms`);
                   try {
                     emitEvent(sessionKey, msgId, "sandbox_limit_exceeded", {
@@ -2029,7 +2035,25 @@ function normalizeToolName(rawName) {
                       codePreview: String(_codeStr).substring(0, 100),
                     });
                   } catch (_e) { /* non-fatal */ }
-                  sendStep(msgId, "⚠️ 执行超时", "warning", `代码执行超过 ${EXEC_TIMEOUT_MS/1000}s 限制`);
+                  sendStep(msgId, "⚠️ 执行超时", "warning", `代码执行超过 ${EXEC_TIMEOUT_MS/1000}s 限制，正在优雅结束`);
+                  try {
+                    if (runId && gateway.isConnected) {
+                      await gateway.request("chat.abort", { sessionKey, runId });
+                      logger.info(`[${ts()}] [R110] cancel signal sent after exec timeout (runId=${runId})`);
+                    }
+                  } catch (_cancelErr) {
+                    logger.warn(`[${ts()}] [R110] cancel signal failed after exec timeout: ${_cancelErr.message}`);
+                  }
+                  await new Promise(r => setTimeout(r, 5000));
+                  if (resolved) return;
+                  const _partial = fullText && fullText.trim().length > 0
+                    ? `${fullText}
+
+---
+> ⚠️ 任务超时，已保存中间结果。请发送「继续」恢复执行。`
+                    : "⚠️ 任务超时，已保存中间结果。请发送「继续」恢复执行。";
+                  abortController.abort();
+                  finishSuccess(_partial);
                 }, EXEC_TIMEOUT_MS);
                 _execTimers.set(_execKey, { timer: _execTimer, startMs: Date.now() });
               } catch (_ceErr) {
@@ -2046,6 +2070,24 @@ function normalizeToolName(rawName) {
               const _dkCmd_check = typeof _dkArgs_check === 'string' ? _dkArgs_check : (_dkArgs_check.command || _dkArgs_check.cmd || _dkArgs_check.code || JSON.stringify(_dkArgs_check));
               const _cmdLower = String(_dkCmd_check).toLowerCase();
               const _dkLang_check = _dkArgs_check.language || (toolName === "code" ? "python3" : "bash");
+
+              // [R120] Execution policy guard (deny-list)
+              const _policyHit = POLICY_DENY_PATTERNS.find((rule) => rule.pattern.test(_cmdLower));
+              if (_policyHit) {
+                const _policyMsg = `⚠️ 安全策略已阻止命令执行：${_policyHit.reason}`;
+                logger.warn(`[${ts()}] [R120] policy_blocked tool=${toolName} reason=${_policyHit.reason} cmd=${_dkCmd_check.slice(0, 160)}`);
+                sendStep(msgId, "🛡️ 安全策略拦截", "warning", _policyMsg);
+                try {
+                  emitEvent(sessionKey, msgId, "policy_blocked", {
+                    tool: toolName,
+                    reason: _policyHit.reason,
+                    cmdPreview: String(_dkCmd_check).slice(0, 160),
+                  });
+                } catch (_) { /* non-fatal */ }
+                abortController.abort();
+                finishSuccess(_policyMsg + "\n\n请改用只读查询或非破坏性命令后重试。");
+                return;
+              }
               
               // [R40-FIX4] Comprehensive bypass rules — Agent's own host commands skip Docker entirely
               const _needsHostAccess = (
