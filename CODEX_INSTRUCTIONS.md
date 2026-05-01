@@ -169,3 +169,50 @@ web/
 - 如果任务描述不清晰，输出疑问而非猜测执行
 - 如果修改可能影响其他模块，在 commit message 中注明
 - 如果发现代码有其他 bug（不在任务范围内），记录到 commit message 的 `NOTE:` 部分，不要顺手修
+
+
+## 环境准备（每次任务开始时执行一次）
+
+在开始任何代码修改之前，先执行以下命令准备完整开发环境：
+
+```bash
+# 安装 git（如果不存在）
+which git || (apt-get update && apt-get install -y git)
+
+# 安装 Node.js（用于 node --check 语法验证）
+which node || (curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs)
+
+# Clone 完整仓库
+if [ ! -d /workspace/rangerAI ]; then
+  git clone https://x-access-token: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@github.com/gamekoko888-droid/rangerAI.git /workspace/rangerAI
+fi
+
+cd /workspace/rangerAI
+git pull origin main
+
+# 配置 git 用户信息
+git config user.email "codex@rangerai.dev"
+git config user.name "Codex Agent"
+```
+
+完成后你就有了完整的仓库代码，可以：
+- 读取任何文件（不会被截断）
+- 做局部修改（用 sed 或直接编辑）
+- `node --check <file>` 验证语法
+- `git add && git commit && git push` 提交
+
+## 大文件修改策略
+
+对于超过 200 行的文件（如 `smart-router.mjs`）：
+1. **不要**尝试输出完整替换文件
+2. **使用 sed/patch** 做精确的局部修改
+3. 修改后运行 `node --check` 确认无语法错误
+4. 如果需要参考完整文件内容，查看 `docs/reference/` 目录下的快照
+
+## 参考文件快照
+
+以下快照文件是生产代码的完整副本，供你分析时参考：
+- `docs/reference/smart-router-snapshot.mjs` — 模型路由核心（734行）
+- `docs/reference/routing-config-snapshot.mjs` — 分类规则配置（299行）
+
+**注意**：修改时改的是实际文件路径（`agent/worker/smart-router.mjs`），不是快照。

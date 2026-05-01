@@ -31,10 +31,20 @@
   - 约束: 重试上限 1 次，超过后正常报错；不改 Gateway 本身
 
 - [ ] **R109** — 模型路由配置外置化
-  - 文件: `agent/lib/routing-config.mjs`
-  - 目标: 将硬编码的模型路由规则抽取到 `agent/config/model-routing.json`，运行时读取
-  - 验证: 修改 json 后重启生效，无需改 .mjs 代码
-  - 约束: 保持三阶段架构不变；json 不存在时 fallback 到代码内默认值
+  - 文件: `agent/worker/smart-router.mjs`（主修改）+ 新建 `agent/config/model-routing.json`
+  - 参考: `docs/reference/smart-router-snapshot.mjs`（完整 734 行快照）
+  - 目标: 将硬编码的 MODEL_MAP、THINKING_MAP、TOOL_MODEL、SAFE_FALLBACK_MODEL、phaseRoutes 抽取到 `agent/config/model-routing.json`，运行时读取
+  - 具体步骤:
+    1. 新建 `agent/config/model-routing.json`，包含所有模型映射数据
+    2. 在 `smart-router.mjs` 顶部添加 JSON 加载逻辑（带 try-catch fallback）
+    3. 将 `export const MODEL_MAP = {...}` 替换为从 JSON 加载的版本
+    4. 将 `export const THINKING_MAP = {...}` 同理替换
+    5. 将 `SAFE_FALLBACK_MODEL` 和 `TOOL_MODEL` 从 JSON 读取
+    6. 将 `smartRouteByPhase` 内的 `phaseRoutes` 对象从 JSON 读取
+    7. JSON 不存在或解析失败时，fallback 到代码内默认值（保持当前硬编码值作为默认）
+  - 验证: 修改 json 后重启生效，无需改 .mjs 代码；json 删除后服务仍能正常启动（用默认值）
+  - 约束: 保持三阶段架构不变；所有函数签名和返回值格式不变；不改 routing-config.mjs（那是分类规则，不是模型映射）
+  - 修改策略: 使用 sed 做局部替换，不要尝试输出完整 734 行文件
 
 - [ ] **R110** — 任务执行超时优雅降级
   - 文件: `agent/worker/openclaw-handler.legacy.mjs`
