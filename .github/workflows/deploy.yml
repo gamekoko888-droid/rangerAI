@@ -1,9 +1,13 @@
 # ═══════════════════════════════════════════════════════════════
-# RangerAI Auto-Deploy Pipeline v2
+# RangerAI Auto-Deploy Pipeline v3
 # Triggers on push to main branch
-# Deploys agent/ changes to /opt/rangerai-agent
-# Deploys web/ changes to /opt/rangerai-web
-# Writes deploy result to DEPLOY_LOG.md
+# Features:
+#   - Smart change detection (agent/web)
+#   - Pre-deploy syntax validation
+#   - Post-deploy health verification
+#   - Automatic rollback on failure
+#   - Deploy log with verification status
+#   - Codex-readable structured results
 # ═══════════════════════════════════════════════════════════════
 name: Deploy to Production
 
@@ -20,7 +24,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
+    # Skip CI commits to prevent infinite loops
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,8 +36,14 @@ jobs:
       - name: Detect changed paths
         id: changes
         run: |
-          AGENT_CHANGED=$(git diff --name-only HEAD~1 HEAD -- agent/ | wc -l)
-          WEB_CHANGED=$(git diff --name-only HEAD~1 HEAD -- web/ | wc -l)
+          # Handle first commit case
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            AGENT_CHANGED=$(git diff --name-only HEAD~1 HEAD -- agent/ | wc -l)
+            WEB_CHANGED=$(git diff --name-only HEAD~1 HEAD -- web/ | wc -l)
+          else
+            AGENT_CHANGED=1
+            WEB_CHANGED=1
+          fi
           echo "agent_changed=$AGENT_CHANGED" >> $GITHUB_OUTPUT
           echo "web_changed=$WEB_CHANGED" >> $GITHUB_OUTPUT
           echo "Agent files changed: $AGENT_CHANGED"
@@ -46,11 +57,62 @@ jobs:
           ssh-keyscan -p 22 ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "echo 'SSH OK'"
 
-      - name: Deploy Agent
-        id: deploy_agent
+      # ═══════════════════════════════════════════════════════════
+      # PRE-DEPLOY: Syntax Validation (runs locally in CI)
+      # ═══════════════════════════════════════════════════════════
+      - name: Pre-deploy syntax check (Agent)
+        id: syntax_check
         if: steps.changes.outputs.agent_changed != '0' || github.event_name == 'workflow_dispatch'
         run: |
+          echo "🔍 Running syntax checks on agent/ files..."
+          ERRORS=""
+          
+          # Check all .mjs files that were modified
+          for f in $(git diff --name-only HEAD~1 HEAD -- agent/ 2>/dev/null | grep '\.mjs$'); do
+            if [ -f "$f" ]; then
+              if ! node --check "$f" 2>/tmp/syntax_err; then
+                ERRORS="${ERRORS}\n❌ $f: $(cat /tmp/syntax_err)"
+              else
+                echo "  ✅ $f"
+              fi
+            fi
+          done
+          
+          # Always check critical entry points
+          for f in agent/api-server.mjs agent/ws-realtime.mjs agent/worker/openclaw-handler.legacy.mjs; do
+            if [ -f "$f" ]; then
+              if ! node --check "$f" 2>/tmp/syntax_err; then
+                ERRORS="${ERRORS}\n❌ $f: $(cat /tmp/syntax_err)"
+              else
+                echo "  ✅ $f (entry point)"
+              fi
+            fi
+          done
+          
+          if [ -n "$ERRORS" ]; then
+            echo "syntax_result=failed" >> $GITHUB_OUTPUT
+            echo -e "Syntax errors found:$ERRORS"
+            echo "SYNTAX_ERRORS<<EOF" >> $GITHUB_ENV
+            echo -e "$ERRORS" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+            exit 1
+          fi
+          
+          echo "syntax_result=passed" >> $GITHUB_OUTPUT
+          echo "✅ All syntax checks passed"
+
+      # ═══════════════════════════════════════════════════════════
+      # DEPLOY: Agent
+      # ═══════════════════════════════════════════════════════════
+      - name: Deploy Agent
+        id: deploy_agent
+        if: (steps.changes.outputs.agent_changed != '0' || github.event_name == 'workflow_dispatch') && steps.syntax_check.outcome == 'success'
+        run: |
           echo "🚀 Deploying agent changes..."
+          
+          # Backup current version on server before deploy
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} \
+            "cp /opt/rangerai-agent/worker/openclaw-handler.legacy.mjs /opt/rangerai-agent/worker/openclaw-handler.legacy.mjs.bak-ci 2>/dev/null || true"
           
           rsync -avz --delete \
             --exclude='node_modules' \
@@ -59,39 +121,34 @@ jobs:
             --exclude='data/' \
             --exclude='logs/' \
             --exclude='*.sqlite' \
+            --exclude='backups/' \
+            --exclude='archive/' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             agent/ ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:/opt/rangerai-agent/
-
+          
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} << 'EOF'
           set -e
           cd /opt/rangerai-agent
           
-          echo "📋 Syntax check..."
+          echo "📋 Server-side syntax check..."
           node --check api-server.mjs
           node --check ws-realtime.mjs
           node --check worker/openclaw-handler.legacy.mjs
-          echo "✅ Syntax OK"
+          echo "✅ Server syntax OK"
           
-          echo "🔄 Restarting..."
-          sudo /usr/local/bin/safe-restart-rangerai || true
+          echo "🔄 Restarting services..."
+          sudo /usr/local/bin/safe-restart-rangerai || sudo systemctl restart rangerai-agent
           sleep 5
-          sudo /usr/local/bin/safe-restart-rangerai-ws || true
+          sudo /usr/local/bin/safe-restart-rangerai-ws || sudo systemctl restart rangerai-ws
           sleep 5
-          
-          echo "🏥 Health check..."
-          for i in 1 2 3 4 5; do
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3002/api/health 2>/dev/null)
-            if [ "$HTTP_CODE" = "200" ]; then
-              echo "✅ Health OK (attempt $i)"
-              exit 0
-            fi
-            sleep 3
-          done
-          echo "❌ Health check failed"
-          exit 1
+          echo "✅ Services restarted"
           EOF
+          
           echo "agent_result=success" >> $GITHUB_OUTPUT
 
+      # ═══════════════════════════════════════════════════════════
+      # DEPLOY: Web
+      # ═══════════════════════════════════════════════════════════
       - name: Deploy Web
         id: deploy_web
         if: steps.changes.outputs.web_changed != '0' || github.event_name == 'workflow_dispatch'
@@ -104,7 +161,7 @@ jobs:
             --exclude='dist/' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             web/ ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:/opt/rangerai-web/
-
+          
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} << 'EOF'
           set -e
           cd /opt/rangerai-web
@@ -112,11 +169,108 @@ jobs:
           pnpm build 2>&1 | tail -10
           sudo systemctl restart rangerai-web
           sleep 3
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://ranger.voyage/ 2>/dev/null)
-          echo "Frontend status: $HTTP_CODE"
+          echo "✅ Web deployed"
           EOF
+          
           echo "web_result=success" >> $GITHUB_OUTPUT
 
+      # ═══════════════════════════════════════════════════════════
+      # POST-DEPLOY: Verification
+      # ═══════════════════════════════════════════════════════════
+      - name: Verify deployment
+        id: verify
+        if: always() && (steps.deploy_agent.outcome == 'success' || steps.deploy_web.outcome == 'success')
+        run: |
+          echo "🏥 Running post-deploy verification..."
+          VERIFY_RESULT="passed"
+          VERIFY_DETAILS=""
+          
+          # Test 1: API Health Check
+          echo "  Testing API health..."
+          for i in 1 2 3 4 5; do
+            HEALTH=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} \
+              "curl -s http://127.0.0.1:3002/api/health 2>/dev/null" || echo "")
+            if echo "$HEALTH" | grep -q '"status":"ok"'; then
+              echo "  ✅ API health: OK (attempt $i)"
+              VERIFY_DETAILS="${VERIFY_DETAILS}API health: OK\n"
+              break
+            fi
+            if [ $i -eq 5 ]; then
+              echo "  ❌ API health: FAILED after 5 attempts"
+              VERIFY_DETAILS="${VERIFY_DETAILS}API health: FAILED\n"
+              VERIFY_RESULT="failed"
+            fi
+            sleep 3
+          done
+          
+          # Test 2: WebSocket port listening
+          echo "  Testing WebSocket port..."
+          WS_STATUS=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} \
+            "ss -tlnp | grep ':3005' | wc -l" || echo "0")
+          if [ "$WS_STATUS" -gt "0" ]; then
+            echo "  ✅ WebSocket port 3005: LISTENING"
+            VERIFY_DETAILS="${VERIFY_DETAILS}WebSocket port: OK\n"
+          else
+            echo "  ❌ WebSocket port 3005: NOT LISTENING"
+            VERIFY_DETAILS="${VERIFY_DETAILS}WebSocket port: FAILED\n"
+            VERIFY_RESULT="failed"
+          fi
+          
+          # Test 3: Frontend accessibility (if web was deployed)
+          if [ "${{ steps.deploy_web.outcome }}" = "success" ]; then
+            echo "  Testing frontend..."
+            FRONTEND_CODE=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} \
+              "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/ 2>/dev/null" || echo "000")
+            if [ "$FRONTEND_CODE" = "200" ] || [ "$FRONTEND_CODE" = "304" ]; then
+              echo "  ✅ Frontend: HTTP $FRONTEND_CODE"
+              VERIFY_DETAILS="${VERIFY_DETAILS}Frontend: OK ($FRONTEND_CODE)\n"
+            else
+              echo "  ⚠️ Frontend: HTTP $FRONTEND_CODE"
+              VERIFY_DETAILS="${VERIFY_DETAILS}Frontend: WARNING ($FRONTEND_CODE)\n"
+            fi
+          fi
+          
+          # Test 4: No crash loops
+          echo "  Checking for crash loops..."
+          RESTART_COUNT=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} \
+            "systemctl show rangerai-agent --property=NRestarts --value 2>/dev/null || echo 0")
+          echo "  Agent restart count: $RESTART_COUNT"
+          VERIFY_DETAILS="${VERIFY_DETAILS}Agent restarts: $RESTART_COUNT\n"
+          
+          echo "verify_result=$VERIFY_RESULT" >> $GITHUB_OUTPUT
+          echo "VERIFY_DETAILS<<EOF" >> $GITHUB_ENV
+          echo -e "$VERIFY_DETAILS" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          
+          if [ "$VERIFY_RESULT" = "failed" ]; then
+            echo "❌ Verification FAILED"
+            exit 1
+          fi
+          echo "✅ All verification checks passed"
+
+      # ═══════════════════════════════════════════════════════════
+      # ROLLBACK: On verification failure
+      # ═══════════════════════════════════════════════════════════
+      - name: Rollback on failure
+        if: failure() && steps.deploy_agent.outcome == 'success' && steps.verify.outcome == 'failure'
+        run: |
+          echo "⚠️ Verification failed, attempting rollback..."
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} << 'EOF'
+          cd /opt/rangerai-agent
+          if [ -f worker/openclaw-handler.legacy.mjs.bak-ci ]; then
+            cp worker/openclaw-handler.legacy.mjs.bak-ci worker/openclaw-handler.legacy.mjs
+            echo "Restored openclaw-handler from backup"
+          fi
+          sudo systemctl restart rangerai-agent || true
+          sudo systemctl restart rangerai-ws || true
+          sleep 5
+          curl -s http://127.0.0.1:3002/api/health
+          EOF
+          echo "⚠️ Rollback attempted. Check server manually."
+
+      # ═══════════════════════════════════════════════════════════
+      # DEPLOY LOG: Structured results for Codex
+      # ═══════════════════════════════════════════════════════════
       - name: Write deploy log
         if: always()
         run: |
@@ -125,31 +279,61 @@ jobs:
           COMMIT_SHA=$(git rev-parse --short HEAD)
           AGENT_STATUS="${{ steps.deploy_agent.outcome || 'skipped' }}"
           WEB_STATUS="${{ steps.deploy_web.outcome || 'skipped' }}"
+          SYNTAX_STATUS="${{ steps.syntax_check.outcome || 'skipped' }}"
+          VERIFY_STATUS="${{ steps.verify.outcome || 'skipped' }}"
+          
+          # Determine overall status
+          if [ "$VERIFY_STATUS" = "success" ]; then
+            OVERALL="✅ SUCCESS"
+          elif [ "$SYNTAX_STATUS" = "failure" ]; then
+            OVERALL="❌ SYNTAX_ERROR"
+          elif [ "$AGENT_STATUS" = "failure" ] || [ "$WEB_STATUS" = "failure" ]; then
+            OVERALL="❌ DEPLOY_FAILED"
+          elif [ "$VERIFY_STATUS" = "failure" ]; then
+            OVERALL="❌ VERIFY_FAILED"
+          else
+            OVERALL="⚠️ PARTIAL"
+          fi
           
           # Create or append to DEPLOY_LOG.md
           if [ ! -f DEPLOY_LOG.md ]; then
             echo "# Deploy Log" > DEPLOY_LOG.md
             echo "" >> DEPLOY_LOG.md
-            echo "| Time | Commit | Message | Agent | Web | Actor |" >> DEPLOY_LOG.md
-            echo "|------|--------|---------|-------|-----|-------|" >> DEPLOY_LOG.md
+            echo "Automated deployment results. Codex: check the latest entry to verify your last push." >> DEPLOY_LOG.md
+            echo "" >> DEPLOY_LOG.md
+            echo "| Time | Commit | Message | Syntax | Agent | Web | Verify | Overall |" >> DEPLOY_LOG.md
+            echo "|------|--------|---------|--------|-------|-----|--------|---------|" >> DEPLOY_LOG.md
           fi
           
-          echo "| $TIMESTAMP | \`$COMMIT_SHA\` | $COMMIT_MSG | $AGENT_STATUS | $WEB_STATUS | ${{ github.actor }} |" >> DEPLOY_LOG.md
+          echo "| $TIMESTAMP | \`$COMMIT_SHA\` | $COMMIT_MSG | $SYNTAX_STATUS | $AGENT_STATUS | $WEB_STATUS | $VERIFY_STATUS | $OVERALL |" >> DEPLOY_LOG.md
 
       - name: Commit deploy log
         if: always()
         run: |
           git config user.name "RangerAI CI"
           git config user.email "ci@ranger.voyage"
+          git pull origin main --rebase || true
           git add DEPLOY_LOG.md
-          git diff --cached --quiet || git commit -m "ci: update deploy log [skip ci]"
+          git diff --cached --quiet || git commit -m "ci: deploy ${{ steps.verify.outcome || 'unknown' }} [skip ci]"
           git push origin main || true
 
+      # ═══════════════════════════════════════════════════════════
+      # SUMMARY: GitHub Actions UI
+      # ═══════════════════════════════════════════════════════════
       - name: Post-deploy summary
         if: always()
         run: |
-          echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Agent**: ${{ steps.deploy_agent.outcome || 'skipped' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Web**: ${{ steps.deploy_web.outcome || 'skipped' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Actor**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`$(git rev-parse --short HEAD)\` — $(git log -1 --pretty=%s) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Syntax | ${{ steps.syntax_check.outcome || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Agent Deploy | ${{ steps.deploy_agent.outcome || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Web Deploy | ${{ steps.deploy_web.outcome || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Verification | ${{ steps.verify.outcome || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Verification Details" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo -e "${{ env.VERIFY_DETAILS || 'No verification ran' }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
