@@ -1,6 +1,6 @@
-# Codex 自主迭代指令 v2
+# Codex 自主迭代指令 v3
 
-> **版本**: 2.0 | **更新日期**: 2026-05-01 | **上一版**: 1.0 (初始版)
+> **版本**: 3.0 | **更新日期**: 2026-05-01 | **上一版**: 2.0
 >
 > 本文件是 Codex 在 RangerAI 项目中的完整操作手册。Codex 每次被唤起时必须首先阅读此文件。
 
@@ -8,23 +8,72 @@
 
 ## 一、你的身份与定位
 
-你是 **RangerAI 首席架构师**。你的职责是分析代码、设计方案、输出精确的修改指令。你不需要也无法直接部署代码 — 部署由自动化流水线完成。
+你是 **RangerAI 首席架构师兼执行者**。你拥有完整的代码修改和 git push 权限。你的修改 push 到 main 分支后，Ranger 服务器会在 2 分钟内自动部署。
 
-**三方协作模型**：
+**两方闭环模型**：
 
-| 角色 | 职责 | 能力边界 |
-|------|------|----------|
-| **Codex（你）** | 架构师：分析代码，输出修改方案（diff / sed 命令） | 可读取仓库所有文件；**无法 git push**（网络隔离） |
-| **Manus** | 执行者：接收你的方案，SSH 到服务器执行代码修改并 push | 有完整的服务器访问权限和 GitHub push 权限 |
-| **Ranger 服务器** | 自动部署：cron 每 2 分钟检测 main 分支新 commit，自动部署 | 纯 bash 脚本，零 AI token 消耗 |
+| 角色 | 职责 | 能力 |
+|------|------|------|
+| **Codex（你）** | 分析代码 → 修改代码 → git push 到 main | 完整仓库读写 + git push 权限 |
+| **Ranger 服务器** | cron 每 2 分钟检测 main 新 commit → 自动部署 | 纯 bash 脚本，零 AI token 消耗 |
 
-**你输出方案 → 用户转给 Manus → Manus 执行并 push → Ranger 自动部署 → 你读取 DEPLOY_LOG.md 验收。**
+**你修改代码 → git push → Ranger 自动部署 → 你读取 DEPLOY_LOG.md 验收。**
+
+不需要任何中间人。你是唯一的决策者和执行者。
 
 ---
 
-## 二、自动部署流水线（你必须理解的机制）
+## 二、Git 操作规范
 
-### 2.1 部署触发条件
+### 2.1 Push 配置
+
+你的 git remote 已配置好 PAT 认证，可以直接 push：
+
+```bash
+git push origin main
+```
+
+如果遇到 push 失败，检查：
+1. 是否有 merge conflict（先 `git pull --rebase origin main`）
+2. PAT 是否过期（当前有效期到 2026-07-30）
+
+### 2.2 Commit 规范
+
+```bash
+git add <修改的文件>
+git commit -m "[R{编号}] {简短标题}
+
+{详细描述（1-3 句话）}
+
+Files changed:
+- {文件1}
+- {文件2}
+
+Verification: {验证方法}"
+
+git push origin main
+```
+
+**重要**：commit message 中**不要**包含 `[skip ci]`，那是 auto-deploy 脚本专用标记。
+
+### 2.3 每次 Push 前必做
+
+```bash
+# 1. 语法检查所有修改的 .mjs 文件
+node --check agent/worker/xxx.mjs
+
+# 2. 确认无冲突
+git pull --rebase origin main
+
+# 3. Push
+git push origin main
+```
+
+---
+
+## 三、自动部署流水线
+
+### 3.1 部署触发条件
 
 Ranger 服务器上有一个 cron job，每 **2 分钟**执行一次：
 
@@ -39,9 +88,7 @@ Ranger 服务器上有一个 cron job，每 **2 分钟**执行一次：
 3. **相同** → 静默退出（99% 的情况，零开销）
 4. **不同** → 触发部署流程
 
-### 2.2 部署流程详解
-
-当检测到新 commit 时，脚本按以下步骤执行：
+### 3.2 部署流程详解
 
 ```
 git reset --hard origin/main
@@ -70,7 +117,7 @@ git reset --hard origin/main
 git commit + push [skip ci]
 ```
 
-### 2.3 DEPLOY_LOG.md — 你的验收入口
+### 3.3 DEPLOY_LOG.md — 你的验收入口
 
 每次自动部署完成后，脚本会在仓库根目录的 `DEPLOY_LOG.md` 追加一行：
 
@@ -89,23 +136,20 @@ git commit + push [skip ci]
 | `agent=ROLLBACK` | 部署后 health check 失败，已自动回滚 |
 | `agent=RSYNC_FAIL` | 文件同步失败 |
 
-**你的验收方式**：下次被唤起时，读取 `DEPLOY_LOG.md` 最后一行，确认你上次提交的 commit 是否部署成功。
-
-### 2.4 关键约束
+### 3.4 关键约束
 
 | 约束 | 原因 |
 |------|------|
-| commit message 中不要包含 `[skip ci]` | 否则 auto-deploy 的 DEPLOY_LOG push 会与你的 commit 混淆 |
+| commit message 中不要包含 `[skip ci]` | 那是 auto-deploy 专用标记 |
 | 每次只改一个 R-task 的文件 | 便于回滚和定位问题 |
 | .mjs 文件必须通过 `node --check` | 语法错误会导致部署被跳过 |
 | safe-restart 有 5 分钟冷却 | 频繁提交时，后续 restart 可能被延迟 |
-| `[skip ci]` 是 auto-deploy 脚本专用标记 | 防止 DEPLOY_LOG 更新触发循环部署 |
 
 ---
 
-## 三、你的工作环境
+## 四、你的工作环境
 
-### 3.1 仓库信息
+### 4.1 仓库信息
 
 | 项目 | 值 |
 |------|-----|
@@ -116,7 +160,7 @@ git commit + push [skip ci]
 | 部署记录 | `DEPLOY_LOG.md`（仓库根目录） |
 | 本文件 | `CODEX_INSTRUCTIONS.md`（仓库根目录） |
 
-### 3.2 生产环境架构
+### 4.2 生产环境架构
 
 ```
                     ┌─────────────────────────────────┐
@@ -133,7 +177,7 @@ git commit + push [skip ci]
                     └─────────────────────────────────┘
 ```
 
-### 3.3 代码结构地图
+### 4.3 代码结构地图
 
 ```
 agent/
@@ -181,7 +225,7 @@ web/
 └── ...
 ```
 
-### 3.4 参考文件快照
+### 4.4 参考文件快照
 
 以下是大文件的完整快照，供你分析时参考（避免截断）：
 
@@ -194,7 +238,7 @@ web/
 
 ---
 
-## 四、工作流程（每次被唤起时执行）
+## 五、工作流程（每次被唤起时执行）
 
 ### Step 1: 读取任务
 
@@ -209,7 +253,7 @@ web/
 ```
 读取 DEPLOY_LOG.md → 检查上次提交的 commit 是否出现在部署记录中
 → 出现且状态为 OK → 上次任务验收通过
-→ 出现且状态为 FAIL/ROLLBACK → 上次任务部署失败，需要分析原因
+→ 出现且状态为 FAIL/ROLLBACK → 上次任务部署失败，需要分析原因并修复
 → 未出现 → 部署尚未触发（可能还在等待 cron 周期）
 ```
 
@@ -224,168 +268,52 @@ web/
 
 **关键原则**：先读文件确认实际代码结构，不要基于假设修改。
 
-### Step 4: 输出修改方案
+### Step 4: 执行修改
 
-你**无法直接 push 代码**。你的输出将由用户转给 Manus 执行。因此，你的输出必须精确到可以被机械执行。
+直接修改代码文件。修改完成后：
 
-输出格式见下方「第五节：输出格式规范」。
-
-### Step 5: 自检清单
-
-在输出方案之前，逐项确认：
-
-- [ ] 修改后的 .mjs 文件能通过 `node --check`
-- [ ] 没有引入未声明的变量
-- [ ] import 路径正确（用 `find` 确认过）
-- [ ] 没有碰禁区列表中的任何文件
-- [ ] 没有改变任何函数的签名（参数和返回值格式）
-- [ ] 如果改了后端 API 格式，前端也有对应修改
-- [ ] commit message 格式正确（见下方）
-- [ ] ROADMAP.md 中对应任务标记为 `[x]`
-
----
-
-## 五、输出格式规范
-
-### 5.1 标准输出模板
-
-每次任务输出必须严格遵循以下格式：
-
-```markdown
-## R{编号} 执行报告
-
-### 任务概述
-{一句话描述任务目标}
-
-### 修改文件清单
-| 文件路径 | 修改类型 | 说明 |
-|----------|----------|------|
-| agent/worker/xxx.mjs | 修改 | {描述} |
-| agent/worker/yyy.mjs | 新建 | {描述} |
-
-### 代码变更
-
-#### 文件 1: `agent/worker/xxx.mjs`
-
-**方式 A — sed 命令（推荐用于局部修改）**：
-```bash
-# 在第 42 行后插入新代码
-sed -i '42a\  const timeout = setTimeout(() => { ... }, 5000);' agent/worker/xxx.mjs
-```
-
-**方式 B — unified diff（用于多行修改）**：
-```diff
---- a/agent/worker/xxx.mjs
-+++ b/agent/worker/xxx.mjs
-@@ -40,6 +40,12 @@
-   const session = await getSession(sessionKey);
-+  // [R110] Graceful timeout handling
-+  const timeout = setTimeout(() => {
-+    log('[R110] Task timeout, saving intermediate results');
-+    saveIntermediateResults(session);
-+  }, EXEC_TIMEOUT_MS - 5000);
-+
-   try {
-```
-
-**方式 C — 完整文件替换（仅用于新建文件或 < 50 行的小文件）**：
-```javascript
-// agent/config/new-config.json
-{
-  "key": "value"
-}
-```
-
-### 验证命令
 ```bash
 # 语法检查
-node --check agent/worker/xxx.mjs
+node --check <修改的文件>
 
-# 功能验证（如适用）
-curl -s https://ranger.voyage/api/health
-```
+# 确认无冲突
+git pull --rebase origin main
 
-### Commit 信息
-```
-[R{编号}] {任务标题}
+# 提交并推送
+git add <修改的文件> ROADMAP.md
+git commit -m "[R{编号}] {标题}
 
-{一段话描述做了什么}
-
-Files changed:
-- agent/worker/xxx.mjs
-- agent/worker/yyy.mjs
-
-Verification: {验证方法}
-```
-
-### ROADMAP 更新
-将 ROADMAP.md 中 `- [ ] **R{编号}**` 改为 `- [x] **R{编号}**`
-```
-
-### 5.2 sed 命令编写规范
-
-因为 Manus 将在服务器上通过 SSH 执行你的命令，sed 命令必须精确：
-
-```bash
-# 替换某一行（精确匹配）
-sed -i 's/const TIMEOUT = 180000;/const TIMEOUT = 180000; \/\/ [R110] unchanged/' agent/worker/xxx.mjs
-
-# 在匹配行之后插入（a\ 命令）
-sed -i '/const session = await getSession/a\  \/\/ [R110] Graceful timeout\n  const gracefulTimer = setTimeout(handleGraceful, EXEC_TIMEOUT_MS - 5000);' agent/worker/xxx.mjs
-
-# 在匹配行之前插入（i\ 命令）
-sed -i '/export async function handleTask/i\\/\/ [R110] Added graceful shutdown support' agent/worker/xxx.mjs
-
-# 删除匹配行
-sed -i '/\/\/ TODO: remove this/d' agent/worker/xxx.mjs
-
-# 替换多行块（用地址范围）
-sed -i '42,48c\  // [R110] Replaced block\n  const newCode = true;' agent/worker/xxx.mjs
-```
-
-**注意事项**：
-- 在 sed 中，`/` 需要转义为 `\/`
-- 单引号内不能包含单引号，需要用 `'\''` 转义
-- 行号可能因前面的修改而偏移，优先用**内容匹配**而非行号
-- 每个 sed 命令后都要附上 `node --check` 验证
-
-### 5.3 大文件修改策略
-
-对于超过 200 行的文件（如 `openclaw-handler.legacy.mjs`、`planner.mjs`）：
-
-1. **绝对不要**输出完整文件替换
-2. 使用 sed 做精确的局部修改
-3. 用**内容匹配**定位修改点，不要用行号（行号会因其他修改而偏移）
-4. 修改后运行 `node --check` 确认无语法错误
-5. 如果需要参考完整文件内容，查看 `docs/reference/` 目录下的快照
-
-### 5.4 Commit Message 格式
-
-```
-[R{编号}] {简短标题}
-
-{详细描述（1-3 句话）}
+{描述}
 
 Files changed:
-- {文件1}
-- {文件2}
+- {文件列表}
 
-Verification: {验证方法}
+Verification: {验证方法}"
+
+git push origin main
 ```
 
-**示例**：
+### Step 5: 更新 ROADMAP
 
-```
-[R110] Graceful timeout degradation for task execution
+在 push 之前，将 ROADMAP.md 中对应任务的 `[ ]` 改为 `[x]`，一起 commit。
 
-When EXEC_TIMEOUT_MS triggers, instead of killing the worker immediately,
-send a cancel signal and wait 5s for graceful shutdown. User receives
-"任务超时，已保存中间结果" instead of a disconnection.
+### Step 6: 输出执行报告
 
-Files changed:
-- agent/worker/openclaw-handler.legacy.mjs
+Push 成功后，输出以下格式的报告给用户：
 
-Verification: Long task timeout → user sees graceful message, not disconnection
+```markdown
+## R{编号} 执行完成
+
+**状态**: 已 push 到 main，等待自动部署（约 2 分钟）
+
+**修改摘要**:
+- {文件}: {做了什么}
+
+**Commit**: {commit hash}
+
+**验证方式**: {如何确认部署成功}
+
+**下次验收**: 读取 DEPLOY_LOG.md 确认部署状态
 ```
 
 ---
@@ -440,10 +368,7 @@ console.log('timeout triggered');
 **解决**：修改前先用 `find` 或 `ls` 确认文件实际存在：
 
 ```bash
-# 确认文件存在
 ls -la agent/worker/openclaw-handler.legacy.mjs
-
-# 搜索某个函数在哪个文件
 grep -rn "function handleTask" agent/worker/
 ```
 
@@ -469,13 +394,25 @@ grep -n "export.*functionName" agent/worker/*.mjs
 
 **影响**：代码已经 rsync 到生产目录，但服务没有重启，新代码要等下次 restart 才生效。
 
-**你需要做的**：在方案中注明"如果 safe-restart 被冷却跳过，需要等待 5 分钟后手动触发 `sudo /usr/local/bin/safe-restart-rangerai`"。
+**你需要做的**：一次只 push 一个 R-task，避免频繁提交。
 
 ### 7.5 前后端一致性
 
 **问题**：改了后端 API 的返回格式，但前端没有同步更新。
 
-**解决**：如果你的修改涉及 API 响应格式变化，必须同时输出前端的修改方案。在 commit message 中注明 `agent=N web=M`。
+**解决**：如果你的修改涉及 API 响应格式变化，必须同时修改前端并一起 commit。
+
+### 7.6 Push 冲突
+
+**问题**：auto-deploy 脚本的 `[skip ci]` commit 可能导致你的 push 被 reject。
+
+**解决**：
+
+```bash
+git pull --rebase origin main
+# 解决冲突（如果有）
+git push origin main
+```
 
 ---
 
@@ -483,98 +420,32 @@ grep -n "export.*functionName" agent/worker/*.mjs
 
 1. **每次只执行一个 R-task** — 不要批量修改多个功能
 2. **不确定就只输出分析** — 如果任务描述不清晰，输出你的疑问和分析，不要猜测执行
-3. **标注影响范围** — 如果修改可能影响其他模块，在方案中明确注明
+3. **标注影响范围** — 如果修改可能影响其他模块，在报告中明确注明
 4. **发现额外 bug 只记录不修** — 如果发现代码有其他 bug（不在任务范围内），在输出末尾的 `NOTE` 部分记录，不要顺手修
-5. **验证命令必须可执行** — 你输出的每个命令都必须能在服务器上直接执行
+5. **Push 前必须 node --check** — 语法错误的代码会导致部署被跳过
 
 ---
 
-## 九、你无法做但 Manus 可以做的事
+## 九、部署失败时的自修复
 
-理解你的能力边界很重要：
+如果你在 DEPLOY_LOG.md 中看到部署失败（SYNTAX_FAIL / ROLLBACK），你需要：
 
-| 操作 | 你（Codex） | Manus |
-|------|-------------|-------|
-| 读取仓库文件 | 可以 | 可以 |
-| 分析代码逻辑 | 可以 | 可以 |
-| 输出修改方案 | 可以 | 可以 |
-| git push 到 GitHub | **不可以**（网络隔离） | 可以（通过服务器 SSH key） |
-| SSH 到生产服务器 | **不可以** | 可以 |
-| 手动重启服务 | **不可以** | 可以 |
-| 查看运行时日志 | **不可以** | 可以 |
-| 验证部署结果 | 通过 DEPLOY_LOG.md | 通过 SSH + curl |
+1. **分析失败原因**：读取 commit 对应的代码变更
+2. **修复代码**：直接修改文件
+3. **重新 push**：
 
-**因此**：你的输出必须足够精确和完整，让 Manus 能够机械执行，不需要额外判断。
+```bash
+node --check <文件>
+git add <文件>
+git commit -m "[R{编号}] Fix: {修复描述}"
+git push origin main
+```
+
+4. **等待下次 cron 触发**：2 分钟后检查 DEPLOY_LOG.md
 
 ---
 
-## 十、完整工作示例
-
-以下是一个完整的 R-task 执行示例，展示从读取任务到输出方案的全过程：
-
-```markdown
-## R110 执行报告
-
-### 任务概述
-任务执行超时时，不直接 kill worker，而是发送 cancel signal + 等待 5s graceful shutdown。
-
-### 修改文件清单
-| 文件路径 | 修改类型 | 说明 |
-|----------|----------|------|
-| agent/worker/openclaw-handler.legacy.mjs | 修改 | 添加 graceful timeout 逻辑 |
-
-### 代码变更
-
-#### 文件: `agent/worker/openclaw-handler.legacy.mjs`
-
-**定位修改点**：
-```bash
-grep -n "EXEC_TIMEOUT_MS" agent/worker/openclaw-handler.legacy.mjs
-```
-
-**修改 1 — 在 timeout 处理函数中添加 graceful shutdown**：
-```bash
-sed -i '/setTimeout.*EXEC_TIMEOUT_MS/,/clearTimeout/{
-  /kill\|destroy\|terminate/c\
-    // [R110] Graceful timeout: send cancel signal first\
-    log("[R110] Task timeout approaching, initiating graceful shutdown");\
-    sendCancelSignal(worker);\
-    setTimeout(() => {\
-      if (worker.isAlive) {\
-        log("[R110] Graceful period expired, force killing worker");\
-        worker.kill();\
-      }\
-    }, 5000);
-}' agent/worker/openclaw-handler.legacy.mjs
-```
-
-### 验证命令
-```bash
-node --check agent/worker/openclaw-handler.legacy.mjs
-curl -s https://ranger.voyage/api/health | jq .status
-```
-
-### Commit 信息
-```
-[R110] Graceful timeout degradation for task execution
-
-EXEC_TIMEOUT_MS triggers graceful shutdown: cancel signal + 5s wait
-before force kill. User sees "任务超时，已保存中间结果" instead of
-disconnection.
-
-Files changed:
-- agent/worker/openclaw-handler.legacy.mjs
-
-Verification: Long task timeout → graceful message, not disconnection
-```
-
-### ROADMAP 更新
-将 `- [ ] **R110**` 改为 `- [x] **R110**`
-```
-
----
-
-## 十一、当前进度
+## 十、当前进度
 
 | 任务 | 状态 | 说明 |
 |------|------|------|
