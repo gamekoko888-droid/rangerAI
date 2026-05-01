@@ -1,7 +1,10 @@
 # RangerAI Iteration Roadmap
 
 > **格式说明**：Codex 自动读取此文件，找到第一个 `[ ]` 状态的任务执行。
-> 完成后将 `[ ]` 改为 `[x]` 并 commit。
+> 完成后将 `[ ]` 改为 `[x]` 并在输出方案中注明。
+>
+> **协作模式**：Codex 输出修改方案 → 用户转给 Manus → Manus 执行并 push → Ranger 服务器自动部署。
+> 详细操作规范见 `CODEX_INSTRUCTIONS.md`。部署结果见 `DEPLOY_LOG.md`。
 
 ---
 
@@ -14,37 +17,23 @@
   - 目标: Gateway session 超 80K token 时构建 Context Bridge 而非直接 reset
   - 验证: 日志出现 `[R106] Context bridge injected after reset: ok`
 
-### 待执行
-
 - [x] **R107** — http-router.mjs method 变量修复
   - 文件: `agent/modules/http-router.mjs`
   - 完成时间: 2026-05-01
-  - 目标: 在 `handleRequest(req, res)` 内部添加 `const method = req.method || 'GET';`，与 `urlPath` 解析放在一起
-  - 风险: 当前代码在进入该分支前会抛 `ReferenceError: method is not defined`
+  - 目标: 在 `handleRequest(req, res)` 内部添加 `const method = req.method || 'GET';`
   - 验证: `curl -X POST https://ranger.voyage/api/health` 不再 500
-  - 约束: 仅修改 http-router.mjs，不动其他路由文件
 
 - [x] **R108** — Worker 错误恢复增强
   - 文件: `agent/worker/openclaw-handler.legacy.mjs`, `agent/worker/worker-manager.mjs`
-  - 目标: Worker 执行任务时如果 OpenClaw Gateway 返回 5xx，自动重试 1 次（间隔 3s），而非直接报错给用户
+  - 目标: Worker 执行任务时如果 Gateway 返回 5xx，自动重试 1 次（间隔 3s）
   - 验证: 模拟 Gateway 503 → Worker 重试 → 用户收到正常响应
-  - 约束: 重试上限 1 次，超过后正常报错；不改 Gateway 本身
 
 - [x] **R109** — 模型路由配置外置化
-  - 文件: `agent/worker/smart-router.mjs`（主修改）+ 新建 `agent/config/model-routing.json`
-  - 参考: `docs/reference/smart-router-snapshot.mjs`（完整 734 行快照）
-  - 目标: 将硬编码的 MODEL_MAP、THINKING_MAP、TOOL_MODEL、SAFE_FALLBACK_MODEL、phaseRoutes 抽取到 `agent/config/model-routing.json`，运行时读取
-  - 具体步骤:
-    1. 新建 `agent/config/model-routing.json`，包含所有模型映射数据
-    2. 在 `smart-router.mjs` 顶部添加 JSON 加载逻辑（带 try-catch fallback）
-    3. 将 `export const MODEL_MAP = {...}` 替换为从 JSON 加载的版本
-    4. 将 `export const THINKING_MAP = {...}` 同理替换
-    5. 将 `SAFE_FALLBACK_MODEL` 和 `TOOL_MODEL` 从 JSON 读取
-    6. 将 `smartRouteByPhase` 内的 `phaseRoutes` 对象从 JSON 读取
-    7. JSON 不存在或解析失败时，fallback 到代码内默认值（保持当前硬编码值作为默认）
-  - 验证: 修改 json 后重启生效，无需改 .mjs 代码；json 删除后服务仍能正常启动（用默认值）
-  - 约束: 保持三阶段架构不变；所有函数签名和返回值格式不变；不改 routing-config.mjs（那是分类规则，不是模型映射）
-  - 修改策略: 使用 sed 做局部替换，不要尝试输出完整 734 行文件
+  - 文件: `agent/worker/smart-router.mjs` + `agent/config/model-routing.json`
+  - 目标: 将硬编码的 MODEL_MAP 等抽取到 JSON，运行时读取
+  - 验证: 修改 json 后重启生效；json 删除后服务仍能启动（用默认值）
+
+### 待执行
 
 - [ ] **R110** — 任务执行超时优雅降级
   - 文件: `agent/worker/openclaw-handler.legacy.mjs`
@@ -91,6 +80,18 @@
 - **目标**: 一句话描述要做什么
 - **验证**: 如何确认修改成功
 - **约束**: 不能碰什么
+
+---
+
+## 自动部署说明
+
+当代码被 push 到 `main` 分支后，Ranger 服务器的 cron job 会在 **2 分钟内**自动检测并部署：
+
+1. `agent/` 目录有变更 → 语法检查 → rsync → 重启 agent + ws 服务 → health check
+2. `web/` 目录有变更 → rsync → pnpm build → 重启 web 服务 → HTTP 200 检查
+3. 部署结果自动追加到 `DEPLOY_LOG.md` 并 push 回仓库
+
+**Codex 验收方式**：下次被唤起时读取 `DEPLOY_LOG.md` 最后几行，确认部署状态。
 
 ---
 
