@@ -5,7 +5,7 @@ const zlib = require('zlib');
 
 const PORT = 3000;
 const API_BACKEND = 'http://127.0.0.1:3002';
-const DIR = __dirname;
+const DIR = require("path").join(__dirname, "dist");
 
 const MIME_TYPES = {
     '.html': 'text/html',
