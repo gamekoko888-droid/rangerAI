@@ -60,6 +60,28 @@ const parseBody = (req) => deps.db.parseJsonBody(req);
 const getUser = (req) => deps.db.extractUserFromRequest(req);
 const ts = () => new Date().toISOString();
 
+const CHAT_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const CHAT_RATE_LIMIT_MAX = 60;
+const _chatRateLimitByIp = new Map();
+
+function getClientIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+}
+
+function checkChatRateLimit(ip) {
+  const now = Date.now();
+  const windowStart = now - CHAT_RATE_LIMIT_WINDOW_MS;
+  const bucket = _chatRateLimitByIp.get(ip) || [];
+  const recent = bucket.filter(ts => ts > windowStart);
+  if (recent.length >= CHAT_RATE_LIMIT_MAX) {
+    _chatRateLimitByIp.set(ip, recent);
+    return { allowed: false, retryAfterSec: Math.max(1, Math.ceil((recent[0] + CHAT_RATE_LIMIT_WINDOW_MS - now) / 1000)) };
+  }
+  recent.push(now);
+  _chatRateLimitByIp.set(ip, recent);
+  return { allowed: true, retryAfterSec: 0 };
+}
+
 function requireAuth(currentUser, res) {
   if (!currentUser) { json(res, 401, { error: 'Authentication required' }); return false; }
   return true;
@@ -76,6 +98,16 @@ export async function handleChatApi(req, res) {
   const urlPath = req.url.split('?')[0];
   const method = req.method;
   const currentUser = await getUser(req);
+
+  // [R113] /api/chat* IP rate limiting: 60 req/min
+  if (method === 'POST' && (urlPath === '/api/chat/send' || /\/api\/chats\/[^/]+\/messages$/.test(urlPath))) {
+    const ip = getClientIp(req);
+    const rate = checkChatRateLimit(ip);
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', String(rate.retryAfterSec));
+      return json(res, 429, { error: 'Too many requests', limit: CHAT_RATE_LIMIT_MAX, windowSec: 60, retryAfterSec: rate.retryAfterSec }), true;
+    }
+  }
 
   try {
 
