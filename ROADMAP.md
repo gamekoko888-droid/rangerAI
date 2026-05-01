@@ -94,6 +94,12 @@
   - 验证: recover 请求日志包含 sinceTs + snapshotHash + lastChunkSeq
   - 约束: 不改现有 WS 消息协议基础字段，仅做向后兼容扩展
 
+- [x] **R118** — 恢复链路可解释追踪
+  - 文件: `agent/modules/ws-control-handlers.mjs`, `web/client/src/hooks/useChatStore.tsx`
+  - 目标: 服务端在 recover_task 开始时下发 recovery_trace，前端将关键元数据写入 timeline 便于排障
+  - 验证: 断线恢复时 timeline 出现 Recovery Trace 条目，含 sinceTs/lastChunkSeq/snapshotHash
+  - 约束: 不改既有恢复逻辑分支，仅新增观测事件
+
 ---
 
 ## 任务格式规范

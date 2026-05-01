@@ -103,6 +103,15 @@ export async function handleRecoverTask(ws, msg, state) {
   const sinceCapApplied = rawSinceTs === 0;
   logger.info(`[${ts()}] Recovery request, session=${sessionKey} (client=${clientSessionKey || "none"}), sinceTs=${sinceTs}${sinceCapApplied ? " (R73: capped from 0)" : ""}, lastChunkSeq=${lastChunkSeq}, snapshotHash=${snapshotHash || 'n/a'}`);
 
+  sendEvent(ws, {
+    type: "recovery_trace",
+    sinceTs,
+    snapshotHash: snapshotHash || null,
+    lastChunkSeq,
+    sessionKey,
+    ts: Date.now(),
+  });
+
   // Restore session from client-provided key
   if (clientSessionKey && clientSessionKey !== state.sessionKey) {
     logger.info(`[${ts()}] [recover] Restoring sessionKey from client: ${clientSessionKey}`);

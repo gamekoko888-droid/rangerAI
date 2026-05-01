@@ -450,6 +450,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         resetStreamWatchdog();
         break;
       }
+
+      case 'recovery_trace': {
+        const rt = event as { sinceTs?: number; snapshotHash?: string | null; lastChunkSeq?: number; sessionKey?: string };
+        useMessageStore.getState().addTimelineItem({
+          id: `recovery-trace-${Date.now()}`,
+          type: 'thinking',
+          title: 'Recovery Trace',
+          content: `sinceTs=${rt.sinceTs || 0}, lastChunkSeq=${rt.lastChunkSeq || 0}, snapshotHash=${rt.snapshotHash || 'n/a'}`,
+          timestamp: Date.now(),
+          status: 'done',
+        } as any);
+        break;
+      }
+
       // P0: Recovery status events
       case 'recovery_status': {
         const rs = event as { phase?: string; message?: string; taskId?: string; result?: string };
