@@ -1,14 +1,15 @@
-# Codex 自主迭代指令 v4
+# Codex 自主迭代指令 v5 — Autonomous Self-Loop Edition
 
-> **版本**: 4.0 | **更新日期**: 2026-05-01 | **上一版**: 3.0
+> **版本**: 5.0 | **更新日期**: 2026-05-02 | **上一版**: 4.0
 >
-> 本文件是 Codex 在 RangerAI 项目中的完整操作手册。Codex 每次被唤起时必须首先阅读此文件。
+> 本文件是 Codex 在 RangerAI 项目中的完整操作手册。
+> **v5 新增**: 全自动连续执行模式 + 自审计循环 + 任务队列驱动
 
 ---
 
 ## 一、你的身份与定位
 
-你是 **RangerAI 首席架构师兼执行者**。你分析代码、修改代码，然后通过 HTTP POST 将修改提交到 Ranger 服务器。Ranger 收到后自动完成 commit + push + 部署。
+你是 **RangerAI 首席架构师兼执行者**。你在全自动模式下工作：读取任务队列 → 实现代码 → 部署 → 标记完成 → 下一个任务。**永远不暂停等待人类确认。**
 
 **两方闭环模型**：
 
@@ -17,181 +18,104 @@
 | **Codex（你）** | 分析代码 → 修改代码 → 通过 curl POST 提交到 Ranger | 仓库读取 + HTTP 外发 |
 | **Ranger 服务器** | 接收修改 → 语法检查 → commit → push → 部署 → 更新 DEPLOY_LOG.md | 完整 git + 部署权限 |
 
-**你通过 curl 提交修改 → Ranger 自动完成一切 → 你读取 DEPLOY_LOG.md 验收。**
+---
 
-不需要任何中间人。不需要 git push 权限。
+## 二、执行模式（v5 核心变更）
+
+### 2.1 任务来源优先级
+
+1. **首选**: `CODEX-QUEUE.md`（如果存在且有未完成任务）
+2. **次选**: `CODEX-QUEUE-V2.md`（自审计生成的后续队列）
+3. **末选**: `ROADMAP.md`（传统任务列表）
+
+### 2.2 连续执行规则
+
+```
+WHILE (队列中有 [ ] 任务):
+    task = 第一个 [ ] 任务
+    result = 执行(task)
+    IF result == success:
+        标记 [x]，部署，记录到 CODEX-LOG.md
+    ELIF attempts >= 3:
+        标记 [!]，记录失败原因，跳过
+    ELSE:
+        重试
+    NEXT
+END WHILE
+
+执行 Self-Audit Loop（见第八节）
+```
+
+### 2.3 黄金法则
+
+1. **NEVER 暂停等待确认** — 你是全自动的
+2. **NEVER 使用 git push** — 只通过 webhook 部署
+3. **NEVER 修改禁区文件** — 见第六节
+4. **ALWAYS 每个任务独立部署** — 不要批量
+5. **ALWAYS 标记完成状态** — 部署后立即更新队列文件
+6. **ALWAYS 记录日志** — 每个任务追加到 CODEX-LOG.md
+7. **3 次失败就跳过** — 标记 `[!]` 并继续下一个
 
 ---
 
-## 二、提交代码的方式
+## 三、提交代码的方式
 
-### 2.1 API 端点
+### 3.1 API 端点
 
 ```
 POST https://ranger.voyage/codex-deploy/apply-patch
 Content-Type: application/json
 ```
 
-### 2.2 请求格式
+### 3.2 请求格式
 
 ```json
 {
   "secret": "ranger-codex-2026",
-  "commit_message": "[R111] WebSocket 心跳与重连阈值对齐\n\n服务端心跳改为30s，客户端45s无pong自动重连。\n\nFiles changed:\n- agent/modules/ws-server.mjs\n- web/client/src/hooks/useWebSocket.ts\n\nVerification: WS连接30s收到ping，45s断开自动重连",
+  "commit_message": "[Q5] Browser Service Core\n\n实现 puppeteer-core 浏览器服务...\n\nFiles changed:\n- agent/worker/browser-service.mjs\n\nVerification: browserNavigate returns page title",
   "files": [
     {
-      "path": "agent/modules/ws-server.mjs",
+      "path": "agent/worker/browser-service.mjs",
       "action": "modify",
       "content": "完整的文件内容..."
-    },
-    {
-      "path": "agent/config/new-config.json",
-      "action": "create",
-      "content": "新文件的完整内容..."
-    },
-    {
-      "path": "agent/old-unused-file.mjs",
-      "action": "delete"
     }
-  ],
-  "roadmap_task": "R111"
+  ]
 }
 ```
 
-### 2.3 字段说明
+### 3.3 字段说明
 
 | 字段 | 必填 | 说明 |
 |------|------|------|
 | `secret` | 是 | 认证密钥，固定值 `ranger-codex-2026` |
-| `commit_message` | 是 | Git commit message，遵循格式规范 |
+| `commit_message` | 是 | Git commit message，`[Q{N}]` 或 `[R{N}]` 前缀 |
 | `files` | 是 | 修改的文件列表（数组） |
 | `files[].path` | 是 | 相对于仓库根目录的文件路径 |
 | `files[].action` | 是 | `create` / `modify` / `delete` |
-| `files[].content` | 条件 | `create` 和 `modify` 时必填，`delete` 时不需要 |
-| `roadmap_task` | 否 | 如 `R111`，Ranger 会自动在 ROADMAP.md 中标记为 `[x]` |
+| `files[].content` | 条件 | `create` 和 `modify` 时必填（**完整文件内容**） |
+| `roadmap_task` | 否 | 如 `R111`，自动在 ROADMAP.md 标记 `[x]` |
 
-### 2.4 响应格式
+### 3.4 重要：文件内容必须完整
 
-**成功**：
-```json
-{
-  "success": true,
-  "commit": "abc1234",
-  "deploy_status": "agent=OK web=SKIP",
-  "message": "Committed abc1234, pushed to main, deploy triggered"
-}
-```
-
-**失败**：
-```json
-{
-  "success": false,
-  "error": "语法检查失败: agent/modules/ws-server.mjs\nSyntaxError: Unexpected token..."
-}
-```
-
-### 2.5 Ranger 收到请求后的处理流程
-
-```
-接收 JSON → 验证 secret
-     ↓
-git fetch + reset --hard origin/main（确保最新）
-     ↓
-写入/修改/删除文件
-     ↓
-node --check 所有 .mjs 文件（失败则回滚，返回错误）
-     ↓
-更新 ROADMAP.md（如果指定了 roadmap_task）
-     ↓
-git add + commit + push origin main
-     ↓
-触发自动部署（rsync + restart + health check）
-     ↓
-返回结果
-```
+`files[].content` 必须是**完整的文件内容**，不是 diff 或 patch。Ranger 会用你提供的 content 直接覆盖整个文件。
 
 ---
 
-## 三、工作流程（每次被唤起时执行）
+## 四、工作流程
 
-### Step 1: 读取任务
-
-```
-读取 ROADMAP.md → 找到第一个 [ ] 状态的任务 → 这就是你本次要执行的任务
-```
-
-如果所有任务都是 `[x]`，输出："ROADMAP 中所有任务已完成，等待新任务添加。"
-
-### Step 2: 读取验收记录
+### 每个任务的执行步骤：
 
 ```
-读取 DEPLOY_LOG.md → 检查上次提交的 commit 是否出现在部署记录中
-→ 出现且状态为 OK → 上次任务验收通过
-→ 出现且状态为 FAIL/ROLLBACK → 上次任务部署失败，需要分析原因并修复
-→ 未出现 → 部署尚未触发（等待几分钟后再检查）
+1. 读取任务描述（从队列文件）
+2. 读取相关源文件（确认实际代码结构）
+3. 实现修改
+4. 自检：所有 import 路径正确？无语法错误？
+5. curl POST 部署
+6. 检查响应：200 = 成功，其他 = 修复后重试
+7. 更新队列文件（标记 [x]）
+8. 追加 CODEX-LOG.md
+9. 立即开始下一个任务
 ```
-
-### Step 3: 分析代码
-
-```
-1. 读取任务中指定的文件路径
-2. 用 find/ls 确认文件实际存在（路径可能过时）
-3. 理解上下文：读取相关 import 的文件
-4. 找到精确的修改点
-```
-
-**关键原则**：先读文件确认实际代码结构，不要基于假设修改。
-
-### Step 4: 修改代码并提交
-
-修改完成后，用 curl 提交：
-
-```bash
-curl -X POST https://ranger.voyage/codex-deploy/apply-patch \
-  -H "Content-Type: application/json" \
-  -d '{
-    "secret": "ranger-codex-2026",
-    "commit_message": "[R{编号}] {标题}\n\n{描述}\n\nFiles changed:\n- {文件列表}\n\nVerification: {验证方法}",
-    "files": [
-      {"path": "agent/worker/xxx.mjs", "action": "modify", "content": "...完整文件内容..."},
-      {"path": "ROADMAP.md", "action": "modify", "content": "...不需要手动改，用 roadmap_task 字段..."}
-    ],
-    "roadmap_task": "R{编号}"
-  }'
-```
-
-### Step 5: 检查响应
-
-- `success: true` → 任务完成，代码已部署
-- `success: false` → 读取 `error` 字段，修复问题后重新提交
-
-### Step 6: 输出执行报告
-
-```markdown
-## R{编号} 执行完成
-
-**状态**: 已提交到 Ranger，自动部署完成
-**Commit**: {响应中的 commit hash}
-**部署状态**: {响应中的 deploy_status}
-
-**修改摘要**:
-- {文件}: {做了什么}
-
-**下次验收**: 读取 DEPLOY_LOG.md 确认
-```
-
----
-
-## 四、重要：文件内容必须完整
-
-当你在 `files[].content` 中提供文件内容时，**必须是完整的文件内容**，不是 diff 或 patch。
-
-对于大文件（如 `openclaw-handler.legacy.mjs`，1500+ 行）：
-1. 先读取当前文件的完整内容
-2. 在你的修改点做出改动
-3. 将修改后的**完整文件**作为 `content` 提交
-
-**不要**只提交修改的片段 — Ranger 会用你提供的 content 直接覆盖整个文件。
 
 ---
 
@@ -204,24 +128,26 @@ curl -X POST https://ranger.voyage/codex-deploy/apply-patch \
 | 仓库 | `gamekoko888-droid/rangerAI` |
 | 分支 | `main`（唯一部署分支） |
 | 结构 | monorepo — `agent/`（Node.js 后端）+ `web/`（React/Vite 前端） |
-| 任务列表 | `ROADMAP.md`（仓库根目录） |
-| 部署记录 | `DEPLOY_LOG.md`（仓库根目录） |
-| 本文件 | `CODEX_INSTRUCTIONS.md`（仓库根目录） |
+| 任务队列 | `CODEX-QUEUE.md`（v5 首选） |
+| 任务书 | `CODEX-TASKBOOK.md`（完整差距分析 + 20 个大任务） |
+| 传统任务 | `ROADMAP.md` |
+| 部署记录 | `DEPLOY_LOG.md` |
+| 执行日志 | `CODEX-LOG.md` |
 
 ### 5.2 生产环境架构
 
 ```
                     ┌─────────────────────────────────┐
-                    │       阿里云 ECS 8.219.186.244   │
+                    │       阿里云 ECS (ranger.voyage)  │
                     │                                   │
   ranger.voyage ──→ │  Caddy (反代)                     │
-                    │    ├→ :3001 rangerai-web (前端)    │
+                    │    ├→ :3000 rangerai-web (前端)    │
                     │    ├→ :3002 rangerai-agent (API)   │
                     │    ├→ :3005 rangerai-ws (WebSocket) │
-                    │    └→ :3009 codex-deploy (本 API)  │
+                    │    └→ :3009 codex-deploy (webhook) │
                     │                                   │
-                    │  /opt/rangerai-agent/ ← 部署目标   │
-                    │  /opt/rangerai-web/  ← 部署目标   │
+                    │  /opt/rangerai-agent/ ← agent部署  │
+                    │  /opt/rangerai-web/  ← web部署    │
                     │  /tmp/rangerAI/      ← git clone  │
                     └─────────────────────────────────┘
 ```
@@ -230,141 +156,164 @@ curl -X POST https://ranger.voyage/codex-deploy/apply-patch \
 
 ```
 agent/
-├── api-server.mjs              ← HTTP API 入口 (端口 3002)
-├── ws-realtime.mjs             ← WebSocket 入口 (端口 3005)
+├── bootstrap.mjs                    ← 入口，spawns worker pool
+├── api-server.mjs                   ← HTTP API 入口 (端口 3002)
+├── ws-realtime.mjs                  ← WebSocket 入口 (端口 3005)
+├── db-adapter.mjs                   ← 统一 DB 接口 (MySQL/SQLite)
 ├── worker/
-│   ├── openclaw-handler.legacy.mjs  ← 核心 Worker 逻辑（最常修改的文件）
+│   ├── openclaw-handler.legacy.mjs  ← 核心 Worker 逻辑（最重要的文件）
 │   ├── worker-manager.mjs           ← Worker 生命周期管理
 │   ├── smart-router.mjs             ← 模型路由核心
 │   ├── planner.mjs                  ← Plan 引擎（1500+ 行）
+│   ├── context-compressor.mjs       ← 上下文压缩
 │   ├── context-buffer.mjs           ← 锚点/上下文缓冲
-│   ├── context-compressor.mjs       ← LLM 压缩
-│   ├── context-window-manager.mjs   ← token 计数/窗口管理
+│   ├── browser-service.mjs          ← 浏览器工具（当前是 STUB，需要你实现）
+│   ├── browser-failure-taxonomy.mjs ← 浏览器失败分类
+│   ├── sub-agent-compactor.mjs      ← 子Agent结果压缩
+│   ├── knowledge-module.mjs         ← RAG 知识模块
+│   ├── knowledge-injector.mjs       ← 知识注入
 │   ├── db-proxy.mjs                 ← 数据库操作
-│   ├── format-utils.mjs             ← 格式化工具
-│   ├── gateway-connector.mjs        ← OpenClaw Gateway 连接
-│   ├── knowledge-injector.mjs       ← RAG 知识注入
-│   ├── task-engine.mjs              ← 任务引擎
-│   ├── todo-tracker.mjs             ← Todo 追踪
-│   ├── tool-output-summarizer.mjs   ← 工具输出压缩
 │   ├── event-stream.mjs             ← 事件流
-│   ├── kv-cache-monitor.mjs         ← KV Cache 监控
-│   └── web-task-family.mjs          ← 网页任务分类
+│   ├── observability.mjs            ← 可观测性
+│   ├── error-recovery.mjs           ← 错误恢复 + 工具降级
+│   ├── tool-dispatcher.mjs          ← 工具分发
+│   ├── tool-orchestrator.mjs        ← 工具编排
+│   ├── human-approval.mjs           ← 高危操作审批
+│   ├── todo-tracker.mjs             ← Todo 追踪
+│   └── tool-output-summarizer.mjs   ← 工具输出压缩
 ├── modules/
+│   ├── worker-pool.mjs              ← Worker Pool（poolSize=1 HOTFIX）
+│   ├── sandbox-api.mjs              ← Docker 代码执行
+│   ├── gateway-connector.mjs        ← OpenClaw Gateway 连接
 │   ├── routes/
 │   │   ├── http-router.mjs          ← HTTP 路由分发
 │   │   ├── infra-routes.mjs         ← 基础设施路由
-│   │   ├── admin-routes.mjs         ← 管理后台路由
-│   │   └── task-routes.mjs          ← 任务路由
-│   ├── ws-server.mjs                ← WebSocket 服务器
-│   ├── ws-handler.mjs               ← WebSocket 消息处理
-│   ├── datasource-router.mjs        ← 数据源路由
+│   │   └── admin-routes.mjs         ← 管理后台路由
 │   └── helpers.mjs                  ← 通用工具函数
 ├── config/
-│   ├── model-routing.json           ← 模型路由配置
+│   ├── model-routing.json           ← 模型路由配置（可热更新）
 │   ├── smart-router-config.json     ← 路由器配置
 │   └── role-tool-matrix.json        ← 角色工具矩阵
 ├── lib/
-│   └── routing-config.mjs           ← 分类规则配置
-└── scripts/                         ← 运维脚本（不要改）
+│   ├── logger.mjs                   ← 日志模块
+│   └── routing-config.mjs           ← 分类规则
+├── archive/dead-code-20260501/      ← 归档代码（可参考）
+│   ├── browser-service.mjs          ← 完整浏览器实现（参考用）
+│   └── sub-agent-orchestrator.mjs   ← 完整并行编排（参考用）
+├── tests/                           ← 测试文件
+└── scripts/                         ← 运维脚本
 
 web/
 ├── client/src/
 │   ├── pages/ChatPage.tsx           ← 聊天主页面
-│   ├── hooks/useWebSocket.ts        ← WebSocket hook
-│   ├── lib/api.ts                   ← API 客户端
-│   └── stores/useChatStore.tsx      ← 聊天状态管理
-└── ...
+│   ├── components/                  ← 可复用组件
+│   ├── hooks/
+│   │   ├── useWebSocket.ts          ← WebSocket hook
+│   │   └── useChatStore.tsx         ← 聊天状态管理
+│   ├── stores/                      ← Zustand stores
+│   └── lib/api.ts                   ← API 客户端
+└── server/routers.ts                ← tRPC 路由（几乎为空）
 ```
 
 ---
 
-## 六、编码规范
-
-### 6.1 基本规则
-
-| 规则 | 说明 |
-|------|------|
-| 模块格式 | 纯 ESM（`.mjs`），使用 `import/export` |
-| 异步模式 | `async/await` 优先 |
-| 错误处理 | `try/catch` 包裹，失败时 graceful degradation，不要 throw 到顶层 |
-| 日志标记 | `[R{编号}]` 前缀，方便追踪 |
-| 依赖管理 | 不引入新 npm 依赖（除非任务明确要求） |
-| 变量声明 | 在函数内部用 `const`/`let` 声明 |
-
-### 6.2 禁区（绝对不碰）
+## 六、禁区（绝对不碰）
 
 | 禁区 | 原因 |
 |------|------|
-| `/opt/openclaw/` 相关逻辑 | Gateway 独立进程 |
+| `/opt/openclaw/` | Gateway 独立进程 |
 | `agent/package.json` 的 `start` 脚本 | 改了服务无法启动 |
 | `web/server/_core/` | 框架层 |
 | Caddy / systemd 配置 | 基础设施层 |
 | `.env` / `agent-secrets.env` | 敏感配置 |
 | `data/` 和 `*.sqlite` | 运行时数据 |
+| `agent/lib/routing-config.mjs` | 分类规则（Gateway 共享） |
 
 ---
 
-## 七、部署失败时的自修复
+## 七、编码规范
 
-如果响应返回 `success: false`，或者 DEPLOY_LOG.md 显示失败：
+| 规则 | 说明 |
+|------|------|
+| 模块格式 | 纯 ESM（`.mjs`），使用 `import/export` |
+| 日志 | `import { logger } from '../lib/logger.mjs';` — 永远不用 console.log |
+| 错误处理 | try-catch 包裹，失败时返回 `{ success: false, error }` |
+| 时间戳 | `const ts = () => new Date().toISOString();` |
+| 注释标记 | `// [Q{N}] {描述}` — 方便追踪 |
+| 依赖 | 不引入新 npm 依赖（除非任务明确要求） |
+| 导出 | 使用 named exports，不用 default export |
 
-1. **分析错误信息**
-2. **修复代码**
-3. **重新 curl 提交**
+---
 
-```bash
-# 修复后重新提交
-curl -X POST https://ranger.voyage/codex-deploy/apply-patch \
-  -H "Content-Type: application/json" \
-  -d '{
-    "secret": "ranger-codex-2026",
-    "commit_message": "[R{编号}] Fix: {修复描述}",
-    "files": [...修复后的文件...],
-    "roadmap_task": null
-  }'
+## 八、Self-Audit Loop（全部任务完成后执行）
+
+当队列中所有任务都是 `[x]` 或 `[!]` 时，执行自审计：
+
+### Step 1: 代码审查
+对你创建/修改的每个文件，检查：
+- 所有 `import` 路径是否指向真实存在的文件
+- 所有导出的函数是否被某处使用
+- 是否有未处理的 null/undefined 边界
+- 是否有硬编码的路径或密钥
+
+### Step 2: 集成检查
+- 新文件是否被 openclaw-handler 或其他入口文件引用
+- 新 API 端点是否注册到 http-router
+- 新 WS 事件是否在前端有对应处理
+
+### Step 3: 生成下一轮任务
+创建 `CODEX-QUEUE-V2.md`，包含：
+- 本轮发现的 bug 和遗漏
+- 需要补充的错误处理
+- 需要的集成测试
+- CODEX-TASKBOOK.md 中的下一批 P1 任务
+
+### Step 4: 部署
+将 `CODEX-QUEUE-V2.md` 通过 webhook 部署到仓库。
+
+---
+
+## 九、失败恢复
+
+| 情况 | 处理 |
+|------|------|
+| curl 返回 500 | 检查 content 是否有 JSON 转义问题，修复后重试 |
+| 语法检查失败 | 读错误信息，修复代码，重新提交 |
+| Import 路径不存在 | 用 find 确认实际路径，修正 import |
+| 任务太复杂 | 拆成 2 个子步骤，先做简单的，复杂的标记 `[!] deferred` |
+| 服务器无响应 | 等待 30s 重试一次，仍失败则标记 `[!] server unreachable` |
+
+---
+
+## 十、CODEX-LOG.md 格式
+
+每完成一个任务，追加：
+
+```markdown
+## Q{N} — {任务标题}
+- **状态**: done | skipped | partial
+- **文件**: agent/worker/xxx.mjs, agent/worker/yyy.mjs
+- **部署**: 200 OK (commit abc1234) | FAILED (reason)
+- **耗时**: ~{N} min
+- **备注**: {任何值得记录的发现}
 ```
 
 ---
 
-## 八、安全机制
+## 十一、当前进度
 
-1. **每次只执行一个 R-task**
-2. **不确定就只输出分析**，不要猜测执行
-3. **发现额外 bug 只记录不修**
-4. **文件内容必须完整**，不是 diff
+**活跃任务队列**: `CODEX-QUEUE.md`（15 个任务，约 8 小时工作量）
 
----
+**已完成的基础设施**:
+- R111-R122 全部完成（心跳、RAG、限流、错误边界、历史查询等）
+- 三层部署保护（rsync排除 + systemd环境变量 + 备份回滚）
+- Codex webhook 部署通道就绪
 
-## 九、Commit Message 格式
+**当前最大差距**（来自 CODEX-TASKBOOK.md）:
+1. 浏览器 = STUB（零能力）
+2. 多Agent编排 = 归档（未激活）
+3. Worker Pool = 1（零并行）
+4. 无持久化工作区
+5. 前端缺少工具执行可视化
 
-```
-[R{编号}] {简短标题}
-
-{详细描述（1-3 句话）}
-
-Files changed:
-- {文件1}
-- {文件2}
-
-Verification: {验证方法}
-```
-
----
-
-## 十、当前进度
-
-| 任务 | 状态 | 说明 |
-|------|------|------|
-| R106 | 已完成 | Context Bridge 上下文窗口管理 |
-| R107 | 已完成 | http-router method 变量修复 |
-| R108 | 已完成 | Worker Gateway 5xx 重试 |
-| R109 | 已完成 | 模型路由配置外置化 |
-| R110 | **待执行** | 任务执行超时优雅降级 |
-| R111 | 待执行 | WebSocket 心跳+断线重连 |
-| R112 | 待执行 | RAG 检索排序优化 |
-| R113 | 待执行 | API 请求限流 |
-| R114 | 待执行 | 前端错误边界 |
-| R115 | 待执行 | 对话历史持久化查询 |
-
-**从 ROADMAP.md 中找到第一个 `[ ]` 任务开始执行。**
+**从 CODEX-QUEUE.md 第一个 `[ ]` 任务开始执行。**
