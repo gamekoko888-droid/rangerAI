@@ -4,7 +4,7 @@
  * Desktop: collapsible sidebar + resizable file panel on the right.
  */
 
-import { lazy, useState, useEffect, useCallback, useMemo } from 'react';
+import { lazy, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { toast } from 'sonner';
@@ -32,6 +32,7 @@ import * as api from '../lib/api';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { useI18n } from '../lib/i18n';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 // ─── Export Dropdown Component ────────────────────────────────────
 
@@ -99,7 +100,7 @@ function ExportDropdown({ chatId }: { chatId: string }) {
 function ChatLayout() {
   const { user, isAuthLoading } = useAuthStore();
   const { currentChatId, chats } = useChatListStore();
-  const { wsConnected, gatewayConnected } = useConnectionStore();
+  const { wsConnected, wsReconnecting, gatewayConnected } = useConnectionStore();
   const { isFilePanelOpen, changedFiles, toggleFilePanel } = useWorkspaceStore();
   const { createNewChat } = useChatActions();
   const { wsSend } = useOrchestrator();
@@ -115,6 +116,8 @@ function ChatLayout() {
   const [isResizing, setIsResizing] = useState(false);
   // Mobile file panel state (must be before conditional returns)
   const [mobileFilePanelOpen, setMobileFilePanelOpen] = useState(false);
+  const reconnectToastShownRef = useRef(false);
+  const recoveredToastShownRef = useRef(false);
 
   // Default sidebar open on desktop (respect saved preference)
   useEffect(() => {
@@ -169,6 +172,24 @@ function ChatLayout() {
       },
     },
   ], [sidebarOpen, createNewChat, tagManagerOpen, isFilePanelOpen]));
+
+
+  // [R114] User-friendly WS disconnect/reconnect toasts
+  useEffect(() => {
+    if ((wsReconnecting || !wsConnected) && !reconnectToastShownRef.current) {
+      reconnectToastShownRef.current = true;
+      recoveredToastShownRef.current = false;
+      toast.warning('连接中断，正在重连...');
+    }
+  }, [wsReconnecting, wsConnected]);
+
+  useEffect(() => {
+    if (wsConnected && gatewayConnected && !recoveredToastShownRef.current) {
+      recoveredToastShownRef.current = true;
+      reconnectToastShownRef.current = false;
+      toast.success('连接已恢复');
+    }
+  }, [wsConnected, gatewayConnected]);
 
   // ─── Resize Handler for File Panel ─────────────────────────
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
@@ -372,7 +393,9 @@ function ChatLayout() {
           )}
 
           {/* Messages */}
-          <MessageList key={currentChatId || 'empty'} />
+          <ErrorBoundary inline>
+            <MessageList key={currentChatId || 'empty'} />
+          </ErrorBoundary>
 
           {/* Input */}
           <MessageInput />

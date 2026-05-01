@@ -70,7 +70,7 @@
   - 验证: 快速发送 61 次请求 → 第 61 次返回 429
   - 约束: 使用内存计数器（不引入 Redis），重启后计数器清零可接受
 
-- [ ] **R114** — 前端错误边界 + 用户友好提示
+- [x] **R114** — 前端错误边界 + 用户友好提示
   - 文件: `web/client/src/pages/ChatPage.tsx`, `web/client/src/components/`
   - 目标: WebSocket 断开/API 报错时显示 toast 提示而非白屏；添加 ErrorBoundary
   - 验证: 手动断开 WS → 页面显示 "连接中断，正在重连..." 而非崩溃
