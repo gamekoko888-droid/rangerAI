@@ -24,7 +24,7 @@
   - 验证: `curl -X POST https://ranger.voyage/api/health` 不再 500
   - 约束: 仅修改 http-router.mjs，不动其他路由文件
 
-- [ ] **R108** — Worker 错误恢复增强
+- [x] **R108** — Worker 错误恢复增强
   - 文件: `agent/worker/openclaw-handler.legacy.mjs`, `agent/worker/worker-manager.mjs`
   - 目标: Worker 执行任务时如果 OpenClaw Gateway 返回 5xx，自动重试 1 次（间隔 3s），而非直接报错给用户
   - 验证: 模拟 Gateway 503 → Worker 重试 → 用户收到正常响应

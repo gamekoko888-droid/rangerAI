@@ -290,6 +290,39 @@ ${todoBlock}
 [/R106_CONTEXT_BRIDGE]`;
 }
 
+// ─── R108: Gateway 5xx one-shot retry ──────────────────────────────────────
+const R108_GATEWAY_RETRY_DELAY_MS = 3000;
+const R108_GATEWAY_MAX_RETRIES = 1;
+
+function isR108RetryableGatewayError(err) {
+  const msg = err?.message || String(err || "");
+  return /(?:\b50[0-4]\b|internal server error|bad gateway|service unavailable|gateway timeout|candidate_failed|model.*failed)/i.test(msg);
+}
+
+async function withR108GatewayRetry(operation, context = {}) {
+  const { msgId, label = "gateway_request" } = context;
+  let lastErr;
+  for (let attempt = 0; attempt <= R108_GATEWAY_MAX_RETRIES; attempt++) {
+    try {
+      return await operation(attempt);
+    } catch (err) {
+      lastErr = err;
+      if (attempt >= R108_GATEWAY_MAX_RETRIES || !isR108RetryableGatewayError(err)) {
+        throw err;
+      }
+      logger.warn(`[R108] ${label} failed with transient Gateway error, retrying once in ${R108_GATEWAY_RETRY_DELAY_MS}ms: ${err.message}`);
+      if (msgId) {
+        sendEvent(msgId, {
+          type: "thinking",
+          content: "\n系统检测到 AI 引擎临时波动，正在自动重试一次...\n"
+        });
+      }
+      await new Promise(r => setTimeout(r, R108_GATEWAY_RETRY_DELAY_MS));
+    }
+  }
+  throw lastErr;
+}
+
 let lastApiCallTime = 0;
 async function rateLimitedApiCall() {
   const now = Date.now();
@@ -942,7 +975,7 @@ function normalizeToolName(rawName) {
     delete chatSendParams.thinkingLevel;
     logger.info(`[${ts()}] [worker] [v25.3] Sending with thinking: ${thinkingLevel}, modelUpgraded: ${modelUpgraded}, routePatched: ${routeModelPatched}, session: ${sessionKey}`);
     await rateLimitedApiCall();
-    payload = await gateway.request("chat.send", chatSendParams);
+    payload = await withR108GatewayRetry(() => gateway.request("chat.send", chatSendParams), { msgId, label: "chat.send" });
   } catch (err) {
     updateStep(msgId, thinkStepId, "error", sanitizeForFrontend(err.message));
     throw err;
