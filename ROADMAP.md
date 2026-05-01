@@ -118,6 +118,12 @@
   - 验证: `node agent/scripts/r121-quality-gate.mjs` 全部通过
   - 约束: 不引入新依赖，仅做只读静态检查
 
+- [x] **R122** — SLO 快照脚本
+  - 文件: `agent/scripts/r122-slo-snapshot.mjs`
+  - 目标: 输出关键稳定性指标的 SLO 快照（心跳、重连超时、限流、会话API、安全策略）
+  - 验证: `node agent/scripts/r122-slo-snapshot.mjs` 输出 JSON 且 checks 全部 ok
+  - 约束: 不引入新依赖，仅做只读检查与指标快照输出
+
 ---
 
 ## 任务格式规范
