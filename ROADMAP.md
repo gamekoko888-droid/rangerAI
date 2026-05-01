@@ -16,8 +16,9 @@
 
 ### 待执行
 
-- [ ] **R107** — http-router.mjs method 变量修复
-  - 文件: `agent/modules/routes/http-router.mjs`
+- [x] **R107** — http-router.mjs method 变量修复
+  - 文件: `agent/modules/http-router.mjs`
+  - 完成时间: 2026-05-01
   - 目标: 在 `handleRequest(req, res)` 内部添加 `const method = req.method || 'GET';`，与 `urlPath` 解析放在一起
   - 风险: 当前代码在进入该分支前会抛 `ReferenceError: method is not defined`
   - 验证: `curl -X POST https://ranger.voyage/api/health` 不再 500

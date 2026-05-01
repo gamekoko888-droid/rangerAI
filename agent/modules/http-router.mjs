@@ -201,6 +201,7 @@ async function authenticateRequest(req) {
 export async function handleRequest(req, res) {
   const { ctx } = deps;
   const urlPath = req.url?.split("?")[0] || "/";
+  const method = req.method || 'GET';
   // Observability: 记录请求开始时间，在 finish 时上报耗时
   const _reqStart = Date.now();
   res.on('finish', () => {
