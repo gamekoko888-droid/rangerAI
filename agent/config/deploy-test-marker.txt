@@ -1,1 +1,1 @@
-// Auto-deploy pipeline test marker - safe to delete
+// Deploy pipeline verified on 2026-05-01T09:52:51Z
