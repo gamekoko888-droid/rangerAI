@@ -405,6 +405,7 @@ git commit -m "[AUDIT] Self-audit complete, generated V{N+1} queue"
 
 | 版本 | 日期 | 核心变更 |
 |------|------|----------|
+| v7.1 | 2026-05-02 | **新增部署验证指南：教会正确判断部署状态** |
 | v7.0 | 2026-05-02 | **适配沙箱限制：只 commit，不 push/webhook** |
 | v6.0 | 2026-05-02 | 废弃 webhook，改用 git push（发现 push 也被禁） |
 | v5.1 | 2026-05-02 | 修复 webhook secret 格式 |
@@ -418,3 +419,88 @@ git commit -m "[AUDIT] Self-audit complete, generated V{N+1} queue"
 3. **Codex 平台自动创建 PR** — session 结束后自动处理
 4. **auto-merge workflow** — PR 创建后自动合并到 main
 5. **GitHub Actions** — main 更新后自动部署到阿里云
+
+---
+## 十四、部署验证（关键！）
+
+### ⚠️ 重要：DEPLOY_LOG.md 不是部署真相来源
+
+**DEPLOY_LOG.md 只是一个辅助记录文件**，它由 GitHub Actions 的 "Write deploy log" 步骤自动写入。
+如果该步骤失败、被跳过、或 commit 使用了 `[skip ci]` 标签，DEPLOY_LOG.md 就不会更新。
+
+**这不代表代码没有部署。**
+
+### 正确的部署验证方法（按优先级排序）
+
+#### 方法 1：GitHub Actions 运行记录（权威来源）
+```
+查看 GitHub Actions → Deploy to Production → 每个 run 的 conclusion
+- success = 已部署
+- failure = 部署失败（但文件可能已 rsync 到服务器，只是 verify 步骤失败）
+```
+**这是最权威的部署证据。** 如果 GitHub Actions run 显示 success，代码就已经在生产服务器上了。
+
+#### 方法 2：服务器文件对比（最终真相）
+```bash
+# 对比 git repo 和生产目录
+cd /tmp/rangerAI
+find agent/ -type f -name "*.mjs" | while read f; do
+  target="/opt/rangerai-agent/${f#agent/}"
+  if [ -f "$target" ]; then
+    diff -q "$f" "$target" > /dev/null 2>&1 || echo "DIFF: $f"
+  else
+    echo "MISSING: $f"
+  fi
+done
+```
+如果输出为空 = 所有文件已同步到生产。
+
+#### 方法 3：服务健康检查
+```bash
+# Agent API
+curl -s http://127.0.0.1:3002/api/health
+# 期望: {"status":"ok","version":"5.0.0"}
+
+# WS + Workers
+curl -s http://127.0.0.1:3005/health
+# 期望: {"status":"ok","readyWorkers":4,"poolSize":4,...}
+# 关键字段: readyWorkers > 0, degraded = false, gatewayConnected = true
+```
+
+### 部署判定规则
+
+| 条件 | 判定 |
+|------|------|
+| GitHub Actions run = success | ✅ 已部署 |
+| GitHub Actions run = failure 但 "Deploy Agent" step = success | ⚠️ 文件已部署，verify 可能失败 |
+| 服务器文件与 repo 一致（方法2输出为空） | ✅ 已部署 |
+| DEPLOY_LOG.md 有记录 | 📝 辅助确认（但缺失不代表未部署） |
+| DEPLOY_LOG.md 无记录 | ❓ 不能判定未部署，需用方法1或2验证 |
+
+### 你（Codex）不需要关心部署
+
+**你的职责是：写代码 → commit → 创建 PR**
+
+部署由以下自动化链路完成：
+```
+你的 commit → PR → auto-merge → main → GitHub Actions deploy.yml → rsync 到阿里云 → systemctl restart
+```
+
+**不要：**
+- ❌ 尝试 webhook 部署（网络不可达）
+- ❌ 尝试 git push（沙箱禁止）
+- ❌ 仅凭 DEPLOY_LOG.md 缺失记录就判定"未部署"
+- ❌ 重复提交已存在的代码"补部署"
+
+**要做的：**
+- ✅ 专注写高质量代码
+- ✅ 确保 `node --check` 通过
+- ✅ 正确 commit 到当前分支
+- ✅ 信任自动化流水线会处理部署
+
+### DEPLOY_LOG.md 的正确用途
+
+DEPLOY_LOG.md 是**可选的辅助参考**，用于快速浏览部署历史。
+如果你发现它缺少记录，**不需要任何行动**——这只是日志写入步骤的遗漏，不影响实际部署。
+
+---
