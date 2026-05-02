@@ -51,3 +51,16 @@ export function createRecoveryContext({ entry = {}, source = 'openclaw-handler' 
     fallbackTools: getRecoveryFallbackCatalog(),
   };
 }
+
+export async function withHttpAutoRetry(fn, retries = 2) {
+  let lastErr;
+  for (let i = 0; i <= retries; i++) {
+    try { return await fn(); } catch (err) {
+      lastErr = err;
+      const code = Number(err?.status || err?.code || 0);
+      if (!(code === 429 || code === 503) || i === retries) break;
+      await new Promise(r => setTimeout(r, 500 * (i + 1)));
+    }
+  }
+  throw lastErr;
+}

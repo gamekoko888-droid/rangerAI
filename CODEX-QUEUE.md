@@ -32,7 +32,7 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
 
 ## Phase 1: Foundation (2 hours)
 
-- [ ] **Q1 — Persistent Workspace Manager** (~45 min)
+- [x] **Q1 — Persistent Workspace Manager** (~45 min)
   - Create `agent/worker/workspace-manager.mjs`
   - Manages `/opt/rangerai-agent/workspaces/{sessionKey}/` directories
   - Functions: `getOrCreateWorkspace(sessionKey)`, `listFiles(sessionKey)`, `cleanupStale(maxAgeMs=86400000)`
@@ -40,14 +40,14 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
   - Export: `WORKSPACE_BASE_DIR`, `getOrCreateWorkspace`, `listFiles`, `getWorkspacePath`, `cleanupStale`
   - Validation: import and call `getOrCreateWorkspace('test-123')` should return a valid path
 
-- [ ] **Q2 — Wire Workspace into Sandbox API** (~30 min)
+- [x] **Q2 — Wire Workspace into Sandbox API** (~30 min)
   - Modify `agent/modules/sandbox-api.mjs`
   - Import `getOrCreateWorkspace` from workspace-manager
   - In the Docker exec function: add `-v ${workspacePath}:/workspace -w /workspace` to Docker run command
   - This makes files persist across exec calls within same session
   - Validation: exec `echo hello > test.txt` then exec `cat test.txt` in same session → "hello"
 
-- [ ] **Q3 — File Tools Implementation** (~45 min)
+- [x] **Q3 — File Tools Implementation** (~45 min)
   - Create `agent/worker/tools/file-tools.mjs`
   - Implement 7 functions (all scoped to workspace dir):
     - `fileRead(sessionKey, path, startLine?, endLine?)` → string content
@@ -64,7 +64,7 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
 
 ## Phase 2: Browser Resurrection (2.5 hours)
 
-- [ ] **Q4 — Chromium Systemd Service** (~20 min)
+- [x] **Q4 — Chromium Systemd Service** (~20 min)
   - Create `agent/scripts/chromium-headless.service` (systemd unit file):
     ```
     [Unit]
@@ -83,7 +83,7 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
   - Deploy this file and document in CODEX-LOG.md that it needs `systemctl enable` on server
   - Validation: file is syntactically correct systemd unit
 
-- [ ] **Q5 — Browser Service Core** (~60 min)
+- [x] **Q5 — Browser Service Core** (~60 min)
   - Rewrite `agent/worker/browser-service.mjs` (replace the stub)
   - Use `puppeteer-core` connecting to `http://127.0.0.1:9222`
   - Implement:
@@ -98,14 +98,14 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
   - Import `classifyBrowserFailure` from `browser-failure-taxonomy.mjs` for error classification
   - Validation: `browserNavigate('https://example.com')` returns title "Example Domain"
 
-- [ ] **Q6 — Browser API Route Wiring** (~30 min)
+- [x] **Q6 — Browser API Route Wiring** (~30 min)
   - Modify `agent/api/browser-api.mjs`
   - Import real functions from new `browser-service.mjs`
   - Ensure existing routes (`POST /api/browser/navigate`, etc.) call real implementations
   - Add auth check: only admin/manager roles can use browser tools
   - Validation: `curl -X POST https://ranger.voyage/api/browser/navigate -d '{"url":"https://example.com"}'` returns real page data
 
-- [ ] **Q7 — Browser Tool Registration in OpenClaw Handler** (~30 min)
+- [x] **Q7 — Browser Tool Registration in OpenClaw Handler** (~30 min)
   - Modify `agent/worker/openclaw-handler.legacy.mjs`
   - In the tool execution switch/map, add cases for: `browser_navigate`, `browser_screenshot`, `browser_click`, `browser_input`, `browser_scroll`, `browser_extract_text`
   - Each case calls the corresponding function from browser-service.mjs
@@ -116,7 +116,7 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
 
 ## Phase 3: Multi-Agent & Parallelism (2 hours)
 
-- [ ] **Q8 — HTTP-Based Sub-Agent Executor** (~45 min)
+- [x] **Q8 — HTTP-Based Sub-Agent Executor** (~45 min)
   - Create `agent/worker/sub-agent-http.mjs`
   - Instead of WS-based sub-agents (which broke Gateway routing), use HTTP:
     - `executeSubAgent(prompt, options)` → makes POST to `http://127.0.0.1:3002/api/chat` with a fresh sessionKey
@@ -126,7 +126,7 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
   - Concurrency limit: max 3 simultaneous sub-agents (semaphore)
   - Validation: `executeSubAgent("What is 2+2?")` returns a response containing "4"
 
-- [ ] **Q9 — Parallel Orchestrator (Simplified)** (~45 min)
+- [x] **Q9 — Parallel Orchestrator (Simplified)** (~45 min)
   - Create `agent/worker/parallel-orchestrator.mjs`
   - Simplified version of archived sub-agent-orchestrator:
     - `orchestrateParallel(tasks[])` → executes up to 3 tasks concurrently via sub-agent-http
@@ -136,7 +136,7 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
   - No wave scheduling (keep simple) — just Promise.all with concurrency limit
   - Validation: `orchestrateParallel([{id:'a', prompt:'say hello'}, {id:'b', prompt:'say world'}])` → both complete
 
-- [ ] **Q10 — Planner Integration for Parallelism** (~30 min)
+- [x] **Q10 — Planner Integration for Parallelism** (~30 min)
   - Modify `agent/worker/planner.mjs`
   - In `generatePlan` or equivalent: when plan has independent steps, mark them `parallel: true`
   - In plan execution: collect parallel steps → call `orchestrateParallel`
@@ -148,7 +148,7 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
 
 ## Phase 4: UX & Reliability (1.5 hours)
 
-- [ ] **Q11 — Tool Execution Streaming Events** (~30 min)
+- [x] **Q11 — Tool Execution Streaming Events** (~30 min)
   - Modify `agent/worker/openclaw-handler.legacy.mjs`
   - After each tool call completes, emit WS event:
     ```json
@@ -161,7 +161,7 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
   - Limit output in event to 1000 chars (truncate with "... [truncated]")
   - Validation: During task execution, WS client receives tool_start and tool_execution events
 
-- [ ] **Q12 — Frontend Tool Execution Display** (~45 min)
+- [x] **Q12 — Frontend Tool Execution Display** (~45 min)
   - Create `web/client/src/components/ToolExecutionLog.tsx`
   - Renders tool_start/tool_execution events in a collapsible "Thinking" section
   - Each tool call shows: icon (terminal for exec, globe for browser, file for write), name, duration, status badge
@@ -170,7 +170,7 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
   - Use existing WS event infrastructure from useChatStore
   - Validation: During a coding task, user sees "Running: exec..." with spinner, then result appears
 
-- [ ] **Q13 — Degradation Health Monitor** (~15 min)
+- [x] **Q13 — Degradation Health Monitor** (~15 min)
   - Create `agent/worker/health-monitor.mjs`
   - Checks every 30s: Docker available? Chromium CDP reachable? Gateway WS connected?
   - Exposes: `getHealthStatus()` → `{ docker: 'up'|'down', browser: 'up'|'down', gateway: 'up'|'down' }`
@@ -182,7 +182,7 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
 
 ## Phase 5: Self-Audit & Quality (bonus, if time remains)
 
-- [ ] **Q14 — Integration Test for New Features** (~30 min)
+- [x] **Q14 — Integration Test for New Features** (~30 min)
   - Create `agent/tests/integration/q-series.integration.test.mjs`
   - Test cases:
     - Workspace: create → write file → read file → cleanup
@@ -193,7 +193,7 @@ For multiple files, include all in the `files` object. Max payload: 5MB.
   - Use existing test helpers from `agent/tests/helpers/`
   - Validation: `node --test agent/tests/integration/q-series.integration.test.mjs` passes
 
-- [ ] **Q15 — Update ROADMAP.md with Completed Tasks** (~10 min)
+- [x] **Q15 — Update ROADMAP.md with Completed Tasks** (~10 min)
   - Add entries R200-R219 status based on what was actually completed
   - Mark completed Q-series tasks as done
   - Add any discovered issues as new R-series tasks

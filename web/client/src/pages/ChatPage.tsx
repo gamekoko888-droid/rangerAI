@@ -14,12 +14,14 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { useChatListStore } from '../stores/useChatListStore';
 import { useConnectionStore } from '../stores/useConnectionStore';
 import { useWorkspaceStore } from '../stores/useWorkspaceStore';
+import { useMessageStore } from '../stores/useMessageStore';
 import { useChatActions } from '../hooks/useChatActions';
 import { Sidebar } from '../components/chat/Sidebar';
 const MessageList = lazy(() => import('../components/chat/MessageList').then((mod) => ({ default: mod.MessageList })));
 import { MessageInput } from '../components/chat/MessageInput';
 import { TagManager } from '../components/chat/TagManager';
 import { FilePanel } from '../components/chat/FilePanel';
+import { ToolExecutionLog } from '../components/ToolExecutionLog';
 import LoginPage from './LoginPage';
 import type { WorkspaceFileEntry } from '../lib/types';
 import {
@@ -40,6 +42,11 @@ function ExportDropdown({ chatId }: { chatId: string }) {
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { t } = useI18n();
+  const activeTools = useMessageStore((s) => s.activeTools);
+  const isStreaming = useMessageStore((s) => s.isStreaming);
+  const tokenUsage = useMessageStore((s:any) => (s.streamingContent?.length || 0) / 4);
+  const tokenUsageSmooth = Math.round(tokenUsage / 10) * 10;
+  const tokenWarn = tokenUsageSmooth > 8000;
 
   const handleExport = useCallback(async (format: 'md' | 'json') => {
     setExporting(true);

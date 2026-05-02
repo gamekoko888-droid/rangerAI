@@ -145,3 +145,26 @@
 5. 硬编码路径 `/opt/rangerai-agent` 和 `/opt/rangerai-web`
 6. `.env` 文件 — 不入库
 7. `data/` 和 `*.sqlite` — 运行时数据
+
+## Q-Series Completion Rollup (2026-05-01)
+
+- [x] **R200** — Q1 Persistent Workspace Manager
+- [x] **R201** — Q2 Sandbox Workspace Mount
+- [x] **R202** — Q3 File Tools
+- [x] **R203** — Q4 Chromium Systemd Unit
+- [x] **R204** — Q5 Browser Service Core
+- [x] **R205** — Q6 Browser API Wiring + Auth
+- [x] **R206** — Q7 Browser Tool Registration Path
+- [x] **R207** — Q8 HTTP Sub-Agent Executor
+- [x] **R208** — Q9 Parallel Orchestrator
+- [x] **R209** — Q10 Planner Parallel Helper
+- [x] **R210** — Q11 Tool Execution Streaming Path
+- [x] **R211** — Q12 ToolExecutionLog UI
+- [x] **R212** — Q13 Degradation Health Monitor
+- [x] **R213** — Q14 Integration Tests
+- [x] **R214** — Q15 Roadmap Update
+- [ ] **R215** — Wire health-monitor into `/api/health` response payload
+- [ ] **R216** — Replace ChatPage ToolExecutionLog placeholder with real WS event data binding
+- [ ] **R217** — Add browser input/scroll tool invocation coverage in openclaw handler runtime tests
+- [ ] **R218** — End-to-end deployment webhook verification automation for each queue task
+- [ ] **R219** — Harden file-tools recursive listing + scoped grep traversal
