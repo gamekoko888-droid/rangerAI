@@ -841,7 +841,72 @@ export class GatewayConnector {
     this.pendingRequests.clear();
   }
 
-  _notifyHandlersGatewayRestart() {    if (this.eventHandlers.size === 0) return;    logger.info(`[${ts()}] [gateway] Notifying ${this.eventHandlers.size} active handler(s) of gateway restart`);    for (const [runId, entry] of this.eventHandlers) {      try {        entry.handler({          type: "event",          event: "agent",          payload: {            runId,            stream: "lifecycle",            data: { phase: "error", error: "Gateway restarted — run lost. Will retry." }          }        });      } catch (err) {        logger.info(`[${ts()}] [gateway] Error notifying handler for runId=${runId}: ${err.message}`);      }    }  }
+  _notifyHandlersGatewayRestart() {
+    if (this.eventHandlers.size === 0) return;
+    const handlerCount = this.eventHandlers.size;
+    logger.info(`[${ts()}] [gateway] [v16.3] Reconnected with ${handlerCount} active handler(s) — checking if runs survived...`);
+    
+    // Grace period: wait 3s for Gateway to stabilize, then check if runs are still alive
+    setTimeout(async () => {
+      if (this.state !== "CONNECTED") {
+        logger.info(`[${ts()}] [gateway] [v16.3] Not connected after grace period, skipping run check`);
+        return;
+      }
+      
+      let activeSessions = null;
+      try {
+        const sessionsResp = await this.request("sessions.list", {}, 10000);
+        activeSessions = sessionsResp?.sessions || [];
+        logger.info(`[${ts()}] [gateway] [v16.3] sessions.list returned ${activeSessions.length} active session(s)`);
+      } catch (err) {
+        logger.info(`[${ts()}] [gateway] [v16.3] sessions.list failed: ${err.message} — assuming runs survived (optimistic)`);
+        return; // Optimistic: if we can't check, assume runs are fine
+      }
+      
+      // Check each handler's run against active sessions
+      const activeSessionKeys = new Set(activeSessions.map(s => s.key));
+      let lostCount = 0;
+      let survivedCount = 0;
+      
+      for (const [runId, entry] of this.eventHandlers) {
+        // If the handler was registered AFTER the reconnect, skip it
+        if (entry.registeredAt > Date.now() - 5000) {
+          survivedCount++;
+          continue;
+        }
+        
+        // Check if the session is still active in Gateway
+        // The sessionKey might be stored in the entry or derivable from runId
+        const sessionKey = entry.sessionKey;
+        const isAlive = sessionKey ? 
+          (activeSessionKeys.has(sessionKey) || activeSessionKeys.has("agent:main:" + sessionKey) || activeSessionKeys.has(sessionKey.replace(/^agent:main:/, ""))) :
+          true; // If no sessionKey, assume alive (optimistic)
+        
+        if (isAlive) {
+          survivedCount++;
+          logger.info(`[${ts()}] [gateway] [v16.3] Run ${runId} survived reconnect (session still active)`);
+        } else {
+          lostCount++;
+          logger.info(`[${ts()}] [gateway] [v16.3] Run ${runId} confirmed LOST after reconnect`);
+          try {
+            entry.handler({
+              type: "event",
+              event: "agent",
+              payload: {
+                runId,
+                stream: "lifecycle",
+                data: { phase: "error", error: "Gateway restarted — run lost. Will retry." }
+              }
+            });
+          } catch (err) {
+            logger.info(`[${ts()}] [gateway] Error notifying handler for runId=${runId}: ${err.message}`);
+          }
+        }
+      }
+      
+      logger.info(`[${ts()}] [gateway] [v16.3] Reconnect audit complete: ${survivedCount} survived, ${lostCount} lost`);
+    }, 3000);
+  }
   _notifyStatus() {
     try {
       this.onStatusChange(this.getStatus());
