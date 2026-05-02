@@ -51,3 +51,4 @@ correct workflow (separate tasks), and webhook format clarification. | agent=0 w
 | 2026-05-02 01:43:00 | `9b021a3` | [Q15-partial] Update CODEX-QUEUE.md with actual landing status | agent=0 web=0 | agent=SKIP web=SKIP |
 | 2026-05-02 02:05:02 | `d1d4493` | [Q2] Wire Workspace into Sandbox API — workspace-mount.mjs | agent=1 web=0 | agent=OK web=SKIP |
 | 2026-05-02 02:05:29 | `643d106` | [Q4] Chromium Systemd Service + setup script | agent=2 web=0 | agent=OK web=SKIP |
+| 2026-05-02 02:05:50 | `2f47e38` | [Q6] Browser API Route Wiring — admin/manager gated REST endpoints | agent=1 web=0 | agent=OK web=SKIP |
