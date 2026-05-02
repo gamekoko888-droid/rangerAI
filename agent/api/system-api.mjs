@@ -1534,6 +1534,31 @@ export async function handleSystemApi(req, res) {
       }
       return true;
     }
+    // ─── GET /api/task-status ─── [P0] Frontend self-healing endpoint
+    if (urlPath === "/api/task-status" && method === "GET") {
+      const url = new URL(req.url, "http://localhost");
+      const msgId = url.searchParams.get("msgId");
+      if (!msgId) {
+        db.sendJson(res, 400, { status: "unknown", error: "Missing msgId" });
+        return true;
+      }
+      try {
+        const [rows] = await db.pool.execute(
+          `SELECT content, model, role, createdAt FROM messages WHERE chatId = (SELECT chatId FROM messages WHERE msgId = ? LIMIT 1) AND role = 'assistant' AND createdAt >= (SELECT createdAt FROM messages WHERE msgId = ? LIMIT 1) ORDER BY createdAt DESC LIMIT 1`,
+          [msgId, msgId]
+        );
+        if (rows && rows.length > 0) {
+          db.sendJson(res, 200, { status: "completed", content: rows[0].content, model: rows[0].model });
+          return true;
+        }
+        db.sendJson(res, 200, { status: "running" });
+        return true;
+      } catch (err) {
+        logger.error(`[task-status] Error: ${err.message}`);
+        db.sendJson(res, 200, { status: "unknown", error: err.message });
+        return true;
+      }
+    }
 
     return false;
 

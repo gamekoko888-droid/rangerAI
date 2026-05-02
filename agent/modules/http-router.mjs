@@ -467,7 +467,7 @@ export async function handleRequest(req, res) {
       urlPath === "/api/admin/gateway-events" ||
       urlPath === "/api/admin/event-stats" ||
       urlPath === "/api/admin/debug-timeout" || // [R44-T4]
-      urlPath.startsWith("/api/cost-stats")) {
+      urlPath.startsWith("/api/cost-stats") || urlPath === "/api/task-status") {
     const handled = await deps.handleSystemApi(req, res);
     if (handled) return;
   }

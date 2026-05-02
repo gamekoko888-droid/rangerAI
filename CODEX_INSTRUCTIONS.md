@@ -504,3 +504,80 @@ DEPLOY_LOG.md 是**可选的辅助参考**，用于快速浏览部署历史。
 如果你发现它缺少记录，**不需要任何行动**——这只是日志写入步骤的遗漏，不影响实际部署。
 
 ---
+
+
+---
+
+## 十五、系统不变量（Invariants）— 任何迭代都不得违反
+
+以下是 RangerAI 系统的核心不变量。每次 Codex 迭代**开始前**必须阅读，**完成后**必须逐条验证。
+违反任何一条都可能导致用户可见的 bug（如消息丢失、无限等待、连接断开等）。
+
+### 不变量清单
+
+| ID | 不变量 | 违反后果 |
+|----|--------|----------|
+| INV-1 | **前端必达性**：任何导致 AI 回复生成的代码路径，都必须保证 `stream_end` 事件到达前端 WebSocket | 用户看到"执行中"永远不结束 |
+| INV-2 | **IPC 无序安全**：不得假设两个独立 IPC 消息（如 `task_complete` 和 `frontend_event`）的到达顺序 | 事件丢失、handler 找不到 |
+| INV-3 | **资源删除延迟**：删除 `pendingTask` / `eventHandler` 前，必须确认所有依赖方已完成或已发送最终事件 | stream_end 无法路由到前端 |
+| INV-4 | **WS 断开 ≠ 进程重启**：WebSocket 连接断开不等同于 Gateway 进程重启，不得因 WS 重连就宣告 run lost | 正在执行的任务被误杀 |
+| INV-5 | **Worker 环境继承**：worker 子进程必须能访问所有必要的环境变量（OPENCLAW_TOKEN 等），不依赖 .env 文件 | Worker 启动失败，AI 无法回复 |
+| INV-6 | **前端超时自愈**：前端 streaming 状态超过 120 秒无事件时，必须主动查询后端状态并恢复 | 用户永远卡在"思考中" |
+| INV-7 | **事件 handler 生命周期**：`onRunEvents` 注册必须在 `chat.send` 返回后立即执行，不得有大量同步代码阻塞 | 事件到达时 handler 未就绪 |
+
+### 变更前检查清单
+
+每次修改 IPC / WebSocket / Worker / Gateway 相关代码前，必须回答：
+
+1. **这个函数/变量被哪些其他模块引用？** — 用 `grep -r "functionName"` 确认
+2. **修改后，调用方的假设是否仍然成立？** — 特别注意时序假设
+3. **是否存在并发/异步场景下的时序依赖？** — IPC 消息、WS 事件、Promise resolve 的顺序
+4. **删除/修改一个数据结构时，是否有其他代码在延迟访问它？** — 如 pendingTasks、eventHandlers
+5. **Worker 子进程是否能访问所需的所有环境变量？** — fork() 的 env 参数
+
+### 架构决策记录（ADR）
+
+| ADR | 决策 | 约束 |
+|-----|------|------|
+| ADR-001 | `task_complete` 和 `frontend_event` 是独立 IPC 消息，不保证顺序 | 删除 pendingTask 前必须先发送 stream_end |
+| ADR-002 | Worker 通过 `fork({ env: process.env })` 继承父进程环境 | 不得在 worker 入口覆盖已有 env 变量 |
+| ADR-003 | GatewayConnector 重连后通过 `sessions.list` 检查 run 存活性 | 不得在重连时无条件清除所有 handler |
+| ADR-004 | 前端 StreamWatchdog 60s 超时后主动查询后端状态 | 后端必须提供 `/api/task-status` 查询接口 |
+
+---
+
+## 十六、端到端验收测试
+
+每次迭代完成后，以下测试用例必须在本地通过（通过 `node --check` + 逻辑审查）：
+
+### 必须通过的验收场景
+
+| 场景 | 验证方法 | 对应不变量 |
+|------|----------|------------|
+| 发送消息 → AI 回复 → 前端显示（非流式模型如 deepseek-v4-pro） | 确认 stream_end 在 task_complete 之前或同时发送 | INV-1, INV-2 |
+| 发送消息 → AI 回复 → 前端显示（流式模型） | 确认 stream_chunk → stream_end 序列完整 | INV-1 |
+| WS 断开 5 秒后重连 → 进行中的任务不丢失 | 确认 _notifyHandlersGatewayRestart 检查 sessions.list | INV-4 |
+| Worker 崩溃 → 前端收到错误提示而非无限等待 | 确认 worker exit handler 发送 error 事件 | INV-1, INV-6 |
+| 前端 120 秒无事件 → 主动查询后端并恢复 | 确认 watchdog 触发 /api/task-status 查询 | INV-6 |
+| 服务重启 → Worker 正常启动，OPENCLAW_TOKEN 可用 | 确认 systemd env 传递到 worker | INV-5 |
+
+### 自检命令
+
+```bash
+# 1. 语法检查所有 agent 文件
+find agent/ -name "*.mjs" -exec node --check {} \;
+
+# 2. 验证 INV-1: task_complete handler 中 stream_end 在 delete 之前
+grep -A5 "task_complete" agent/worker-manager.mjs | grep -B2 "pendingTasks.delete"
+# 应该看到 sendEvent(task.ws, ...) 在 delete 之前
+
+# 3. 验证 INV-4: 重连时检查 sessions.list
+grep -A10 "_notifyHandlersGatewayRestart" agent/gateway-connector.mjs | grep "sessions.list"
+# 应该看到 sessions.list 调用
+
+# 4. 验证 INV-5: worker fork 传递 env
+grep "fork(" agent/worker-manager.mjs | grep "env"
+# 应该看到 env: process.env
+```
+
+---
