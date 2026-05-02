@@ -76,3 +76,4 @@
 - 2026-05-02 V10-4 completed: 新增恢复后重验闭环接口。
 - 2026-05-02 V10-5 completed: 新增验证审计日志落盘模块。
 - 2026-05-02 V10-6 completed: 生成V10下一轮自审计队列。
+- 2026-05-02 V10N-1 completed: verify-runner 新增 --with-task-loop，接入 /api/chat + /api/task-status 轮询验证主任务编排闭环。
