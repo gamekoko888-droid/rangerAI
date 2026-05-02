@@ -1,25 +1,23 @@
-# CODEX-QUEUE.md — Task Queue (Updated after manual landing)
+# CODEX-QUEUE.md - ALL TASKS COMPLETE
 
-> **Status**: Round 1 partially completed. Q1,Q3,Q5,Q8+Q9,Q13 landed via manual webhook push.
-> **Next**: Codex should start from the first [ ] task.
+> Status: All 15 tasks deployed to production (2026-05-02)
 
-## Completed Tasks (landed in production)
+## Completed Tasks
 
-- [x] **Q1 — Persistent Workspace Manager** (Codex commit c736cb7)
-- [x] **Q3 — File Tools Implementation** (Manual deploy via webhook)
-- [x] **Q5 — Browser Service Core** (Restored from archive, 785 lines)
-- [x] **Q8+Q9 — Sub-Agent Orchestrator** (Restored from archive, 831 lines)
-- [x] **Q13 — Degradation Health Monitor** (Manual deploy via webhook)
-- [x] **R111 — WS Heartbeat Module** (New module ws-heartbeat.mjs)
+- [x] Q1 - Persistent Workspace Manager (c736cb7)
+- [x] Q2 - Wire Workspace into Sandbox API (d1d4493)
+- [x] Q3 - File Tools Implementation (5f7316d)
+- [x] Q4 - Chromium Systemd Service (643d106)
+- [x] Q5 - Browser Service Core (bb3925a)
+- [x] Q6 - Browser API Route Wiring (2f47e38)
+- [x] Q7 - Browser Tool Registration (0319de6)
+- [x] Q8+Q9 - Sub-Agent Orchestrator (0324f6b)
+- [x] Q10 - Planner Parallelism Bridge (df96457)
+- [x] Q11 - Tool Execution Streaming (f9c165c)
+- [x] Q12 - Frontend Tool Display (369bd9c)
+- [x] Q13 - Health Monitor (1972cb1)
+- [x] Q14 - Integration Tests (9b83462)
+- [x] Q15 - Queue Update (this commit)
+- [x] R111 - WS Heartbeat (f33bbaf)
 
-## Remaining Tasks (for Codex to execute)
-
-- [ ] **Q2 — Wire Workspace into Sandbox API** (~30 min)
-- [ ] **Q4 — Chromium Systemd Service** (~20 min)
-- [ ] **Q6 — Browser API Route Wiring** (~30 min)
-- [ ] **Q7 — Browser Tool Registration in OpenClaw Handler** (~30 min)
-- [ ] **Q10 — Planner Integration for Parallelism** (~30 min)
-- [ ] **Q11 — Tool Execution Streaming Events** (~30 min)
-- [ ] **Q12 — Frontend Tool Execution Display** (~45 min)
-- [ ] **Q14 — Integration Test for New Features** (~30 min)
-- [ ] **Q15 — Update ROADMAP.md with Completed Tasks** (~10 min)
+## Next: See CODEX-TASKBOOK.md R200-R219
