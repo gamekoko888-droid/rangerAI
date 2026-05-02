@@ -74,7 +74,7 @@ import { extractAssistantReplyFromJsonl } from "./jsonl-fallback.mjs";
 import { createToolOrchestrator } from "./tool-orchestrator.mjs";
 import { getContextManager, getUsageRatio, budgetToolResults } from "./context-window-manager.mjs";
 import { bindTaskSession, getBoundSessionKey, initStreamState, markStreamEvent, canFinalize, finalizeOnce, nextEventSeq, scheduleTaskCleanup, _execTimers, _lastProgressHash } from "./task-session-manager.mjs"; // R68: Extracted task session management
-import { microCompact, autoCompact } from "./context-compressor.mjs";
+import { microCompact, autoCompact, safeAutoCompact } from "./context-compressor.mjs";
 import { compactSubAgentResult, microCompact as microCompactSubAgent } from "./sub-agent-compactor.mjs"; // Iter-D / Iter-X
 import { MICRO_COMPACT_THRESHOLD, AUTO_COMPACT_THRESHOLD, MICRO_COMPACT_MSG_THRESHOLD, AUTO_COMPACT_MSG_THRESHOLD } from "./agent-config.mjs";
 import { appendToolError } from "./error-context-manager.mjs"; // Iter-AC
@@ -3615,3 +3615,5 @@ function normalizeToolName(rawName) {
   });
 }
 
+
+export async function compactLoopMessages(messages, sessionKey, msgId){ return safeAutoCompact(messages, sessionKey, msgId, { trigger: 'loop' }); }

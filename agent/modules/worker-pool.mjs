@@ -29,11 +29,12 @@ export class WorkerPool {
    * @param {number} [opts.maxTasksPerWorker] - Max concurrent tasks per worker (default: 3)
    */
   constructor(opts = {}) {
-    this.poolSize = 1; // HOTFIX: Force single worker to fix Gateway WS event routing
+    this.poolSize = Number(process.env.WORKER_POOL_SIZE || opts.poolSize || 1);
     this.maxTasksPerWorker = parseInt(process.env.MAX_TASKS_PER_WORKER || opts.maxTasksPerWorker || DEFAULT_MAX_TASKS_PER_WORKER, 10);
 
     /** @type {WorkerManager[]} */
     this.workers = [];
+    this._rrCounter = 0;
 
     /** @type {Map<string, number>} sessionKey → workerIndex (affinity) */
     this.sessionAffinity = new Map();
@@ -429,3 +430,11 @@ export class WorkerPool {
 export function createWorkerPool(opts = {}) {
   return new WorkerPool(opts);
 }
+
+
+WorkerPool.prototype.getNextWorker = function() {
+  if (!this.workers.length) return null;
+  const w = this.workers[this._rrCounter % this.workers.length];
+  this._rrCounter += 1;
+  return w;
+};

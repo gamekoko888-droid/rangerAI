@@ -1,3 +1,4 @@
+import { bindGatewaySession, getGatewaySession } from "./gateway-session-mux.mjs";
 // ─── Gateway Intervention Connector ───
 // Thin wrapper used by worker event handlers to inject corrective messages into
 // an already-running Gateway session without crashing the worker on failure.
@@ -62,3 +63,5 @@ export async function injectMessage(sessionKey, message, gateway = null) {
 }
 
 export default { injectMessage };
+
+export function bindGatewaySessionForTask(taskId, sessionKey){ bindGatewaySession(taskId, sessionKey); return getGatewaySession(taskId); }

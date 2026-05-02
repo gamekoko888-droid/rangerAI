@@ -50,3 +50,5 @@ export {
 
 export { reviewStepResult, handleStepFailure } from './plan-reviewer.mjs';
 export { getHintAdoptionStats } from './hint-system.mjs';
+
+export { markParallelSteps, executePlanWithParallel } from './parallel-planner.mjs';

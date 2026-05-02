@@ -1,0 +1,12 @@
+[Unit]
+Description=Headless Chromium for RangerAI Browser Tools
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/chromium-browser --headless --no-sandbox --disable-gpu --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1
+Restart=always
+RestartSec=5
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

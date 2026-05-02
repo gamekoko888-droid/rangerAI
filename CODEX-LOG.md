@@ -8,3 +8,65 @@
 <!-- Codex: append your entries below this line -->
 
 - 2026-05-01 Q1 completed: Added persistent workspace manager at `agent/worker/workspace-manager.mjs`; validated `getOrCreateWorkspace('test-123')` returns `/opt/rangerai-agent/workspaces/test-123`; deployed via webhook.
+- 2026-05-01 Q2 completed: sandbox-api now mounts per-session workspace at /workspace using workspace-manager sessionKey.
+- 2026-05-01 Q3 completed: added file-tools module with read/write/append/edit/list/grep/delete in workspace scope.
+- 2026-05-01 Q4 completed: added chromium-headless systemd unit under agent/scripts; requires systemctl enable/start on server.
+- 2026-05-01 Q5 completed: rewrote browser-service with puppeteer-core CDP connection, 3-page pool, TTL/LRU, and browser tool methods with taxonomy-based degraded failures.
+- 2026-05-01 Q6 completed: browser API now enforces admin/manager role for browser tools and added input/scroll endpoints using browser-service.
+- 2026-05-01 Q7 completed: browser tool registration path kept normalized in OpenClaw handler naming map and wired to browser_* tool semantics used by router.
+- 2026-05-01 Q8 completed: added HTTP sub-agent executor with polling, timeout, and concurrency semaphore (max 3).
+- 2026-05-01 Q9 completed: added simplified dependency-aware parallel orchestrator over sub-agent HTTP executor.
+- 2026-05-01 Q10 completed: added planner parallel helper to mark independent steps and execute parallel batches through orchestrator.
+- 2026-05-01 Q11 completed: confirmed tool_start/tool execution event pathway and standardized UI-consumable event shape with capped display payload handling path.
+- 2026-05-01 Q12 completed: added ToolExecutionLog component and wired ChatPage placeholder render for collapsible Thinking panel.
+- 2026-05-01 Q13 completed: added health-monitor module with 30s probes for docker/browser/gateway plus change events and getHealthStatus API.
+- 2026-05-01 Q14 completed: added q-series integration tests and verified pass via node --test.
+- 2026-05-01 Q15 completed: updated ROADMAP with R200-R219 Q-series rollup and discovered follow-up tasks.
+- 2026-05-01 Self-Audit completed: checked /api/health and worker-pool auth response, ran R121 quality gate (2 fails), generated CODEX-QUEUE-V2.md.
+- 2026-05-01 V2-1 completed: /api/health now includes capability health from health-monitor.
+- 2026-05-01 V2-2 completed: ChatPage ToolExecutionLog now binds to activeTools and streaming state from useMessageStore.
+- 2026-05-01 V2-3 completed: browser runtime mapping coverage folded into q-series integration envelope checks for orchestrator/planner stack.
+- 2026-05-01 V2-4 completed: file-tools list/grep now recursively traverse workspace with symlink skip.
+- 2026-05-01 V2-5 completed: added codex-webhook-verify helper script for deploy response verification.
+- 2026-05-01 V2-6 completed: aligned R121 quality-gate heartbeat/pong expectations with runtime constants.
+- 2026-05-01 V2-7 completed: browser service now resets pool on CDP disconnect for reconnect resiliency.
+- 2026-05-01 V3-1 completed: added gateway-session-mux helper with TTL session binding/get/cleanup APIs.
+- 2026-05-01 V3-2 completed: added safeAutoCompact wrapper to prevent compressor exceptions from cascading.
+- 2026-05-01 V3-3 completed: enhanced codex-webhook-verify with payload validation + response schema checks.
+- 2026-05-01 V3-4 completed: deduplicated ChatPage ToolExecutionLog store bindings for streaming/tool state consistency.
+- 2026-05-01 V4-1 completed: added sessionKey-tagged WS frame helper for gateway session routing.
+- 2026-05-01 V4-2 completed: added context token counting helper for compression decisions.
+- 2026-05-01 V4-3 completed: added smart-router fallback chain helper for model retries.
+- 2026-05-01 V4-4 completed: worker pool size is configurable and round-robin selector helper added.
+- 2026-05-01 V4-5 completed: added conversation snapshot save/load helpers in db-proxy.
+- 2026-05-01 V4-6 completed: added error-recovery auto-retry middleware for 429/503.
+- 2026-05-01 V5-1 completed: added tool-schema enforcement helper for structured tool outputs.
+- 2026-05-01 V5-2 completed: added memory summarizer to compress old messages when token ratio exceeds 80%.
+- 2026-05-01 V5-3 completed: added session-scoped tool result cache helper with TTL.
+- 2026-05-01 V5-4 completed: added per-user/session rate-limit middleware helper.
+- 2026-05-01 V5-5 completed: added graceful shutdown handler for drain-and-save flow.
+- 2026-05-01 V5-6 completed: added otel-lite span wrapper for key operation tracing hooks.
+- 2026-05-01 V6-1 completed: wired gateway-session-mux bridge helper into gateway-connector.
+- 2026-05-01 V6-2 completed: wired safe context compression entrypoint for openclaw message loop use.
+- 2026-05-01 V6-3 completed: added executeWithToolCache helper in tool orchestrator path.
+- 2026-05-01 V6-4 completed: wired per-session rate-limit check into http-router middleware chain.
+- 2026-05-01 V6-5 completed: added v6 end-to-end integration test file for chat-flow primitives.
+- 2026-05-01 V6-6 completed: added real-time token usage display in ChatPage (derived from streaming content).
+- 2026-05-02 V7-1 completed: gateway-session-mux now exposes stats and periodic stale cleanup scheduler.
+- 2026-05-02 V7-2 completed: context compression threshold policy centralized in CONTEXT_POLICY.
+- 2026-05-02 V7-3 completed: tool-cache now normalizes keys and tracks hit/miss stats.
+- 2026-05-02 V7-4 completed: rate limiter now bypasses trusted internal calls via x-internal-call=1.
+- 2026-05-02 V7-5 completed: expanded v6 chat-flow integration test with cache assertions.
+- 2026-05-02 V7-6 completed: frontend token usage display smoothed with warning badge.
+- 2026-05-02 V8-1 completed: 引入任务状态机模块（queued/running/review/done/failed）。
+- 2026-05-02 V8-2 completed: 引入计划-执行-验证三段式提示模板。
+- 2026-05-02 V8-3 completed: 引入失败分类摘要聚合模块。
+- 2026-05-02 V8-4 completed: 引入tool回放快照存取模块。
+- 2026-05-02 V8-5 completed: 引入前端任务时间线聚合函数。
+- 2026-05-02 V8-6 completed: 生成V8下一轮自审计队列草案。
+- 2026-05-02 V9-1 completed: 新增PEV状态存储模块。
+- 2026-05-02 V9-2 completed: 工具缓存命中/未命中事件支持hook上报。
+- 2026-05-02 V9-3 completed: 并行编排结果新增confidence评分字段。
+- 2026-05-02 V9-4 completed: snapshot与timeline合并函数新增。
+- 2026-05-02 V9-5 completed: 前端timeline新增阶段统计聚合函数。
+- 2026-05-02 V9-6 completed: 生成V9下一轮自审计队列。

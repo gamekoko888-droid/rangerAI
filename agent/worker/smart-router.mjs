@@ -788,3 +788,11 @@ export async function smartRouteByPhase(phase, content, attachments = [], userMo
   return { ...fallbackResult, taskPhase: phase || 'default' };
 }
 
+
+export async function withModelFallbackChain(models = [], invoke) {
+  let lastErr = null;
+  for (const m of models) {
+    try { return await invoke(m); } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('all models failed');
+}

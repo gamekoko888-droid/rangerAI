@@ -56,3 +56,6 @@ export function createWsServer(server, ctx) {
 
   return { wss, wsHeartbeatInterval };
 }
+
+
+export function tagSessionFrame(sessionKey, payload = {}) { return { sessionKey, ...payload }; }
