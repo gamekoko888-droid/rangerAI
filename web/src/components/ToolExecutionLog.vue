@@ -1,3 +1,4 @@
+<!-- Build pipeline fix verified 2026-05-02 -->
 <!-- web/src/components/ToolExecutionLog.vue — Real-time tool execution display -->
 <!-- Q12: Shows tool execution progress in the chat interface -->
 <template>
