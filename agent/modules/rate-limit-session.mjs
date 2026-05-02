@@ -1,3 +1,4 @@
+// Deploy pipeline E2E test - 2026-05-02T05:28:33Z
 const hits = new Map();
 export function checkRateLimit(id, max = 60, windowMs = 60000) {
   const now = Date.now();
