@@ -58,3 +58,4 @@ correct workflow (separate tasks), and webhook format clarification. | agent=0 w
 | 2026-05-02 02:07:24 | `369bd9c` | [Q12] Frontend Tool Execution Display — Vue component for real-time tool status | agent=0 web=1 | agent=SKIP web=BUILD_FAIL_ROLLBACK |
 | 2026-05-02 02:07:50 | `9b83462` | [Q14] Integration Test — validates all Q-series modules load and export correctly | agent=1 web=0 | agent=OK web=SKIP |
 | 2026-05-02 02:09:37 | `29d1d22` | [Q15] All CODEX-QUEUE tasks complete | agent=0 web=0 | agent=SKIP web=SKIP |
+| 2026-05-02 02:30:38 | `178c1e2` | [FIX] Verify web build pipeline with pnpm HOME fix | agent=0 web=1 | agent=SKIP web=OK |
