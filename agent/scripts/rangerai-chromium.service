@@ -1,0 +1,33 @@
+[Unit]
+Description=RangerAI Chromium Headless Browser (CDP on port 9222)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=admin
+Group=admin
+ExecStart=/usr/bin/chromium-browser \
+    --headless \
+    --no-sandbox \
+    --disable-gpu \
+    --disable-dev-shm-usage \
+    --remote-debugging-port=9222 \
+    --remote-debugging-address=127.0.0.1 \
+    --user-data-dir=/tmp/chromium-ranger \
+    --disable-background-networking \
+    --disable-default-apps \
+    --disable-extensions \
+    --disable-sync \
+    --no-first-run \
+    --disable-translate
+Restart=always
+RestartSec=5
+Environment=DISPLAY=:99
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=512M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target
