@@ -16,25 +16,41 @@ echo "════════════════════════�
 
 # ─── Resolve auth token ───
 resolve_token() {
-    # Priority 1: CI_AUTH_TOKEN env var (set by CI pipeline or manually)
+    # Priority 1: Explicit JWT env vars (set by CI/deploy pipeline)
+    if [ -n "$ADMIN_JWT" ]; then
+        echo "$ADMIN_JWT"
+        return
+    fi
     if [ -n "$CI_AUTH_TOKEN" ]; then
         echo "$CI_AUTH_TOKEN"
         return
     fi
-    # Priority 2: Token file (created by `rangerai-login` or manually)
+    # Priority 2: Token file (created by `rangerai-login` or manually; must be a JWT)
     if [ -f "$HOME/.rangerai-ci-token" ]; then
         cat "$HOME/.rangerai-ci-token"
         return
     fi
-    # Priority 3: RANGERAI_USER + RANGERAI_PASS env vars
-    if [ -n "$RANGERAI_USER" ] && [ -n "$RANGERAI_PASS" ]; then
+    # Priority 3: Login API using admin/user credentials; never log credentials
+    local login_user=""
+    local login_pass=""
+    if [ -n "$ADMIN_EMAIL" ] && [ -n "$ADMIN_PASSWORD" ]; then
+        login_user="$ADMIN_EMAIL"
+        login_pass="$ADMIN_PASSWORD"
+    elif [ -n "$ADMIN_USERNAME" ] && [ -n "$ADMIN_PASSWORD" ]; then
+        login_user="$ADMIN_USERNAME"
+        login_pass="$ADMIN_PASSWORD"
+    elif [ -n "$RANGERAI_USER" ] && [ -n "$RANGERAI_PASS" ]; then
+        login_user="$RANGERAI_USER"
+        login_pass="$RANGERAI_PASS"
+    fi
+    if [ -n "$login_user" ] && [ -n "$login_pass" ]; then
         curl -s -X POST http://127.0.0.1:3002/api/auth/login \
             -H "Content-Type: application/json" \
-            -d "{\"username\":\"$RANGERAI_USER\",\"password\":\"$RANGERAI_PASS\"}" \
+            -d "{\"username\":\"$login_user\",\"password\":\"$login_pass\"}" \
             | python3 -c "import sys,json; print(json.load(sys.stdin).get('token',''))" 2>/dev/null
         return
     fi
-    # Priority 4 removed: Never read credentials from project config files
+    # Never read credentials from project config files
     echo ""
 }
 
@@ -104,7 +120,7 @@ if [ -z "$TOKEN" ]; then
 else
     ROUTES_OK=0
     ROUTES_FAIL=0
-    for route in "/api/health" "/api/skills" "/api/stats" "/api/prompts" "/api/knowledge" "/api/workflows" "/api/system/health-detail"; do
+    for route in "/api/health" "/api/skills" "/api/stats" "/api/prompts" "/api/knowledge" "/api/workflows" "/api/system/health-detail" "/api/admin/services/status"; do
         STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:3002${route}" -H "Authorization: Bearer $TOKEN" 2>/dev/null)
         CONTENT_TYPE=$(curl -s -o /dev/null -w "%{content_type}" "http://127.0.0.1:3002${route}" -H "Authorization: Bearer $TOKEN" 2>/dev/null)
         if [ "$STATUS" = "200" ] && echo "$CONTENT_TYPE" | grep -qi "json"; then
