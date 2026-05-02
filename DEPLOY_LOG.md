@@ -31,3 +31,8 @@ New file: agent/worker/file-tools.mjs
 Features: fileRead, fileWrite, fileAppend, fileEdit, fileList (recursive),
 fileGrep, fileDelete, fileStat.
 All operations scoped to session workspace via workspace-manager. | agent=1 web=0 | agent=OK web=SKIP |
+| 2026-05-02 01:39:44 | `f33bbaf` | [R111] WebSocket Heartbeat Module
+
+New file: agent/worker/ws-heartbeat.mjs
+Server-side ping every 30s, dead connection detection via pong timeout.
+To be wired into ws-realtime.mjs startup. | agent=1 web=0 | agent=OK web=SKIP |
