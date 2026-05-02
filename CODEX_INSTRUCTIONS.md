@@ -317,3 +317,48 @@ web/
 5. 前端缺少工具执行可视化
 
 **从 CODEX-QUEUE.md 第一个 `[ ]` 任务开始执行。**
+
+
+---
+## 十二、关键修复记录（v5.1 补丁）
+
+### 根因分析：为什么 Codex follow-up 模式代码不落地
+
+**问题**: Codex 在 follow-up 模式下修改的文件只存在于临时沙箱，不会自动 commit/push。
+
+**根因**:
+1. Codex 的 follow-up 是在同一个 task 沙箱内继续工作
+2. 只有 task 完成时的第一次 commit 会被 push（Q1 落地了）
+3. 后续 follow-up 的修改停留在沙箱内存中
+4. 沙箱回收后代码永久丢失
+
+**修复方案（v5.1）**:
+1. **每个任务必须是独立的 Codex task**（不是 follow-up）
+2. 每个 task 完成后，Codex 会自动创建 commit
+3. 用户点击 "Merge" 或 Codex 通过 webhook 部署
+4. Webhook 方式仍然可用：POST body.secret = "ranger-codex-2026"
+
+### 正确的 Codex 使用流程
+```
+1. 创建新 Task（不是 follow-up）
+2. Prompt: "Read CODEX-QUEUE.md, execute the first [ ] task"
+3. Task 完成 → Codex 自动 commit
+4. 用户点击 Merge to main
+5. GitHub Actions 自动部署到 ranger.voyage
+6. 创建下一个 Task，重复
+```
+
+### Webhook 部署的正确格式
+```bash
+curl -X POST https://ranger.voyage/codex-deploy/apply-patch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secret": "ranger-codex-2026",
+    "commit_message": "[Q{N}] Task description",
+    "files": [
+      {"path": "agent/worker/xxx.mjs", "action": "modify", "content": "完整文件内容"}
+    ]
+  }'
+```
+
+**注意**: secret 是 JSON body 字段，不是 HTTP header。
