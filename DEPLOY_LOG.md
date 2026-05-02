@@ -56,3 +56,4 @@ correct workflow (separate tasks), and webhook format clarification. | agent=0 w
 | 2026-05-02 02:06:37 | `df96457` | [Q10] Planner Integration for Parallelism — parallel-planner-bridge.mjs | agent=1 web=0 | agent=OK web=SKIP |
 | 2026-05-02 02:06:58 | `f9c165c` | [Q11] Tool Execution Streaming Events — real-time tool status via WS | agent=1 web=0 | agent=OK web=SKIP |
 | 2026-05-02 02:07:24 | `369bd9c` | [Q12] Frontend Tool Execution Display — Vue component for real-time tool status | agent=0 web=1 | agent=SKIP web=BUILD_FAIL_ROLLBACK |
+| 2026-05-02 02:07:50 | `9b83462` | [Q14] Integration Test — validates all Q-series modules load and export correctly | agent=1 web=0 | agent=OK web=SKIP |
