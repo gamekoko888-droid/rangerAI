@@ -44,3 +44,7 @@ Exposes: getSystemHealth(), getDegradationReport(), getHealthHistory(). | agent=
 | 2026-05-02 01:40:26 | `b79029f` | [Q15-partial] Update CODEX-QUEUE.md with actual landing status
 
 Reflects manual webhook deployments of Q3, Q5, Q8+Q9, Q13, R111. | agent=0 web=0 | agent=SKIP web=SKIP |
+| 2026-05-02 01:42:30 | `6817f25` | [FIX] CODEX_INSTRUCTIONS v5.1 — Root cause fix for follow-up mode code loss
+
+Added Section 12: explains why follow-up mode doesn't land code,
+correct workflow (separate tasks), and webhook format clarification. | agent=0 web=0 | agent=SKIP web=SKIP |
