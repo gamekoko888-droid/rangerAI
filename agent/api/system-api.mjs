@@ -1543,7 +1543,7 @@ export async function handleSystemApi(req, res) {
         return true;
       }
       try {
-        const [rows] = await db.pool.execute(
+        const rows = await db.query(
           `SELECT content, model, role, createdAt FROM messages WHERE chatId = (SELECT chatId FROM messages WHERE msgId = ? LIMIT 1) AND role = 'assistant' AND createdAt >= (SELECT createdAt FROM messages WHERE msgId = ? LIMIT 1) ORDER BY createdAt DESC LIMIT 1`,
           [msgId, msgId]
         );
