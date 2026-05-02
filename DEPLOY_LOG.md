@@ -68,3 +68,12 @@ correct workflow (separate tasks), and webhook format clarification. | agent=0 w
 | 2026-05-02 03:15:48 | `2cc8ffb` | Add auto-merge workflow for Codex PRs
 
 Flow: Codex commit → PR → auto-merge → main → deploy.yml → production | agent=0 web=0 | agent=SKIP web=SKIP |
+| 2026-05-02 03:19:00 | `9afec0e` | [v7] CODEX_INSTRUCTIONS v7 — commit-only mode (no push/webhook) | agent=0 web=0 | agent=SKIP web=SKIP |
+| 2026-05-02 03:35:00 | `25da3d9` | [V9] 继续迭代：PEV存储/缓存观测/并行评分/恢复合并/时间线统计 | agent=0 web=0 | agent=SKIP web=SKIP |
+| 2026-05-02 03:55:00 | `db7d48a` | [merge] Codex V2-V9 iterations — 53 files (browser, multi-agent, planner, tools, monitoring) | agent=53 web=0 | agent=OK(manual-fix) web=SKIP |
+| 2026-05-02 04:07:00 | `932eae5` | [FIX] Rate limiter exempt localhost + health endpoints — fixes CI verify failure | agent=1 web=0 | agent=OK web=SKIP |
+| 2026-05-02 05:27:00 | `fb2aa2f` | [test] Verify GitHub Actions deploy pipeline after rate-limit fix | agent=0 web=0 | agent=SKIP web=SKIP |
+| 2026-05-02 05:28:00 | `f288d88` | [test] E2E deploy pipeline verification — triggers agent deploy + verify step | agent=1 web=0 | agent=OK web=SKIP |
+| 2026-05-02 05:49:00 | `b46dfc1` | [FIX] TTLMap: add entries(), keys(), values() methods for Map compatibility | agent=1 web=0 | agent=OK(manual) web=SKIP |
+| 2026-05-02 10:02:00 | `4a3d4da` | [deploy] verify services status with admin JWT | agent=2 web=0 | agent=OK web=SKIP |
+| 2026-05-02 22:15:00 | `540ca92` | [DOCS] CODEX_INSTRUCTIONS v7.1 — 新增部署验证指南 | agent=0 web=0 | agent=SKIP web=SKIP |
