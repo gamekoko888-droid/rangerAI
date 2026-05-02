@@ -65,3 +65,6 @@ correct workflow (separate tasks), and webhook format clarification. | agent=0 w
 - 废弃 webhook/curl POST
 - 改用 git commit + push → GitHub Actions 自动部署
 - 更新所有工作流程和规则 | agent=0 web=0 | agent=SKIP web=SKIP |
+| 2026-05-02 03:15:48 | `2cc8ffb` | Add auto-merge workflow for Codex PRs
+
+Flow: Codex commit → PR → auto-merge → main → deploy.yml → production | agent=0 web=0 | agent=SKIP web=SKIP |
