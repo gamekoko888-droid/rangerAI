@@ -138,6 +138,34 @@ export class TTLMap {
     yield* this._map;
   }
 
+
+  /**
+   * 返回所有有效条目的 [key, value] 迭代器（兼容 Map.entries()）
+   * @returns {Iterator<[string, *]>}
+   */
+  entries() {
+    this._cleanupExpired();
+    return this._map.entries();
+  }
+
+  /**
+   * 返回所有有效键的迭代器（兼容 Map.keys()）
+   * @returns {Iterator<string>}
+   */
+  keys() {
+    this._cleanupExpired();
+    return this._map.keys();
+  }
+
+  /**
+   * 返回所有有效值的迭代器（兼容 Map.values()）
+   * @returns {Iterator<*>}
+   */
+  values() {
+    this._cleanupExpired();
+    return this._map.values();
+  }
+
   /** 清理过期条目 */
   _cleanupExpired() {
     const now = Date.now();
