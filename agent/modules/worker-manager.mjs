@@ -827,6 +827,15 @@ export class WorkerManager {
         }
 
         if (task) {
+          // [TC-STREAM-FIX] Send stream_end to frontend BEFORE deleting task from pendingTasks.
+          // Without this, the frontend_event handler cannot find the task's WS when message_done arrives
+          // (because task_complete IPC arrives before message_done IPC due to event ordering).
+          if (task.ws && task.ws.readyState === 1 && msg.result) {
+            const _tcStreamId = `tc-${Date.now()}`;
+            sendEvent(task.ws, { type: "stream_end", id: _tcStreamId, content: String(msg.result), model: msg.model || "RangerAI Agent", provider: "rangerai" });
+            sendEvent(task.ws, { type: "status", status: "idle" });
+            logger.info(`[${ts()}] [TC-STREAM-FIX] Sent stream_end to frontend: msgId=${msg.msgId} len=${String(msg.result).length}`);
+          }
           this._clearTaskTimers(msg.msgId);
           this.pendingTasks.delete(msg.msgId);
           // R39-T1: Dequeue next task if queue has items
