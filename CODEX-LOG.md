@@ -70,3 +70,10 @@
 - 2026-05-02 V9-4 completed: snapshot与timeline合并函数新增。
 - 2026-05-02 V9-5 completed: 前端timeline新增阶段统计聚合函数。
 - 2026-05-02 V9-6 completed: 生成V9下一轮自审计队列。
+- 2026-05-02 V10-1 completed: 新增结构化验证契约模块。
+- 2026-05-02 V10-2 completed: 新增verify-runner执行器（质量门禁+集成测试）。
+- 2026-05-02 V10-3 completed: 新增验证门禁模块。
+- 2026-05-02 V10-4 completed: 新增恢复后重验闭环接口。
+- 2026-05-02 V10-5 completed: 新增验证审计日志落盘模块。
+- 2026-05-02 V10-6 completed: 生成V10下一轮自审计队列。
+- 2026-05-02 V10N-1 completed: verify-runner 新增 --with-task-loop，接入 /api/chat + /api/task-status 轮询验证主任务编排闭环。
