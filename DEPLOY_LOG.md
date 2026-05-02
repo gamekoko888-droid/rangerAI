@@ -19,3 +19,9 @@ Features: browserNavigate, browserScreenshot, browserExtractText, browserClick,
 browserType, browserFillForm, browserSelect, browserHover, browserGetCookies,
 browserSetCookies, getPoolStatus, shutdownAll.
 Connects to CDP on port 9222. | agent=1 web=0 | agent=OK web=SKIP |
+| 2026-05-02 01:38:57 | `0324f6b` | [Q8+Q9] Restore sub-agent-orchestrator.mjs from archive
+
+Replace archived code with active implementation.
+Features: shouldParallelize, buildSubAgentPrompt, orchestrateWave,
+collectAndMerge, handleParallelWave, getOrchestratorStats.
+831 lines of parallel execution logic. | agent=1 web=0 | agent=OK web=SKIP |
