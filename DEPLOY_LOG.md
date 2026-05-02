@@ -36,3 +36,8 @@ All operations scoped to session workspace via workspace-manager. | agent=1 web=
 New file: agent/worker/ws-heartbeat.mjs
 Server-side ping every 30s, dead connection detection via pong timeout.
 To be wired into ws-realtime.mjs startup. | agent=1 web=0 | agent=OK web=SKIP |
+| 2026-05-02 01:40:10 | `1972cb1` | [Q13] Degradation Health Monitor
+
+New file: agent/worker/health-monitor.mjs
+Tracks: browser pool, memory, CPU, heap usage.
+Exposes: getSystemHealth(), getDegradationReport(), getHealthHistory(). | agent=1 web=0 | agent=OK web=SKIP |
