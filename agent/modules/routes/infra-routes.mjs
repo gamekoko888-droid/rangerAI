@@ -143,6 +143,7 @@ function computeCanonicalMatchRates(rows) {
 }
 // ─── End Canonical Calculator ───
 import metrics from '../../lib/metrics-collector.mjs';
+import { getHealthStatus } from "../../worker/health-monitor.mjs";
 
 let deps = {};
 
@@ -2008,6 +2009,7 @@ function handleHealth(req, res) {
   const wss = ctx.runtime.wss;
   const wStatus = workerManager.status;
   const isAdmin = ctx.services.auth.validateAdminToken(req);
+  const capabilityHealth = getHealthStatus();
   const basicHealth = {
     status: "ok",
     version: "v68-modular",
@@ -2018,6 +2020,7 @@ function handleHealth(req, res) {
     gatewayReconnects: wStatus.restartCount || 0,
     redis: ctx.services.redisPool.isReady(),
     redisPool: ctx.services.redisPool.getHealth(),
+    capabilities: capabilityHealth,
   };
   if (isAdmin) {
     Object.assign(basicHealth, {

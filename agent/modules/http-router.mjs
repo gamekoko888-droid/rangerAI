@@ -1,3 +1,4 @@
+import { checkRateLimit } from "./rate-limit-session.mjs";
 /**
  * modules/http-router.mjs — Thin HTTP Router (v3.1.0, Iter-56 Security)
  *
@@ -199,6 +200,11 @@ async function authenticateRequest(req) {
  * @param {http.ServerResponse} res
  */
 export async function handleRequest(req, res) {
+  const _internal = req.headers["x-internal-call"] === "1";
+  if (!_internal) {
+    const rl = checkRateLimit((req.headers["x-user-id"]||req.socket?.remoteAddress||"anon"));
+    if (!rl.allowed) { res.writeHead(429,{"Content-Type":"application/json"}); res.end(JSON.stringify({error:"rate_limited"})); return; }
+  }
   const { ctx } = deps;
   const urlPath = req.url?.split("?")[0] || "/";
   const method = req.method || 'GET';

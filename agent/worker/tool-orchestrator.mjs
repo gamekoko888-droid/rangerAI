@@ -1,3 +1,4 @@
+import { getToolCache, setToolCache } from "./tool-cache.mjs";
 // ─── Tool Orchestrator v2.0: Active Interception Layer ───
 //
 // Three enforcement rules:
@@ -849,3 +850,5 @@ export function createToolOrchestrator(msgId, userRole = 'member') {
     ACTIVE_CONFIG,
   };
 }
+
+export async function executeWithToolCache(sessionKey, key, fn){ const hit=getToolCache(sessionKey,key); if(hit!==null) return hit; const res=await fn(); setToolCache(sessionKey,key,res); return res; }

@@ -1,3 +1,4 @@
+export const CONTEXT_POLICY = { summarizeThreshold: 0.8, hardCompactThreshold: 0.9 };
 /**
  * context-compressor.mjs — Iter-C: Two-Level Context Compression Pipeline
  * 
@@ -431,3 +432,17 @@ export function getCompressionStats() {
 }
 
 export { CONFIG as COMPRESSION_CONFIG };
+
+
+export async function safeAutoCompact(messages, sessionKey, msgId, opts = {}) {
+  try {
+    return await autoCompact(messages, sessionKey, msgId, opts);
+  } catch (err) {
+    return { compacted: false, reason: err?.message || 'autoCompact_failed', messages };
+  }
+}
+
+export function estimateTokenCount(messages = []) {
+  const text = messages.map(m => (m?.content || '')).join(' ');
+  return Math.ceil(text.length / 4);
+}

@@ -174,3 +174,11 @@ export async function getActivePlan(sessionKey) {
 export function getPendingCount() {
   return _pendingRequests.size;
 }
+
+export async function saveConversationSnapshot(sessionKey, messages = []) {
+  return dbRun('INSERT OR REPLACE INTO conversation_snapshots(session_key, payload, updated_at) VALUES(?, ?, datetime("now"))', [sessionKey, JSON.stringify(messages)]).catch(() => null);
+}
+export async function loadConversationSnapshot(sessionKey) {
+  const row = await dbGet('SELECT payload FROM conversation_snapshots WHERE session_key = ?', [sessionKey]).catch(() => null);
+  try { return row ? JSON.parse(row.payload || '[]') : []; } catch { return []; }
+}

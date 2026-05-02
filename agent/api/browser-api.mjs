@@ -18,7 +18,7 @@ import { logger } from "../lib/logger.mjs";
 import { ts } from "../modules/helpers.mjs";
 import crypto from "crypto";
 import http from "http";
-import { browserNavigate, browserScreenshot, browserExtractText, browserClick, getPoolStatus } from "../worker/browser-service.mjs";
+import { browserNavigate, browserScreenshot, browserExtractText, browserClick, browserInput, browserScroll, getPoolStatus } from "../worker/browser-service.mjs";
 
 // ─── In-Memory Takeover State ────────────────────────────────
 const state = {
@@ -100,6 +100,17 @@ function broadcastTakeoverState(eventType) {
  * Handle browser API routes.
  * @returns {boolean} true if route was handled
  */
+
+function ensureBrowserRole(req, res) {
+  const role = String(req.headers["x-user-role"] || "").toLowerCase();
+  if (role !== "admin" && role !== "manager") {
+    res.writeHead(403, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: false, error: "browser tools require admin/manager role" }));
+    return false;
+  }
+  return true;
+}
+
 export async function handleBrowserApi(req, res, urlPath) {
   // GET /api/browser/status
   if (urlPath === "/api/browser/status" && req.method === "GET") {
@@ -242,6 +253,7 @@ export async function handleBrowserApi(req, res, urlPath) {
 
   // POST /api/browser/navigate
   if (urlPath === "/api/browser/navigate" && req.method === "POST") {
+    if (!ensureBrowserRole(req, res)) return true;
     try {
       let body = "";
       for await (const chunk of req) body += chunk;
@@ -265,6 +277,7 @@ export async function handleBrowserApi(req, res, urlPath) {
 
   // POST /api/browser/screenshot
   if (urlPath === "/api/browser/screenshot" && req.method === "POST") {
+    if (!ensureBrowserRole(req, res)) return true;
     try {
       let body = "";
       for await (const chunk of req) body += chunk;
@@ -283,6 +296,7 @@ export async function handleBrowserApi(req, res, urlPath) {
 
   // POST /api/browser/extract-text
   if (urlPath === "/api/browser/extract-text" && req.method === "POST") {
+    if (!ensureBrowserRole(req, res)) return true;
     try {
       let body = "";
       for await (const chunk of req) body += chunk;
@@ -301,6 +315,7 @@ export async function handleBrowserApi(req, res, urlPath) {
 
   // POST /api/browser/click
   if (urlPath === "/api/browser/click" && req.method === "POST") {
+    if (!ensureBrowserRole(req, res)) return true;
     try {
       let body = "";
       for await (const chunk of req) body += chunk;
@@ -313,6 +328,43 @@ export async function handleBrowserApi(req, res, urlPath) {
       }
       const sid = sessionId || `api-${Date.now()}`;
       const result = await browserClick(sid, selector);
+      res.writeHead(result.success ? 200 : 500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: result.success, ...result }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, error: err.message }));
+    }
+    return true;
+  }
+
+
+  if (urlPath === "/api/browser/input" && req.method === "POST") {
+    if (!ensureBrowserRole(req, res)) return true;
+    try {
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      const parsed = body ? JSON.parse(body) : {};
+      const { sessionId, selector, text } = parsed;
+      const sid = sessionId || `api-${Date.now()}`;
+      const result = await browserInput(sid, selector, text);
+      res.writeHead(result.success ? 200 : 500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: result.success, ...result }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, error: err.message }));
+    }
+    return true;
+  }
+
+  if (urlPath === "/api/browser/scroll" && req.method === "POST") {
+    if (!ensureBrowserRole(req, res)) return true;
+    try {
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      const parsed = body ? JSON.parse(body) : {};
+      const { sessionId, direction, amount } = parsed;
+      const sid = sessionId || `api-${Date.now()}`;
+      const result = await browserScroll(sid, direction, amount);
       res.writeHead(result.success ? 200 : 500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: result.success, ...result }));
     } catch (err) {

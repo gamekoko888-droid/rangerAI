@@ -9,6 +9,7 @@ import { ts } from "./helpers.mjs";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import { getOrCreateWorkspace } from "../worker/workspace-manager.mjs";
 
 const SANDBOX_DIR = "/tmp/rangerai-sandbox";
 const MAX_OUTPUT = 8000; // v14.7 R52: Expanded from 2000 to 8000 chars for complex task output
@@ -52,10 +53,11 @@ function getRoleLimits(role) {
 /**
  * Execute code in a Docker container with full isolation
  */
-async function executeInDocker({ language, code, timeout = SANDBOX_TIMEOUT, memory = DOCKER_MEMORY, maxOutput = MAX_OUTPUT }) {
+async function executeInDocker({ language, code, timeout = SANDBOX_TIMEOUT, memory = DOCKER_MEMORY, maxOutput = MAX_OUTPUT, sessionKey = "default" }) {
   const execId = crypto.randomBytes(4).toString("hex");
   const workDir = path.join(SANDBOX_DIR, execId);
   fs.mkdirSync(workDir, { recursive: true });
+  const workspacePath = await getOrCreateWorkspace(sessionKey);
 
   let ext, dockerCmd;
   switch (language) {
@@ -96,7 +98,8 @@ async function executeInDocker({ language, code, timeout = SANDBOX_TIMEOUT, memo
     "--pids-limit", "50",
     "--ulimit", "nofile=256:256",
     "-v", `${workDir}:/sandbox:ro`,
-    "-w", "/sandbox",
+    "-v", `${workspacePath}:/workspace`,
+    "-w", "/workspace",
     image,
     ...dockerCmd
   ];
@@ -173,7 +176,7 @@ async function executeInDocker({ language, code, timeout = SANDBOX_TIMEOUT, memo
 /**
  * Execute code — Docker ONLY. No native fallback.
  */
-export async function executeCode({ language, code, timeout = SANDBOX_TIMEOUT, memory = DOCKER_MEMORY, maxOutput = MAX_OUTPUT }) {
+export async function executeCode({ language, code, timeout = SANDBOX_TIMEOUT, memory = DOCKER_MEMORY, maxOutput = MAX_OUTPUT, sessionKey = "default" }) {
   if (!dockerAvailable) {
     return {
       stdout: "",
@@ -184,7 +187,7 @@ export async function executeCode({ language, code, timeout = SANDBOX_TIMEOUT, m
       isolated: false,
     };
   }
-  return executeInDocker({ language, code, timeout, memory, maxOutput });
+  return executeInDocker({ language, code, timeout, memory, maxOutput, sessionKey });
 }
 
 /**
@@ -259,7 +262,7 @@ export async function handleSandboxRequest(req, res, urlPath, user, readBody) {
       // R54: Apply role-specific limits
       const effectiveTimeout = _internal ? (timeout || SANDBOX_TIMEOUT) : Math.min(timeout || _limits.timeout, _limits.timeout);
       const effectiveMemory = _internal ? DOCKER_MEMORY : _limits.memory;
-      const result = await executeCode({ language, code, timeout: effectiveTimeout, memory: effectiveMemory, maxOutput: _limits.maxOutput || MAX_OUTPUT });
+      const result = await executeCode({ language, code, timeout: effectiveTimeout, memory: effectiveMemory, maxOutput: _limits.maxOutput || MAX_OUTPUT, sessionKey });
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result));
     } catch (err) {
