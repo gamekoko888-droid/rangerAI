@@ -41,3 +41,6 @@ To be wired into ws-realtime.mjs startup. | agent=1 web=0 | agent=OK web=SKIP |
 New file: agent/worker/health-monitor.mjs
 Tracks: browser pool, memory, CPU, heap usage.
 Exposes: getSystemHealth(), getDegradationReport(), getHealthHistory(). | agent=1 web=0 | agent=OK web=SKIP |
+| 2026-05-02 01:40:26 | `b79029f` | [Q15-partial] Update CODEX-QUEUE.md with actual landing status
+
+Reflects manual webhook deployments of Q3, Q5, Q8+Q9, Q13, R111. | agent=0 web=0 | agent=SKIP web=SKIP |
