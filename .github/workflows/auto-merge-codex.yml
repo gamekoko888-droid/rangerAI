@@ -1,0 +1,43 @@
+# ═══════════════════════════════════════════════════════════════
+# Auto-Merge Codex PRs
+# When Codex creates a PR, this workflow automatically merges it
+# to main, which then triggers the deploy.yml pipeline.
+#
+# Flow: Codex commit → PR created → auto-merge → push to main → deploy.yml → production
+# ═══════════════════════════════════════════════════════════════
+name: Auto-Merge Codex PRs
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    # Only auto-merge PRs from Codex (branch pattern: codex-*)
+    if: startsWith(github.head_ref, 'codex-') || contains(github.event.pull_request.title, '[codex]') || contains(github.event.pull_request.title, '[Codex]')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Auto-approve PR
+        uses: hmarr/auto-approve-action@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto-merge PR
+        uses: pascalgn/automerge-action@v0.16.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_METHOD: squash
+          MERGE_COMMIT_MESSAGE: pull-request-title
+          MERGE_LABELS: ""
+          MERGE_FILTER_AUTHOR: ""
+          MERGE_FORKS: "false"
+          MERGE_RETRIES: "3"
+          MERGE_RETRY_SLEEP: "10000"
+          UPDATE_METHOD: "rebase"
