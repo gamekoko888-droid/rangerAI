@@ -59,3 +59,9 @@ correct workflow (separate tasks), and webhook format clarification. | agent=0 w
 | 2026-05-02 02:07:50 | `9b83462` | [Q14] Integration Test — validates all Q-series modules load and export correctly | agent=1 web=0 | agent=OK web=SKIP |
 | 2026-05-02 02:09:37 | `29d1d22` | [Q15] All CODEX-QUEUE tasks complete | agent=0 web=0 | agent=SKIP web=SKIP |
 | 2026-05-02 02:30:38 | `178c1e2` | [FIX] Verify web build pipeline with pnpm HOME fix | agent=0 web=1 | agent=SKIP web=OK |
+| 2026-05-02 02:39:53 | `a229933` | [v6] CODEX_INSTRUCTIONS v6 — git push + GitHub Actions deploy (废弃 webhook)
+
+核心变更:
+- 废弃 webhook/curl POST
+- 改用 git commit + push → GitHub Actions 自动部署
+- 更新所有工作流程和规则 | agent=0 web=0 | agent=SKIP web=SKIP |
