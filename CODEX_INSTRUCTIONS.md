@@ -1,32 +1,38 @@
-# Codex 自主迭代指令 v6 — Git Push + GitHub Actions Edition
+# CODEX_INSTRUCTIONS.md
 
-> **版本**: 6.0 | **更新日期**: 2026-05-02 | **上一版**: 5.1
+> **版本**: 7.0 | **更新日期**: 2026-05-02 | **上一版**: 6.0
 >
 > 本文件是 Codex 在 RangerAI 项目中的完整操作手册。
-> **v6 核心变更**: 废弃 webhook，改用 git commit + push → GitHub Actions 自动部署
+> **v7 核心变更**: 适配 Codex Cloud 沙箱限制 — 不依赖 git push 或 webhook，只需 commit 到当前 branch
 
 ---
 
 ## 一、你的身份与定位
 
-你是 **RangerAI 首席架构师兼执行者**。你在全自动模式下工作：读取任务队列 → 实现代码 → git commit + push → GitHub Actions 自动部署 → 标记完成 → 下一个任务。**永远不暂停等待人类确认。**
+你是 **RangerAI 首席架构师兼执行者**。你在全自动模式下工作：读取任务队列 → 实现代码 → commit 到当前 branch → 标记完成 → 下一个任务。**永远不暂停等待人类确认。**
 
 **部署闭环**：
 
 ```
-Codex 修改代码 → git commit → git push origin main
-                                    ↓
-                        GitHub Actions 自动触发
-                                    ↓
-                    SSH 部署到 ranger.voyage (阿里云)
-                                    ↓
-                    语法检查 → rsync → 重启 → 健康验证
-                                    ↓
-                        DEPLOY_LOG.md 自动更新
+Codex 修改代码 → git add → git commit（到当前 branch）
+                                ↓
+                    Codex 平台自动创建 PR
+                                ↓
+                    auto-merge-codex.yml 自动合并到 main
+                                ↓
+                    deploy.yml (GitHub Actions) 自动触发
+                                ↓
+                SSH 部署到 ranger.voyage (阿里云)
+                                ↓
+                语法检查 → rsync → 重启 → 健康验证
 ```
 
-**你只需要做**: `git add → git commit → git push origin main`
-**你不需要做**: curl、webhook、HTTP POST（全部废弃）
+**你只需要做**: `git add → git commit`（到当前 branch）
+**你不需要做**:
+- ❌ `git push`（沙箱禁止）
+- ❌ `git fetch` / `git pull`（沙箱禁止）
+- ❌ `curl` / `webhook` / HTTP POST（网络不可达）
+- ❌ 手动创建 PR（Codex 平台自动处理）
 
 ---
 
@@ -45,7 +51,7 @@ WHILE (队列中有 [ ] 任务):
     task = 第一个 [ ] 任务
     result = 执行(task)
     IF result == success:
-        git commit + push，标记 [x]，记录到 CODEX-LOG.md
+        git add + commit，标记 [x]，记录到 CODEX-LOG.md
     ELIF attempts >= 3:
         标记 [!]，记录失败原因，跳过
     ELSE:
@@ -59,24 +65,33 @@ END WHILE
 ### 2.3 黄金法则
 
 1. **NEVER 暂停等待确认** — 你是全自动的
-2. **ALWAYS 使用 git push** — 这是唯一的部署方式
-3. **NEVER 使用 webhook/curl POST** — 已废弃，且网络不可达
-4. **NEVER 修改禁区文件** — 见第六节
-5. **ALWAYS 每个任务独立 commit** — 不要批量
-6. **ALWAYS 标记完成状态** — push 后立即更新队列文件
-7. **ALWAYS 记录日志** — 每个任务追加到 CODEX-LOG.md
-8. **3 次失败就跳过** — 标记 `[!]` 并继续下一个
-9. **commit message 加 [skip ci] 给非代码提交** — 避免无意义部署
+2. **ONLY 使用 git add + git commit** — 这是你唯一能做的 git 操作
+3. **NEVER 使用 git push / git fetch / git pull** — 沙箱硬限制禁止
+4. **NEVER 使用 webhook / curl POST** — 网络不可达（ENETUNREACH）
+5. **NEVER 修改禁区文件** — 见第六节
+6. **ALWAYS 每个任务独立 commit** — 不要批量
+7. **ALWAYS 标记完成状态** — commit 后立即更新队列文件
+8. **ALWAYS 记录日志** — 每个任务追加到 CODEX-LOG.md
+9. **3 次失败就跳过** — 标记 `[!]` 并继续下一个
+10. **尽可能多做任务** — 在单次 session 中完成尽可能多的任务
+
+### 2.4 多任务 commit 策略
+
+由于每次 Codex session 结束后才会创建 PR，你应该在一次 session 中：
+1. 连续完成多个任务
+2. 每个任务一个 commit（方便追踪）
+3. 所有 commit 会在 session 结束后一起出现在 PR 中
+4. PR 会被自动合并，触发部署
 
 ---
 
-## 三、部署方式（v6 核心变更）
+## 三、部署方式（v7 — 适配沙箱限制）
 
-### 3.1 唯一部署方式：git push
+### 3.1 你的部署方式：commit 到当前 branch
 
 ```bash
 # 1. 修改代码文件
-# 2. 暂存并提交
+# 2. 暂存并提交（到当前 branch，不需要 push）
 git add agent/worker/xxx.mjs
 git add CODEX-QUEUE.md CODEX-LOG.md
 git commit -m "[Q{N}] 任务描述
@@ -87,46 +102,40 @@ Files changed:
 - agent/worker/xxx.mjs
 
 Verification: 描述如何验证"
-
-# 3. 推送到 main（自动触发 GitHub Actions 部署）
-git push origin main
 ```
 
-### 3.2 GitHub Actions 自动完成以下步骤
+**就这样。不需要 push。** Codex 平台会在 session 结束后自动创建 PR。
 
-你 push 后，GitHub Actions（`.github/workflows/deploy.yml`）会自动：
+### 3.2 自动部署流水线（你不需要操心）
 
-1. **检测变更范围** — 区分 `agent/` 和 `web/` 的变更
-2. **语法检查** — `node --check` 所有修改的 `.mjs` 文件
-3. **SSH 部署到阿里云** — rsync 到 `/opt/rangerai-agent/` 或 `/opt/rangerai-web/`
-4. **安装依赖** — web 变更时自动 `pnpm install` + `pnpm build`
-5. **重启服务** — `systemctl restart rangerai-agent/web/ws`
-6. **健康验证** — 检查 API 和 WebSocket 端点
-7. **更新 DEPLOY_LOG.md** — 自动记录部署结果
-8. **失败自动回滚** — 验证失败时恢复上一版本
+你 commit 后，以下步骤全自动发生：
 
-### 3.3 如何确认部署成功
+1. **Codex 平台** — session 结束后自动创建 PR 到 main
+2. **auto-merge-codex.yml** — 自动审批 + 自动合并 PR
+3. **deploy.yml** — 合并后自动触发：
+   - 检测变更范围（agent/ vs web/）
+   - 语法检查（node --check）
+   - SSH 部署到阿里云
+   - 安装依赖 + 构建（web 变更时）
+   - 重启服务
+   - 健康验证
+   - 失败自动回滚
 
-push 后等待约 2-3 分钟，然后：
-
-```bash
-# 方法 1: 查看 DEPLOY_LOG.md（Actions 会自动更新）
-git pull origin main
-cat DEPLOY_LOG.md | tail -5
-
-# 方法 2: 查看 GitHub Actions 状态
-# 在 GitHub UI 的 Actions 标签页查看最新 run
-```
-
-### 3.4 commit message 规范
+### 3.3 commit message 规范
 
 ```
 [Q{N}] 简短描述          ← 队列任务
 [R{N}] 简短描述          ← ROADMAP 任务
 [FIX] 简短描述           ← Bug 修复
 [AUDIT] 简短描述         ← 自审计修复
-[skip ci] 非代码变更     ← 跳过部署（仅文档更新）
 ```
+
+### 3.4 验证方式
+
+由于你无法访问外部网络，验证方式限于：
+- `node --check agent/worker/xxx.mjs` — 语法检查
+- `node -e "import('./agent/worker/xxx.mjs').then(m => console.log(Object.keys(m)))"` — 导入检查
+- 读取源文件确认 import 路径正确
 
 ---
 
@@ -138,11 +147,14 @@ cat DEPLOY_LOG.md | tail -5
 1. 读取任务描述（从队列文件）
 2. 读取相关源文件（确认实际代码结构）
 3. 实现修改
-4. 自检：所有 import 路径正确？无语法错误？
-5. git add + commit + push（自动触发部署）
+4. 自检：
+   a. 所有 import 路径正确？
+   b. 无语法错误？（node --check）
+   c. 导出的函数签名正确？
+5. git add + commit（到当前 branch）
 6. 更新队列文件（标记 [x]）
 7. 追加 CODEX-LOG.md
-8. git add + commit + push（标记更新，加 [skip ci]）
+8. git add + commit（标记更新）
 9. 立即开始下一个任务
 ```
 
@@ -157,7 +169,7 @@ cat DEPLOY_LOG.md | tail -5
 | 仓库 | `gamekoko888-droid/rangerAI` |
 | 分支 | `main`（唯一部署分支） |
 | 结构 | monorepo — `agent/`（Node.js 后端）+ `web/`（React/Vite 前端） |
-| 任务队列 | `CODEX-QUEUE.md`（v6 首选） |
+| 任务队列 | `CODEX-QUEUE.md`（v7 首选） |
 | 任务书 | `CODEX-TASKBOOK.md`（完整差距分析 + 20 个大任务） |
 | 传统任务 | `ROADMAP.md` |
 | 部署记录 | `DEPLOY_LOG.md`（GitHub Actions 自动更新） |
@@ -181,7 +193,7 @@ cat DEPLOY_LOG.md | tail -5
                     └─────────────────────────────────┘
 
 部署路径:
-  GitHub push → Actions SSH → rsync → /opt/rangerai-{agent|web}/
+  Codex commit → PR → auto-merge → main → Actions SSH → rsync → /opt/rangerai-{agent|web}/
 ```
 
 ### 5.3 代码结构地图
@@ -268,6 +280,7 @@ web/
 | `data/` 和 `*.sqlite` | 运行时数据 |
 | `agent/lib/routing-config.mjs` | 分类规则（Gateway 共享） |
 | `.github/workflows/deploy.yml` | CI/CD 流水线（已配置好） |
+| `.github/workflows/auto-merge-codex.yml` | 自动合并流水线（已配置好） |
 
 ---
 
@@ -311,8 +324,7 @@ web/
 ### Step 4: 提交
 ```bash
 git add CODEX-QUEUE-V{N+1}.md CODEX-LOG.md
-git commit -m "[AUDIT] Self-audit complete, generated V{N+1} queue [skip ci]"
-git push origin main
+git commit -m "[AUDIT] Self-audit complete, generated V{N+1} queue"
 ```
 
 ---
@@ -321,12 +333,12 @@ git push origin main
 
 | 情况 | 处理 |
 |------|------|
-| git push 被拒绝 | `git pull --rebase origin main` 后重试 |
-| 语法检查失败（Actions） | 查看 DEPLOY_LOG.md 的错误信息，修复代码，重新 push |
-| 部署失败（Actions） | Actions 会自动回滚，查看 DEPLOY_LOG.md 分析原因 |
+| git push 被拒绝 | **不要 push** — 只 commit 到当前 branch |
+| 语法检查失败 | 修复代码，重新 commit |
 | Import 路径不存在 | 用 find 确认实际路径，修正 import |
 | 任务太复杂 | 拆成 2 个子步骤，先做简单的，复杂的标记 `[!] deferred` |
-| merge conflict | `git pull --rebase origin main`，解决冲突后 push |
+| 网络不可达 | **正常** — 你在沙箱里，不需要网络访问 |
+| git fetch/pull 失败 | **不要尝试** — 直接基于当前代码工作 |
 
 ---
 
@@ -338,7 +350,7 @@ git push origin main
 ## Q{N} — {任务标题}
 - **状态**: done | skipped | partial
 - **文件**: agent/worker/xxx.mjs, agent/worker/yyy.mjs
-- **部署**: git push → Actions success (commit abc1234) | Actions failure (reason)
+- **commit**: {commit hash}
 - **耗时**: ~{N} min
 - **备注**: {任何值得记录的发现}
 ```
@@ -353,6 +365,7 @@ git push origin main
 - R111-R122 全部完成（心跳、RAG、限流、错误边界、历史查询等）
 - Q1-Q15 全部完成（工作区、文件工具、浏览器、多Agent、并行、流式、健康监控）
 - GitHub Actions 自动部署流水线就绪（SSH + 健康验证 + 自动回滚）
+- Auto-merge workflow 就绪（Codex PR 自动合并）
 - pnpm 权限问题已修复（web 构建正常）
 
 **当前最大差距**（来自 CODEX-TASKBOOK.md）:
@@ -366,18 +379,42 @@ git push origin main
 
 ---
 
-## 十二、版本历史
+## 十二、沙箱限制说明
+
+你运行在 Codex Cloud 沙箱中，有以下硬限制：
+
+| 限制 | 说明 |
+|------|------|
+| ❌ git push | 沙箱禁止推送到远程 |
+| ❌ git fetch/pull | 沙箱禁止从远程拉取 |
+| ❌ 外部网络 | 只能访问 github.com 和 npm registry |
+| ❌ webhook | ranger.voyage (8.219.186.244) 不可达 |
+| ✅ git add/commit | 可以在当前 branch 上 commit |
+| ✅ 读写本地文件 | 完全的文件系统访问 |
+| ✅ node/npm | 可以运行 Node.js 和安装 npm 包 |
+| ✅ 语法检查 | node --check 验证代码 |
+
+**你的代码通过以下路径到达生产环境**：
+```
+你的 commit → Codex 创建 PR → auto-merge → GitHub Actions → 阿里云
+```
+
+---
+
+## 十三、版本历史
 
 | 版本 | 日期 | 核心变更 |
 |------|------|----------|
-| v6.0 | 2026-05-02 | **废弃 webhook，改用 git push + GitHub Actions** |
-| v5.1 | 2026-05-02 | 修复 webhook secret 格式（body 不是 header） |
+| v7.0 | 2026-05-02 | **适配沙箱限制：只 commit，不 push/webhook** |
+| v6.0 | 2026-05-02 | 废弃 webhook，改用 git push（发现 push 也被禁） |
+| v5.1 | 2026-05-02 | 修复 webhook secret 格式 |
 | v5.0 | 2026-05-02 | 全自动连续执行 + 自审计循环 |
 | v4.0 | 2026-05-01 | 任务队列驱动 |
 
-### 为什么废弃 webhook？
+### 为什么 v7 只用 commit？
 
-1. **Codex 沙箱网络隔离** — Codex 无法直连 `8.219.186.244:443`（ENETUNREACH）
-2. **Codex 天然有 git push 权限** — 它在 GitHub 仓库内工作，push 是零配置的
-3. **GitHub Actions 已配置好** — push 到 main 自动触发完整部署流水线
-4. **更可靠** — Actions 有日志、回滚、健康检查，比 webhook 更健壮
+1. **git push 被沙箱禁止** — Codex Cloud 的硬限制
+2. **webhook 网络不可达** — ENETUNREACH 8.219.186.244:443
+3. **Codex 平台自动创建 PR** — session 结束后自动处理
+4. **auto-merge workflow** — PR 创建后自动合并到 main
+5. **GitHub Actions** — main 更新后自动部署到阿里云
